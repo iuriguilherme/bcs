@@ -4335,6 +4335,11 @@ class Controls {
     setTool(tool) {
         this.tool = tool;
         this.viewer.canvas.style.cursor = this._getCursorForTool(tool);
+
+        // Update tool button visual state
+        document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tool === tool);
+        });
     }
 
     /**
@@ -4687,7 +4692,7 @@ class Controls {
                     <p>Mass: ${mol.mass.toFixed(3)} u</p>
                     <p>Atoms: ${mol.atoms.length}</p>
                     <p>Bonds: ${mol.bonds.length}</p>
-                    <p>Stable: ${mol.isStable() ? 'Yes âœ“' : 'No'}</p>
+                    <p>Stable: ${mol.isStable() ? 'Yes &#10003;' : 'No'}</p>
                     ${mol.isStable() ? '<button class="tool-btn" onclick="window.app.registerMolecule()">Add to Catalogue</button>' : ''}
                 </div>
             `;
