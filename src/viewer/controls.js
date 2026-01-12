@@ -251,6 +251,9 @@ class Controls {
             const atom = new Atom(this.selectedElement, worldPos.x, worldPos.y);
             this.environment.addAtom(atom);
         }
+
+        // Immediate render so atom appears even when paused
+        this.viewer.render();
     }
 
     /**

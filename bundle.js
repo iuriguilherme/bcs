@@ -2241,39 +2241,115 @@ class Environment {
     }
 
     /**
-     * Detect and register new molecules
+     * Detect and register new molecules, merge connected groups
      */
     updateMolecules() {
-        // Find atoms not in molecules
-        const freeAtoms = Array.from(this.atoms.values())
-            .filter(a => a.bonds.length > 0 && !a.moleculeId);
+        // Get all bonded atoms
+        const bondedAtoms = Array.from(this.atoms.values())
+            .filter(a => a.bonds.length > 0);
 
-        if (freeAtoms.length === 0) return;
+        if (bondedAtoms.length === 0) return;
 
-        const groups = findConnectedGroups(freeAtoms);
+        // Find all connected groups of bonded atoms
+        const groups = this._findAllConnectedGroups(bondedAtoms);
+
+        // Track which molecules need to be removed (merged)
+        const moleculesToRemove = new Set();
 
         for (const group of groups) {
-            // Check if any atom is already in a molecule
-            const existingMolId = group.find(a => a.moleculeId)?.moleculeId;
+            if (group.length === 0) continue;
 
-            if (existingMolId) {
-                // Extend existing molecule
-                const molecule = this.molecules.get(existingMolId);
-                if (molecule) {
-                    for (const atom of group) {
-                        if (!molecule.atoms.includes(atom)) {
-                            molecule.atoms.push(atom);
-                            atom.moleculeId = molecule.id;
-                        }
-                    }
-                    molecule.updateProperties();
+            // Find all existing molecules that have atoms in this group
+            const existingMolIds = new Set();
+            for (const atom of group) {
+                if (atom.moleculeId && this.molecules.has(atom.moleculeId)) {
+                    existingMolIds.add(atom.moleculeId);
                 }
-            } else {
-                // Create new molecule
+            }
+
+            if (existingMolIds.size === 0) {
+                // No existing molecules - create new one
                 const molecule = new Molecule(group);
                 this.addMolecule(molecule);
+            } else if (existingMolIds.size === 1) {
+                // One existing molecule - extend it with any new atoms
+                const molId = existingMolIds.values().next().value;
+                const molecule = this.molecules.get(molId);
+
+                for (const atom of group) {
+                    if (!molecule.atoms.includes(atom)) {
+                        molecule.atoms.push(atom);
+                        atom.moleculeId = molecule.id;
+                    }
+                }
+                molecule.updateProperties();
+            } else {
+                // Multiple molecules need to be merged
+                const molIds = Array.from(existingMolIds);
+                const primaryMol = this.molecules.get(molIds[0]);
+
+                // Merge all atoms into primary molecule
+                for (const atom of group) {
+                    if (!primaryMol.atoms.includes(atom)) {
+                        primaryMol.atoms.push(atom);
+                    }
+                    atom.moleculeId = primaryMol.id;
+                }
+
+                // Mark other molecules for removal
+                for (let i = 1; i < molIds.length; i++) {
+                    moleculesToRemove.add(molIds[i]);
+                }
+
+                primaryMol.updateProperties();
             }
         }
+
+        // Remove merged molecules
+        for (const molId of moleculesToRemove) {
+            this.molecules.delete(molId);
+        }
+
+        this.stats.moleculeCount = this.molecules.size;
+    }
+
+    /**
+     * Find all connected groups of atoms using BFS
+     * @param {Atom[]} atoms - Atoms to group
+     */
+    _findAllConnectedGroups(atoms) {
+        const atomSet = new Set(atoms);
+        const visited = new Set();
+        const groups = [];
+
+        for (const startAtom of atoms) {
+            if (visited.has(startAtom.id)) continue;
+
+            const group = [];
+            const queue = [startAtom];
+
+            while (queue.length > 0) {
+                const atom = queue.shift();
+                if (visited.has(atom.id)) continue;
+
+                visited.add(atom.id);
+                group.push(atom);
+
+                // Follow all bonds to connected atoms
+                for (const bond of atom.bonds) {
+                    const other = bond.getOther(atom);
+                    if (!visited.has(other.id)) {
+                        queue.push(other);
+                    }
+                }
+            }
+
+            if (group.length > 0) {
+                groups.push(group);
+            }
+        }
+
+        return groups;
     }
 
     /**
@@ -3870,6 +3946,9 @@ class Controls {
             const atom = new Atom(this.selectedElement, worldPos.x, worldPos.y);
             this.environment.addAtom(atom);
         }
+
+        // Immediate render so atom appears even when paused
+        this.viewer.render();
     }
 
     /**
