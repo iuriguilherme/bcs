@@ -271,7 +271,23 @@ class Controls {
             }
 
             this._updateInspector(result);
+            this._switchToInspectorTab();
         }
+    }
+
+    /**
+     * Switch to inspector tab
+     */
+    _switchToInspectorTab() {
+        // Update tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === 'inspector');
+        });
+
+        // Update tab content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.toggle('active', content.id === 'inspectorTab');
+        });
     }
 
     /**
@@ -347,7 +363,7 @@ class Controls {
     _updatePlayButton() {
         const btn = document.getElementById('playPauseBtn');
         if (btn) {
-            btn.textContent = this.simulation.running ? '⏸️' : '▶️';
+            btn.textContent = this.simulation.running ? 'Pause' : 'Play';
         }
     }
 

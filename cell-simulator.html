@@ -474,20 +474,20 @@ html, body {
 <body>
     <div id="app">
         <header class="header">
-            <h1 class="logo"> Cell Simulator</h1>
+            <h1 class="logo">Cell Simulator</h1>
             <div class="level-indicator">
-                <span class="level-label">Abstraction Level:</span>
+                <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
-                    <button class="level-btn active" data-level="0" title="Atoms"></button>
-                    <button class="level-btn" data-level="1" title="Molecules"></button>
-                    <button class="level-btn" data-level="2" title="Cells"></button>
-                    <button class="level-btn" data-level="3" title="Organisms"></button>
-                    <button class="level-btn" data-level="4" title="Populations"></button>
+                    <button class="level-btn active" data-level="0" title="Atoms">1</button>
+                    <button class="level-btn" data-level="1" title="Molecules">2</button>
+                    <button class="level-btn" data-level="2" title="Cells">3</button>
+                    <button class="level-btn" data-level="3" title="Organisms">4</button>
+                    <button class="level-btn" data-level="4" title="Populations">5</button>
                 </div>
             </div>
             <div class="sim-controls">
-                <button id="playPauseBtn" class="control-btn" title="Play/Pause"></button>
-                <button id="stepBtn" class="control-btn" title="Step"></button>
+                <button id="playPauseBtn" class="control-btn" title="Play/Pause">Play</button>
+                <button id="stepBtn" class="control-btn" title="Step">Step</button>
                 <input type="range" id="speedSlider" min="1" max="100" value="50" title="Simulation Speed">
             </div>
         </header>
@@ -500,9 +500,9 @@ html, body {
                 </div>
                 <div class="tool-section">
                     <h3>Actions</h3>
-                    <button class="tool-btn" id="selectTool" data-tool="select"> Select</button>
-                    <button class="tool-btn active" id="placeTool" data-tool="place"> Place</button>
-                    <button class="tool-btn" id="deleteTool" data-tool="delete"> Delete</button>
+                    <button class="tool-btn" id="selectTool" data-tool="select">Select</button>
+                    <button class="tool-btn active" id="placeTool" data-tool="place">Place</button>
+                    <button class="tool-btn" id="deleteTool" data-tool="delete">Delete</button>
                 </div>
             </aside>
             <div class="canvas-container">
@@ -3767,7 +3767,23 @@ class Controls {
             }
 
             this._updateInspector(result);
+            this._switchToInspectorTab();
         }
+    }
+
+    /**
+     * Switch to inspector tab
+     */
+    _switchToInspectorTab() {
+        // Update tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === 'inspector');
+        });
+
+        // Update tab content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.toggle('active', content.id === 'inspectorTab');
+        });
     }
 
     /**
@@ -3843,7 +3859,7 @@ class Controls {
     _updatePlayButton() {
         const btn = document.getElementById('playPauseBtn');
         if (btn) {
-            btn.textContent = this.simulation.running ? 'â¸ï¸' : 'â–¶ï¸';
+            btn.textContent = this.simulation.running ? 'Pause' : 'Play';
         }
     }
 
@@ -3982,11 +3998,12 @@ class CatalogueUI {
      */
     _renderItem(blueprint) {
         const isSelected = this.controls.selectedBlueprint?.id === blueprint.id;
+        const atomCount = blueprint.atomData ? blueprint.atomData.length : 0;
 
         return `
             <div class="catalogue-item ${isSelected ? 'selected' : ''}" 
                  data-fingerprint="${blueprint.fingerprint}"
-                 title="${blueprint.name}">
+                 title="${blueprint.name} - ${blueprint.formula}">
                 <div class="catalogue-item-preview">
                     <canvas class="preview-canvas" 
                             width="40" height="40"
@@ -3994,10 +4011,10 @@ class CatalogueUI {
                 </div>
                 <div class="catalogue-item-info">
                     <div class="catalogue-item-name">${blueprint.name}</div>
-                    <div class="catalogue-item-formula">${blueprint.formula}</div>
+                    <div class="catalogue-item-formula">${atomCount} atoms</div>
                 </div>
                 <div class="catalogue-item-status">
-                    ${blueprint.isStable ? 'âœ“' : 'âš ï¸'}
+                    ${blueprint.isStable ? '&#10003;' : '!'}
                 </div>
             </div>
         `;
@@ -4203,7 +4220,7 @@ class App {
         const playPauseBtn = document.getElementById('playPauseBtn');
         playPauseBtn?.addEventListener('click', () => {
             this.simulation.toggle();
-            playPauseBtn.textContent = this.simulation.running ? 'â¸ï¸' : 'â–¶ï¸';
+            playPauseBtn.textContent = this.simulation.running ? 'Pause' : 'Play';
         });
 
         // Step button

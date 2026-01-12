@@ -93,11 +93,12 @@ class CatalogueUI {
      */
     _renderItem(blueprint) {
         const isSelected = this.controls.selectedBlueprint?.id === blueprint.id;
+        const atomCount = blueprint.atomData ? blueprint.atomData.length : 0;
 
         return `
             <div class="catalogue-item ${isSelected ? 'selected' : ''}" 
                  data-fingerprint="${blueprint.fingerprint}"
-                 title="${blueprint.name}">
+                 title="${blueprint.name} - ${blueprint.formula}">
                 <div class="catalogue-item-preview">
                     <canvas class="preview-canvas" 
                             width="40" height="40"
@@ -105,10 +106,10 @@ class CatalogueUI {
                 </div>
                 <div class="catalogue-item-info">
                     <div class="catalogue-item-name">${blueprint.name}</div>
-                    <div class="catalogue-item-formula">${blueprint.formula}</div>
+                    <div class="catalogue-item-formula">${atomCount} atoms</div>
                 </div>
                 <div class="catalogue-item-status">
-                    ${blueprint.isStable ? '✓' : '⚠️'}
+                    ${blueprint.isStable ? '&#10003;' : '!'}
                 </div>
             </div>
         `;

@@ -3223,7 +3223,23 @@ class Controls {
             }
 
             this._updateInspector(result);
+            this._switchToInspectorTab();
         }
+    }
+
+    /**
+     * Switch to inspector tab
+     */
+    _switchToInspectorTab() {
+        // Update tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === 'inspector');
+        });
+
+        // Update tab content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.toggle('active', content.id === 'inspectorTab');
+        });
     }
 
     /**
@@ -3299,7 +3315,7 @@ class Controls {
     _updatePlayButton() {
         const btn = document.getElementById('playPauseBtn');
         if (btn) {
-            btn.textContent = this.simulation.running ? 'â¸ï¸' : 'â–¶ï¸';
+            btn.textContent = this.simulation.running ? 'Pause' : 'Play';
         }
     }
 
@@ -3438,11 +3454,12 @@ class CatalogueUI {
      */
     _renderItem(blueprint) {
         const isSelected = this.controls.selectedBlueprint?.id === blueprint.id;
+        const atomCount = blueprint.atomData ? blueprint.atomData.length : 0;
 
         return `
             <div class="catalogue-item ${isSelected ? 'selected' : ''}" 
                  data-fingerprint="${blueprint.fingerprint}"
-                 title="${blueprint.name}">
+                 title="${blueprint.name} - ${blueprint.formula}">
                 <div class="catalogue-item-preview">
                     <canvas class="preview-canvas" 
                             width="40" height="40"
@@ -3450,10 +3467,10 @@ class CatalogueUI {
                 </div>
                 <div class="catalogue-item-info">
                     <div class="catalogue-item-name">${blueprint.name}</div>
-                    <div class="catalogue-item-formula">${blueprint.formula}</div>
+                    <div class="catalogue-item-formula">${atomCount} atoms</div>
                 </div>
                 <div class="catalogue-item-status">
-                    ${blueprint.isStable ? 'âœ“' : 'âš ï¸'}
+                    ${blueprint.isStable ? '&#10003;' : '!'}
                 </div>
             </div>
         `;
@@ -3659,7 +3676,7 @@ class App {
         const playPauseBtn = document.getElementById('playPauseBtn');
         playPauseBtn?.addEventListener('click', () => {
             this.simulation.toggle();
-            playPauseBtn.textContent = this.simulation.running ? 'â¸ï¸' : 'â–¶ï¸';
+            playPauseBtn.textContent = this.simulation.running ? 'Pause' : 'Play';
         });
 
         // Step button

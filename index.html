@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <meta name="description" content="A hierarchical life simulation from atoms to social organisms">
     <link rel="stylesheet" href="index.css">
 </head>
+
 <body>
     <div id="app">
         <!-- Header -->
@@ -15,11 +17,11 @@
             <div class="level-indicator">
                 <span class="level-label">Abstraction Level:</span>
                 <div class="level-buttons" id="levelButtons">
-                    <button class="level-btn active" data-level="0" title="Atoms">⚛️</button>
-                    <button class="level-btn" data-level="1" title="Molecules">🔗</button>
-                    <button class="level-btn" data-level="2" title="Cells">🦠</button>
-                    <button class="level-btn" data-level="3" title="Organisms">🐛</button>
-                    <button class="level-btn" data-level="4" title="Populations">👥</button>
+                    <button class="level-btn active" data-level="0" title="Atoms">1</button>
+                    <button class="level-btn" data-level="1" title="Molecules">2</button>
+                    <button class="level-btn" data-level="2" title="Cells">3</button>
+                    <button class="level-btn" data-level="3" title="Organisms">4</button>
+                    <button class="level-btn" data-level="4" title="Populations">5</button>
                 </div>
             </div>
             <div class="sim-controls">
@@ -64,7 +66,7 @@
                     <button class="tab-btn active" data-tab="catalogue">Catalogue</button>
                     <button class="tab-btn" data-tab="inspector">Inspector</button>
                 </div>
-                
+
                 <div class="tab-content active" id="catalogueTab">
                     <div class="search-box">
                         <input type="text" id="catalogueSearch" placeholder="Search blueprints...">
@@ -73,7 +75,7 @@
                         <p class="empty-state">No blueprints yet. Create stable molecules to add them!</p>
                     </div>
                 </div>
-                
+
                 <div class="tab-content" id="inspectorTab">
                     <div class="inspector-content" id="inspectorContent">
                         <p class="empty-state">Click on an entity to inspect it.</p>
@@ -108,4 +110,5 @@
     <script src="src/viewer/catalogue-ui.js"></script>
     <script src="src/main.js"></script>
 </body>
+
 </html>
