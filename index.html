@@ -15,13 +15,14 @@
         <header class="header">
             <h1 class="logo">🧬 Cell Simulator</h1>
             <div class="level-indicator">
-                <span class="level-label">Abstraction Level:</span>
+                <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
                     <button class="level-btn active" data-level="0" title="Atoms">1</button>
                     <button class="level-btn" data-level="1" title="Molecules">2</button>
-                    <button class="level-btn" data-level="2" title="Cells">3</button>
-                    <button class="level-btn" data-level="3" title="Organisms">4</button>
-                    <button class="level-btn" data-level="4" title="Populations">5</button>
+                    <button class="level-btn" data-level="2" title="Proteins">3</button>
+                    <button class="level-btn" data-level="3" title="Cells">4</button>
+                    <button class="level-btn" data-level="4" title="Organisms">5</button>
+                    <button class="level-btn" data-level="5" title="Populations">6</button>
                 </div>
             </div>
             <div class="sim-controls">
@@ -87,9 +88,9 @@
         <!-- Status Bar -->
         <footer class="status-bar">
             <span id="atomCount">Atoms: 0</span>
-            <span id="moleculeCount">Molecules: 0</span>
+            <span id="moleculeCount">Mol: 0</span>
+            <span id="proteinCount">Prot: 0</span>
             <span id="cellCount">Cells: 0</span>
-            <span id="organismCount">Organisms: 0</span>
             <span id="tickCounter">Tick: 0</span>
             <span id="fpsCounter">FPS: 0</span>
         </footer>
@@ -101,6 +102,7 @@
     <script src="src/entities/atom.js"></script>
     <script src="src/entities/bond.js"></script>
     <script src="src/entities/molecule.js"></script>
+    <script src="src/entities/protein.js"></script>
     <script src="src/core/environment.js"></script>
     <script src="src/core/simulation.js"></script>
     <script src="src/catalogue/blueprint.js"></script>

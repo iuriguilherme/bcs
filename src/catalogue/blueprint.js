@@ -161,12 +161,129 @@ class MoleculeBlueprint extends Blueprint {
 }
 
 /**
+ * Protein Blueprint
+ */
+class ProteinBlueprint extends Blueprint {
+    /**
+     * Create from an existing protein
+     * @param {Protein} protein - Source protein
+     * @param {string} name - Blueprint name
+     */
+    constructor(protein, name = null) {
+        super('protein', name || `Protein-${protein.molecules.length}`);
+
+        this.sequence = protein.sequence;
+        this.fingerprint = protein.fingerprint;
+        this.moleculeCount = protein.molecules.length;
+
+        // Store molecule blueprints
+        this.moleculeBlueprints = protein.molecules.map(mol =>
+            new MoleculeBlueprint(mol)
+        );
+
+        // Store relative positions
+        const center = protein.getCenter();
+        this.moleculePositions = protein.molecules.map(mol => {
+            const molCenter = mol.getCenter();
+            return {
+                relX: molCenter.x - center.x,
+                relY: molCenter.y - center.y
+            };
+        });
+
+        this.activeSites = protein.activeSites;
+        this.mass = protein.mass;
+        this.isStable = protein.isStable();
+    }
+
+    /**
+     * Instantiate this blueprint at a position
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @returns {Protein} New protein instance
+     */
+    instantiate(x, y) {
+        const molecules = [];
+
+        for (let i = 0; i < this.moleculeBlueprints.length; i++) {
+            const bp = this.moleculeBlueprints[i];
+            const pos = this.moleculePositions[i];
+            const mol = bp.instantiate(x + pos.relX, y + pos.relY);
+            molecules.push(mol);
+        }
+
+        const protein = new Protein(molecules, this.name);
+
+        // Restore active sites
+        for (const site of this.activeSites) {
+            protein.addActiveSite(site);
+        }
+
+        return protein;
+    }
+
+    /**
+     * Render preview
+     */
+    renderPreview(ctx, x, y, size) {
+        const scale = size / 150;
+
+        // Draw chain connections
+        ctx.strokeStyle = '#8b5cf6';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+
+        for (let i = 0; i < this.moleculePositions.length - 1; i++) {
+            const p1 = this.moleculePositions[i];
+            const p2 = this.moleculePositions[i + 1];
+            ctx.moveTo(x + p1.relX * scale, y + p1.relY * scale);
+            ctx.lineTo(x + p2.relX * scale, y + p2.relY * scale);
+        }
+        ctx.stroke();
+
+        // Draw molecule blobs
+        for (const pos of this.moleculePositions) {
+            ctx.beginPath();
+            ctx.arc(x + pos.relX * scale, y + pos.relY * scale, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#a78bfa';
+            ctx.fill();
+        }
+    }
+
+    serialize() {
+        return {
+            ...super.serialize(),
+            sequence: this.sequence,
+            fingerprint: this.fingerprint,
+            moleculeCount: this.moleculeCount,
+            moleculeBlueprints: this.moleculeBlueprints.map(bp => bp.serialize()),
+            moleculePositions: this.moleculePositions,
+            activeSites: this.activeSites,
+            mass: this.mass,
+            isStable: this.isStable
+        };
+    }
+
+    static deserialize(data) {
+        const blueprint = Object.assign(
+            Object.create(ProteinBlueprint.prototype),
+            data
+        );
+        blueprint.moleculeBlueprints = data.moleculeBlueprints.map(d =>
+            MoleculeBlueprint.deserialize(d)
+        );
+        return blueprint;
+    }
+}
+
+/**
  * Cell Blueprint (placeholder for Phase 2)
  */
 class CellBlueprint extends Blueprint {
     constructor(name) {
         super('cell', name);
         this.molecules = [];
+        this.proteins = [];  // Can also contain proteins
         this.behavior = null;
         this.genome = null;
     }
@@ -199,5 +316,6 @@ class OrganismBlueprint extends Blueprint {
 // Make available globally
 window.Blueprint = Blueprint;
 window.MoleculeBlueprint = MoleculeBlueprint;
+window.ProteinBlueprint = ProteinBlueprint;
 window.CellBlueprint = CellBlueprint;
 window.OrganismBlueprint = OrganismBlueprint;

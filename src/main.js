@@ -192,9 +192,9 @@ class App {
         const stats = this.simulation.getStats();
 
         document.getElementById('atomCount').textContent = `Atoms: ${stats.atomCount}`;
-        document.getElementById('moleculeCount').textContent = `Molecules: ${stats.moleculeCount}`;
+        document.getElementById('moleculeCount').textContent = `Mol: ${stats.moleculeCount}`;
+        document.getElementById('proteinCount').textContent = `Prot: ${stats.proteinCount || 0}`;
         document.getElementById('cellCount').textContent = `Cells: ${stats.cellCount}`;
-        document.getElementById('organismCount').textContent = `Organisms: ${stats.organismCount}`;
         document.getElementById('tickCounter').textContent = `Tick: ${stats.tick}`;
         document.getElementById('fpsCounter').textContent = `FPS: ${stats.fps}`;
     }

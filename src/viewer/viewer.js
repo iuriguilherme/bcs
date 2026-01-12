@@ -3,16 +3,17 @@
  * Multi-level renderer for the simulation
  */
 
-// Abstraction levels
+// Abstraction levels (6 levels)
 const AbstractionLevel = {
     ATOM: 0,
     MOLECULE: 1,
-    CELL: 2,
-    ORGANISM: 3,
-    POPULATION: 4
+    PROTEIN: 2,
+    CELL: 3,
+    ORGANISM: 4,
+    POPULATION: 5
 };
 
-const LEVEL_NAMES = ['Atoms', 'Molecules', 'Cells', 'Organisms', 'Populations'];
+const LEVEL_NAMES = ['Atoms', 'Molecules', 'Proteins', 'Cells', 'Organisms', 'Populations'];
 
 class Viewer {
     /**
@@ -70,7 +71,7 @@ class Viewer {
      * @param {number} level - Level from AbstractionLevel enum
      */
     setLevel(level) {
-        this.level = Utils.clamp(level, 0, 4);
+        this.level = Utils.clamp(level, 0, 5);
         this.clearSelection();
     }
 
@@ -184,6 +185,9 @@ class Viewer {
             case AbstractionLevel.MOLECULE:
                 this._renderMoleculeLevel();
                 break;
+            case AbstractionLevel.PROTEIN:
+                this._renderProteinLevel();
+                break;
             case AbstractionLevel.CELL:
                 this._renderCellLevel();
                 break;
@@ -245,6 +249,34 @@ class Viewer {
     }
 
     /**
+     * Render at protein level
+     */
+    _renderProteinLevel() {
+        const scale = this.camera.zoom;
+        const offset = this.getOffset();
+
+        // Render proteins
+        const proteins = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
+        for (const protein of proteins) {
+            protein.render(this.ctx, 2, { x: -offset.x, y: -offset.y, zoom: scale });
+        }
+
+        // Render molecules not in proteins
+        for (const molecule of this.environment.getAllMolecules()) {
+            if (!molecule.proteinId) {
+                molecule.renderSimplified(this.ctx, scale, offset);
+            }
+        }
+
+        // Render free atoms
+        for (const atom of this.environment.getAllAtoms()) {
+            if (!atom.moleculeId) {
+                atom.render(this.ctx, scale, offset);
+            }
+        }
+    }
+
+    /**
      * Render at cell level (placeholder)
      */
     _renderCellLevel() {
@@ -253,13 +285,13 @@ class Viewer {
         ctx.font = '24px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(
-            'Cell level - Coming in Phase 2',
+            'Cell level - Coming next',
             this.canvas.width / 2,
             this.canvas.height / 2
         );
 
-        // Still show molecules in the background
-        this._renderMoleculeLevel();
+        // Still show protein level in the background
+        this._renderProteinLevel();
     }
 
     /**

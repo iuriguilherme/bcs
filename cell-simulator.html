@@ -480,9 +480,10 @@ html, body {
                 <div class="level-buttons" id="levelButtons">
                     <button class="level-btn active" data-level="0" title="Atoms">1</button>
                     <button class="level-btn" data-level="1" title="Molecules">2</button>
-                    <button class="level-btn" data-level="2" title="Cells">3</button>
-                    <button class="level-btn" data-level="3" title="Organisms">4</button>
-                    <button class="level-btn" data-level="4" title="Populations">5</button>
+                    <button class="level-btn" data-level="2" title="Proteins">3</button>
+                    <button class="level-btn" data-level="3" title="Cells">4</button>
+                    <button class="level-btn" data-level="4" title="Organisms">5</button>
+                    <button class="level-btn" data-level="5" title="Populations">6</button>
                 </div>
             </div>
             <div class="sim-controls">
@@ -535,9 +536,9 @@ html, body {
         </main>
         <footer class="status-bar">
             <span id="atomCount">Atoms: 0</span>
-            <span id="moleculeCount">Molecules: 0</span>
+            <span id="moleculeCount">Mol: 0</span>
+            <span id="proteinCount">Prot: 0</span>
             <span id="cellCount">Cells: 0</span>
-            <span id="organismCount">Organisms: 0</span>
             <span id="tickCounter">Tick: 0</span>
             <span id="fpsCounter">FPS: 0</span>
         </footer>
@@ -1994,6 +1995,490 @@ window.findConnectedGroups = findConnectedGroups;
 window.createMoleculesFromAtoms = createMoleculesFromAtoms;
 
 /**
+ * Protein
+ * Chains of molecules with functional properties
+ * Level 3 in the abstraction hierarchy
+ */
+
+class Protein {
+    /**
+     * Create a protein from molecules
+     * @param {Molecule[]} molecules - Array of molecules forming the chain
+     * @param {string} name - Optional name for this protein
+     */
+    constructor(molecules = [], name = null) {
+        this.id = Utils.generateId();
+        this.molecules = molecules;
+        this.name = name;
+
+        // Link molecules to this protein
+        for (const mol of molecules) {
+            mol.proteinId = this.id;
+        }
+
+        // Protein properties
+        this.activeSites = [];  // Functional regions
+        this.folded = false;
+        this.foldPattern = null;  // 2D shape after folding
+
+        // Selection state
+        this.selected = false;
+        this.highlighted = false;
+
+        // Calculate derived properties
+        this._updateProperties();
+    }
+
+    /**
+     * Update derived properties
+     */
+    _updateProperties() {
+        // Calculate total mass
+        this.mass = this.molecules.reduce((sum, mol) => sum + mol.mass, 0);
+
+        // Generate sequence (chain of molecule formulas)
+        this.sequence = this.molecules.map(m => m.formula).join('-');
+
+        // Generate unique fingerprint
+        this.fingerprint = this._generateFingerprint();
+    }
+
+    /**
+     * Generate unique fingerprint for this protein
+     */
+    _generateFingerprint() {
+        const parts = this.molecules.map(m => m.fingerprint).sort();
+        return `PROT:${parts.join('|')}`;
+    }
+
+    /**
+     * Add a molecule to the chain
+     * @param {Molecule} molecule - Molecule to add
+     */
+    addMolecule(molecule) {
+        molecule.proteinId = this.id;
+        this.molecules.push(molecule);
+        this._updateProperties();
+    }
+
+    /**
+     * Remove a molecule from the chain
+     * @param {string} moleculeId - ID of molecule to remove
+     */
+    removeMolecule(moleculeId) {
+        const index = this.molecules.findIndex(m => m.id === moleculeId);
+        if (index !== -1) {
+            this.molecules[index].proteinId = null;
+            this.molecules.splice(index, 1);
+            this._updateProperties();
+        }
+    }
+
+    /**
+     * Define an active site on this protein
+     * @param {object} site - Active site definition
+     */
+    addActiveSite(site) {
+        this.activeSites.push({
+            id: Utils.generateId(),
+            moleculeIndices: site.moleculeIndices || [],  // Which molecules form this site
+            type: site.type || 'catalytic',  // 'catalytic', 'binding', 'regulatory'
+            specificity: site.specificity || [],  // What molecules it can interact with
+            strength: site.strength || 1.0
+        });
+    }
+
+    /**
+     * Fold the protein into a 2D shape
+     * In this simplified model, folding arranges molecules in a compact pattern
+     */
+    fold() {
+        if (this.molecules.length < 2) return;
+
+        this.folded = true;
+
+        // Simple folding: arrange molecules in a spiral pattern
+        const center = this.getCenter();
+        const numMols = this.molecules.length;
+        const spacing = 50;  // Distance between molecules
+
+        this.foldPattern = [];
+
+        for (let i = 0; i < numMols; i++) {
+            // Spiral layout
+            const angle = i * 0.8;  // Angle increment
+            const radius = spacing * (1 + i * 0.3);
+
+            const offsetX = Math.cos(angle) * radius;
+            const offsetY = Math.sin(angle) * radius;
+
+            this.foldPattern.push({
+                moleculeId: this.molecules[i].id,
+                relativeX: offsetX,
+                relativeY: offsetY
+            });
+        }
+    }
+
+    /**
+     * Unfold the protein (linearize)
+     */
+    unfold() {
+        this.folded = false;
+        this.foldPattern = null;
+    }
+
+    /**
+     * Get the center position of the protein
+     */
+    getCenter() {
+        if (this.molecules.length === 0) {
+            return new Vector2(0, 0);
+        }
+
+        let sumX = 0, sumY = 0;
+        for (const mol of this.molecules) {
+            const molCenter = mol.getCenter();
+            sumX += molCenter.x;
+            sumY += molCenter.y;
+        }
+
+        return new Vector2(
+            sumX / this.molecules.length,
+            sumY / this.molecules.length
+        );
+    }
+
+    /**
+     * Check if the protein is stable
+     * A protein is stable if it has multiple molecules and all are stable
+     */
+    isStable() {
+        if (this.molecules.length < 2) return false;
+        return this.molecules.every(m => m.isStable());
+    }
+
+    /**
+     * Check if this protein can catalyze a reaction with given molecules
+     * @param {Molecule[]} substrates - Molecules to check
+     */
+    canCatalyze(substrates) {
+        for (const site of this.activeSites) {
+            if (site.type === 'catalytic') {
+                // Check if substrates match specificity
+                const matches = substrates.filter(s =>
+                    site.specificity.includes(s.formula) ||
+                    site.specificity.includes('*')  // Wildcard
+                );
+                if (matches.length > 0) return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Apply forces to maintain protein structure
+     * @param {number} dt - Delta time
+     */
+    applyForces(dt) {
+        // Keep molecules together as a chain
+        for (let i = 0; i < this.molecules.length - 1; i++) {
+            const mol1 = this.molecules[i];
+            const mol2 = this.molecules[i + 1];
+
+            const center1 = mol1.getCenter();
+            const center2 = mol2.getCenter();
+
+            const dx = center2.x - center1.x;
+            const dy = center2.y - center1.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            const targetDist = 80;  // Desired distance between molecules
+            const stiffness = 0.05;
+
+            if (dist > 0) {
+                const forceMag = (dist - targetDist) * stiffness;
+                const fx = (dx / dist) * forceMag;
+                const fy = (dy / dist) * forceMag;
+
+                // Apply to all atoms in each molecule
+                for (const atom of mol1.atoms) {
+                    atom.velocity.x += fx * dt;
+                    atom.velocity.y += fy * dt;
+                }
+                for (const atom of mol2.atoms) {
+                    atom.velocity.x -= fx * dt;
+                    atom.velocity.y -= fy * dt;
+                }
+            }
+        }
+    }
+
+    /**
+     * Update all molecules in this protein
+     * @param {number} dt - Delta time
+     */
+    update(dt) {
+        this.applyForces(dt);
+        for (const mol of this.molecules) {
+            mol.update(dt);
+        }
+    }
+
+    /**
+     * Render the protein
+     * @param {CanvasRenderingContext2D} ctx 
+     * @param {number} level - Abstraction level
+     * @param {object} camera - Camera transform
+     */
+    render(ctx, level, camera) {
+        if (this.molecules.length === 0) return;
+
+        if (level <= 1) {
+            // At atom/molecule level, just render molecules with connections
+            this._renderChainConnections(ctx, camera);
+            for (const mol of this.molecules) {
+                mol.render(ctx, level, camera);
+            }
+        } else if (level === 2) {
+            // Protein level - show as connected blobs
+            this._renderAsProtein(ctx, camera);
+        } else {
+            // Higher levels - simplified blob
+            this._renderAsBlob(ctx, camera);
+        }
+    }
+
+    /**
+     * Render chain connections between molecules
+     */
+    _renderChainConnections(ctx, camera) {
+        if (this.molecules.length < 2) return;
+
+        ctx.save();
+        ctx.strokeStyle = this.selected ? '#f59e0b' : '#8b5cf6';
+        ctx.lineWidth = 3 / camera.zoom;
+        ctx.setLineDash([5, 5]);
+
+        ctx.beginPath();
+        for (let i = 0; i < this.molecules.length - 1; i++) {
+            const center1 = this.molecules[i].getCenter();
+            const center2 = this.molecules[i + 1].getCenter();
+
+            const x1 = (center1.x - camera.x) * camera.zoom;
+            const y1 = (center1.y - camera.y) * camera.zoom;
+            const x2 = (center2.x - camera.x) * camera.zoom;
+            const y2 = (center2.y - camera.y) * camera.zoom;
+
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+    }
+
+    /**
+     * Render as a protein structure
+     */
+    _renderAsProtein(ctx, camera) {
+        const center = this.getCenter();
+        const screenX = (center.x - camera.x) * camera.zoom;
+        const screenY = (center.y - camera.y) * camera.zoom;
+
+        // Draw molecule chain as connected circles
+        ctx.save();
+
+        // Draw connections
+        ctx.strokeStyle = '#8b5cf6';
+        ctx.lineWidth = 4 / camera.zoom;
+        ctx.beginPath();
+
+        for (let i = 0; i < this.molecules.length - 1; i++) {
+            const c1 = this.molecules[i].getCenter();
+            const c2 = this.molecules[i + 1].getCenter();
+            ctx.moveTo((c1.x - camera.x) * camera.zoom, (c1.y - camera.y) * camera.zoom);
+            ctx.lineTo((c2.x - camera.x) * camera.zoom, (c2.y - camera.y) * camera.zoom);
+        }
+        ctx.stroke();
+
+        // Draw molecule blobs
+        for (const mol of this.molecules) {
+            const mc = mol.getCenter();
+            const mx = (mc.x - camera.x) * camera.zoom;
+            const my = (mc.y - camera.y) * camera.zoom;
+            const radius = 20 * camera.zoom;
+
+            ctx.beginPath();
+            ctx.arc(mx, my, radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.highlighted ? 'rgba(139, 92, 246, 0.6)' : 'rgba(139, 92, 246, 0.4)';
+            ctx.fill();
+            ctx.strokeStyle = this.selected ? '#f59e0b' : '#8b5cf6';
+            ctx.stroke();
+        }
+
+        // Draw active sites
+        for (const site of this.activeSites) {
+            for (const idx of site.moleculeIndices) {
+                if (idx < this.molecules.length) {
+                    const mol = this.molecules[idx];
+                    const mc = mol.getCenter();
+                    const mx = (mc.x - camera.x) * camera.zoom;
+                    const my = (mc.y - camera.y) * camera.zoom;
+
+                    // Star marker for active site
+                    ctx.fillStyle = '#10b981';
+                    ctx.beginPath();
+                    ctx.arc(mx, my - 25 * camera.zoom, 5 * camera.zoom, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // Draw name/sequence
+        ctx.fillStyle = '#e8e8f0';
+        ctx.font = `${12 * camera.zoom}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(this.name || `Protein (${this.molecules.length})`, screenX, screenY + 40 * camera.zoom);
+
+        ctx.restore();
+    }
+
+    /**
+     * Render as simplified blob for higher levels
+     */
+    _renderAsBlob(ctx, camera) {
+        const center = this.getCenter();
+        const screenX = (center.x - camera.x) * camera.zoom;
+        const screenY = (center.y - camera.y) * camera.zoom;
+
+        // Calculate size based on molecule count
+        const radius = (15 + this.molecules.length * 5) * camera.zoom;
+
+        ctx.save();
+
+        // Outer glow
+        const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, radius);
+        gradient.addColorStop(0, 'rgba(139, 92, 246, 0.8)');
+        gradient.addColorStop(0.7, 'rgba(139, 92, 246, 0.3)');
+        gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core
+        ctx.fillStyle = this.highlighted ? '#a78bfa' : '#8b5cf6';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (this.selected) {
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
+    /**
+     * Serialize protein for storage
+     */
+    serialize() {
+        return {
+            id: this.id,
+            name: this.name,
+            moleculeIds: this.molecules.map(m => m.id),
+            activeSites: this.activeSites,
+            folded: this.folded,
+            fingerprint: this.fingerprint
+        };
+    }
+
+    /**
+     * Get all atoms in this protein
+     */
+    getAllAtoms() {
+        const atoms = [];
+        for (const mol of this.molecules) {
+            atoms.push(...mol.atoms);
+        }
+        return atoms;
+    }
+
+    /**
+     * Get all bonds in this protein
+     */
+    getAllBonds() {
+        const bonds = [];
+        for (const mol of this.molecules) {
+            bonds.push(...mol.bonds);
+        }
+        return bonds;
+    }
+}
+
+/**
+ * Create proteins from nearby molecules
+ * @param {Molecule[]} molecules - All molecules
+ * @param {number} maxDistance - Max distance for molecules to form a protein
+ * @returns {Protein[]} New proteins found
+ */
+function findPotentialProteins(molecules, maxDistance = 100) {
+    const proteins = [];
+    const assigned = new Set();
+
+    for (const mol of molecules) {
+        if (assigned.has(mol.id) || mol.proteinId) continue;
+        if (!mol.isStable()) continue;
+
+        // Find nearby molecules that could form a chain
+        const chain = [mol];
+        assigned.add(mol.id);
+
+        let current = mol;
+        let found = true;
+
+        while (found) {
+            found = false;
+            const currentCenter = current.getCenter();
+
+            for (const other of molecules) {
+                if (assigned.has(other.id) || other.proteinId) continue;
+                if (!other.isStable()) continue;
+
+                const otherCenter = other.getCenter();
+                const dist = Utils.distance(
+                    currentCenter.x, currentCenter.y,
+                    otherCenter.x, otherCenter.y
+                );
+
+                if (dist < maxDistance) {
+                    chain.push(other);
+                    assigned.add(other.id);
+                    current = other;
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        // Only create protein if we have a chain of 2+ molecules
+        if (chain.length >= 2) {
+            proteins.push(new Protein(chain));
+        }
+    }
+
+    return proteins;
+}
+
+// Make available globally
+window.Protein = Protein;
+window.findPotentialProteins = findPotentialProteins;
+
+/**
  * Environment
  * The container for all simulation entities with spatial management
  */
@@ -2012,6 +2497,7 @@ class Environment {
         this.atoms = new Map();      // id -> Atom
         this.bonds = new Map();      // id -> Bond
         this.molecules = new Map();  // id -> Molecule
+        this.proteins = new Map();   // id -> Protein
         this.cells = new Map();      // id -> Cell (future)
         this.organisms = new Map();  // id -> Organism (future)
 
@@ -2027,6 +2513,7 @@ class Environment {
         this.stats = {
             atomCount: 0,
             moleculeCount: 0,
+            proteinCount: 0,
             cellCount: 0,
             organismCount: 0
         };
@@ -2101,6 +2588,28 @@ class Environment {
             molecule.atoms.forEach(atom => atom.moleculeId = null);
             this.molecules.delete(moleculeId);
             this.stats.moleculeCount = this.molecules.size;
+        }
+    }
+
+    /**
+     * Register a protein
+     * @param {Protein} protein - Protein to register
+     */
+    addProtein(protein) {
+        this.proteins.set(protein.id, protein);
+        this.stats.proteinCount = this.proteins.size;
+    }
+
+    /**
+     * Remove a protein
+     * @param {string} proteinId - Protein ID
+     */
+    removeProtein(proteinId) {
+        const protein = this.proteins.get(proteinId);
+        if (protein) {
+            protein.molecules.forEach(mol => mol.proteinId = null);
+            this.proteins.delete(proteinId);
+            this.stats.proteinCount = this.proteins.size;
         }
     }
 
@@ -2395,18 +2904,27 @@ class Environment {
     }
 
     /**
+     * Get all proteins as array
+     */
+    getAllProteins() {
+        return Array.from(this.proteins.values());
+    }
+
+    /**
      * Clear the environment
      */
     clear() {
         this.atoms.clear();
         this.bonds.clear();
         this.molecules.clear();
+        this.proteins.clear();
         this.cells.clear();
         this.organisms.clear();
         this.grid.clear();
         this.stats = {
             atomCount: 0,
             moleculeCount: 0,
+            proteinCount: 0,
             cellCount: 0,
             organismCount: 0
         };
@@ -2789,12 +3307,129 @@ class MoleculeBlueprint extends Blueprint {
 }
 
 /**
+ * Protein Blueprint
+ */
+class ProteinBlueprint extends Blueprint {
+    /**
+     * Create from an existing protein
+     * @param {Protein} protein - Source protein
+     * @param {string} name - Blueprint name
+     */
+    constructor(protein, name = null) {
+        super('protein', name || `Protein-${protein.molecules.length}`);
+
+        this.sequence = protein.sequence;
+        this.fingerprint = protein.fingerprint;
+        this.moleculeCount = protein.molecules.length;
+
+        // Store molecule blueprints
+        this.moleculeBlueprints = protein.molecules.map(mol =>
+            new MoleculeBlueprint(mol)
+        );
+
+        // Store relative positions
+        const center = protein.getCenter();
+        this.moleculePositions = protein.molecules.map(mol => {
+            const molCenter = mol.getCenter();
+            return {
+                relX: molCenter.x - center.x,
+                relY: molCenter.y - center.y
+            };
+        });
+
+        this.activeSites = protein.activeSites;
+        this.mass = protein.mass;
+        this.isStable = protein.isStable();
+    }
+
+    /**
+     * Instantiate this blueprint at a position
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @returns {Protein} New protein instance
+     */
+    instantiate(x, y) {
+        const molecules = [];
+
+        for (let i = 0; i < this.moleculeBlueprints.length; i++) {
+            const bp = this.moleculeBlueprints[i];
+            const pos = this.moleculePositions[i];
+            const mol = bp.instantiate(x + pos.relX, y + pos.relY);
+            molecules.push(mol);
+        }
+
+        const protein = new Protein(molecules, this.name);
+
+        // Restore active sites
+        for (const site of this.activeSites) {
+            protein.addActiveSite(site);
+        }
+
+        return protein;
+    }
+
+    /**
+     * Render preview
+     */
+    renderPreview(ctx, x, y, size) {
+        const scale = size / 150;
+
+        // Draw chain connections
+        ctx.strokeStyle = '#8b5cf6';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+
+        for (let i = 0; i < this.moleculePositions.length - 1; i++) {
+            const p1 = this.moleculePositions[i];
+            const p2 = this.moleculePositions[i + 1];
+            ctx.moveTo(x + p1.relX * scale, y + p1.relY * scale);
+            ctx.lineTo(x + p2.relX * scale, y + p2.relY * scale);
+        }
+        ctx.stroke();
+
+        // Draw molecule blobs
+        for (const pos of this.moleculePositions) {
+            ctx.beginPath();
+            ctx.arc(x + pos.relX * scale, y + pos.relY * scale, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#a78bfa';
+            ctx.fill();
+        }
+    }
+
+    serialize() {
+        return {
+            ...super.serialize(),
+            sequence: this.sequence,
+            fingerprint: this.fingerprint,
+            moleculeCount: this.moleculeCount,
+            moleculeBlueprints: this.moleculeBlueprints.map(bp => bp.serialize()),
+            moleculePositions: this.moleculePositions,
+            activeSites: this.activeSites,
+            mass: this.mass,
+            isStable: this.isStable
+        };
+    }
+
+    static deserialize(data) {
+        const blueprint = Object.assign(
+            Object.create(ProteinBlueprint.prototype),
+            data
+        );
+        blueprint.moleculeBlueprints = data.moleculeBlueprints.map(d =>
+            MoleculeBlueprint.deserialize(d)
+        );
+        return blueprint;
+    }
+}
+
+/**
  * Cell Blueprint (placeholder for Phase 2)
  */
 class CellBlueprint extends Blueprint {
     constructor(name) {
         super('cell', name);
         this.molecules = [];
+        this.proteins = [];  // Can also contain proteins
         this.behavior = null;
         this.genome = null;
     }
@@ -2827,6 +3462,7 @@ class OrganismBlueprint extends Blueprint {
 // Make available globally
 window.Blueprint = Blueprint;
 window.MoleculeBlueprint = MoleculeBlueprint;
+window.ProteinBlueprint = ProteinBlueprint;
 window.CellBlueprint = CellBlueprint;
 window.OrganismBlueprint = OrganismBlueprint;
 
@@ -3113,16 +3749,17 @@ window.Catalogue = Catalogue;
  * Multi-level renderer for the simulation
  */
 
-// Abstraction levels
+// Abstraction levels (6 levels)
 const AbstractionLevel = {
     ATOM: 0,
     MOLECULE: 1,
-    CELL: 2,
-    ORGANISM: 3,
-    POPULATION: 4
+    PROTEIN: 2,
+    CELL: 3,
+    ORGANISM: 4,
+    POPULATION: 5
 };
 
-const LEVEL_NAMES = ['Atoms', 'Molecules', 'Cells', 'Organisms', 'Populations'];
+const LEVEL_NAMES = ['Atoms', 'Molecules', 'Proteins', 'Cells', 'Organisms', 'Populations'];
 
 class Viewer {
     /**
@@ -3180,7 +3817,7 @@ class Viewer {
      * @param {number} level - Level from AbstractionLevel enum
      */
     setLevel(level) {
-        this.level = Utils.clamp(level, 0, 4);
+        this.level = Utils.clamp(level, 0, 5);
         this.clearSelection();
     }
 
@@ -3294,6 +3931,9 @@ class Viewer {
             case AbstractionLevel.MOLECULE:
                 this._renderMoleculeLevel();
                 break;
+            case AbstractionLevel.PROTEIN:
+                this._renderProteinLevel();
+                break;
             case AbstractionLevel.CELL:
                 this._renderCellLevel();
                 break;
@@ -3355,6 +3995,34 @@ class Viewer {
     }
 
     /**
+     * Render at protein level
+     */
+    _renderProteinLevel() {
+        const scale = this.camera.zoom;
+        const offset = this.getOffset();
+
+        // Render proteins
+        const proteins = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
+        for (const protein of proteins) {
+            protein.render(this.ctx, 2, { x: -offset.x, y: -offset.y, zoom: scale });
+        }
+
+        // Render molecules not in proteins
+        for (const molecule of this.environment.getAllMolecules()) {
+            if (!molecule.proteinId) {
+                molecule.renderSimplified(this.ctx, scale, offset);
+            }
+        }
+
+        // Render free atoms
+        for (const atom of this.environment.getAllAtoms()) {
+            if (!atom.moleculeId) {
+                atom.render(this.ctx, scale, offset);
+            }
+        }
+    }
+
+    /**
      * Render at cell level (placeholder)
      */
     _renderCellLevel() {
@@ -3363,13 +4031,13 @@ class Viewer {
         ctx.font = '24px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(
-            'Cell level - Coming in Phase 2',
+            'Cell level - Coming next',
             this.canvas.width / 2,
             this.canvas.height / 2
         );
 
-        // Still show molecules in the background
-        this._renderMoleculeLevel();
+        // Still show protein level in the background
+        this._renderProteinLevel();
     }
 
     /**
@@ -4333,9 +5001,9 @@ class App {
         const stats = this.simulation.getStats();
 
         document.getElementById('atomCount').textContent = `Atoms: ${stats.atomCount}`;
-        document.getElementById('moleculeCount').textContent = `Molecules: ${stats.moleculeCount}`;
+        document.getElementById('moleculeCount').textContent = `Mol: ${stats.moleculeCount}`;
+        document.getElementById('proteinCount').textContent = `Prot: ${stats.proteinCount || 0}`;
         document.getElementById('cellCount').textContent = `Cells: ${stats.cellCount}`;
-        document.getElementById('organismCount').textContent = `Organisms: ${stats.organismCount}`;
         document.getElementById('tickCounter').textContent = `Tick: ${stats.tick}`;
         document.getElementById('fpsCounter').textContent = `FPS: ${stats.fps}`;
     }

@@ -17,6 +17,7 @@ class Environment {
         this.atoms = new Map();      // id -> Atom
         this.bonds = new Map();      // id -> Bond
         this.molecules = new Map();  // id -> Molecule
+        this.proteins = new Map();   // id -> Protein
         this.cells = new Map();      // id -> Cell (future)
         this.organisms = new Map();  // id -> Organism (future)
 
@@ -32,6 +33,7 @@ class Environment {
         this.stats = {
             atomCount: 0,
             moleculeCount: 0,
+            proteinCount: 0,
             cellCount: 0,
             organismCount: 0
         };
@@ -106,6 +108,28 @@ class Environment {
             molecule.atoms.forEach(atom => atom.moleculeId = null);
             this.molecules.delete(moleculeId);
             this.stats.moleculeCount = this.molecules.size;
+        }
+    }
+
+    /**
+     * Register a protein
+     * @param {Protein} protein - Protein to register
+     */
+    addProtein(protein) {
+        this.proteins.set(protein.id, protein);
+        this.stats.proteinCount = this.proteins.size;
+    }
+
+    /**
+     * Remove a protein
+     * @param {string} proteinId - Protein ID
+     */
+    removeProtein(proteinId) {
+        const protein = this.proteins.get(proteinId);
+        if (protein) {
+            protein.molecules.forEach(mol => mol.proteinId = null);
+            this.proteins.delete(proteinId);
+            this.stats.proteinCount = this.proteins.size;
         }
     }
 
@@ -400,18 +424,27 @@ class Environment {
     }
 
     /**
+     * Get all proteins as array
+     */
+    getAllProteins() {
+        return Array.from(this.proteins.values());
+    }
+
+    /**
      * Clear the environment
      */
     clear() {
         this.atoms.clear();
         this.bonds.clear();
         this.molecules.clear();
+        this.proteins.clear();
         this.cells.clear();
         this.organisms.clear();
         this.grid.clear();
         this.stats = {
             atomCount: 0,
             moleculeCount: 0,
+            proteinCount: 0,
             cellCount: 0,
             organismCount: 0
         };
