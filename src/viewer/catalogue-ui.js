@@ -92,17 +92,19 @@ class CatalogueUI {
      * Render a single catalogue item
      */
     _renderItem(blueprint) {
-        const isSelected = this.controls.selectedBlueprint?.id === blueprint.id;
+        const isSelected = this.controls.selectedBlueprint?.fingerprint === blueprint.fingerprint;
         const atomCount = blueprint.atomData ? blueprint.atomData.length : 0;
+        // Encode fingerprint for safe HTML attribute storage
+        const encodedFingerprint = encodeURIComponent(blueprint.fingerprint);
 
         return `
             <div class="catalogue-item ${isSelected ? 'selected' : ''}" 
-                 data-fingerprint="${blueprint.fingerprint}"
+                 data-fingerprint="${encodedFingerprint}"
                  title="${blueprint.name} - ${blueprint.formula}">
                 <div class="catalogue-item-preview">
                     <canvas class="preview-canvas" 
                             width="40" height="40"
-                            data-fingerprint="${blueprint.fingerprint}"></canvas>
+                            data-fingerprint="${encodedFingerprint}"></canvas>
                 </div>
                 <div class="catalogue-item-info">
                     <div class="catalogue-item-name">${blueprint.name}</div>
@@ -118,7 +120,9 @@ class CatalogueUI {
     /**
      * Select a blueprint for placement
      */
-    _selectBlueprint(fingerprint) {
+    _selectBlueprint(encodedFingerprint) {
+        // Decode the URI-encoded fingerprint
+        const fingerprint = decodeURIComponent(encodedFingerprint);
         const blueprint = this.catalogue.getMolecule(fingerprint);
         if (blueprint) {
             this.controls.setSelectedBlueprint(blueprint);
@@ -126,7 +130,7 @@ class CatalogueUI {
 
             // Update UI
             document.querySelectorAll('.catalogue-item').forEach(item => {
-                item.classList.toggle('selected', item.dataset.fingerprint === fingerprint);
+                item.classList.toggle('selected', item.dataset.fingerprint === encodedFingerprint);
             });
 
             // Clear atom selection

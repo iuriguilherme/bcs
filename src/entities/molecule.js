@@ -287,14 +287,35 @@ class Molecule {
     }
 
     /**
-     * Check if point is inside molecule
+     * Check if point is inside molecule (also checks blob area for level 2+ selection)
      */
     containsPoint(x, y, scale = 1, offset = { x: 0, y: 0 }) {
+        // Check individual atoms
         for (const atom of this.atoms) {
             if (atom.containsPoint(x, y, scale, offset)) {
                 return true;
             }
         }
+
+        // Also check the blob area (for molecule level selection)
+        const center = this.centerOfMass;
+        const screenX = (center.x + offset.x) * scale;
+        const screenY = (center.y + offset.y) * scale;
+
+        // Calculate bounding radius (same as renderSimplified)
+        let maxDist = 0;
+        for (const atom of this.atoms) {
+            const dist = atom.position.distanceTo(center) + atom.radius;
+            maxDist = Math.max(maxDist, dist);
+        }
+        const screenRadius = Math.max(20, maxDist * scale);
+
+        const dx = x - screenX;
+        const dy = y - screenY;
+        if (dx * dx + dy * dy <= screenRadius * screenRadius) {
+            return true;
+        }
+
         return false;
     }
 

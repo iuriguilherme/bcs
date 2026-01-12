@@ -298,10 +298,28 @@ class Controls {
      */
     _handleDelete(screenX, screenY) {
         const result = this.viewer.getEntityAt(screenX, screenY);
+        if (!result) return;
 
-        if (result && result.type === 'atom') {
+        // At molecule level (1) or higher, delete entire molecules
+        if (this.viewer.level >= 1 && result.type === 'molecule') {
+            const atoms = [...result.entity.atoms];
+            for (const atom of atoms) {
+                this.environment.removeAtom(atom.id);
+            }
+            this.environment.removeMolecule(result.entity.id);
+        } else if (result.type === 'atom') {
             this.environment.removeAtom(result.entity.id);
+        } else if (result.type === 'molecule') {
+            // Fallback: delete molecule at any level
+            const atoms = [...result.entity.atoms];
+            for (const atom of atoms) {
+                this.environment.removeAtom(atom.id);
+            }
+            this.environment.removeMolecule(result.entity.id);
         }
+
+        // Immediate render to show deletion
+        this.viewer.render();
     }
 
     /**

@@ -386,17 +386,32 @@ class Viewer {
         const scale = this.camera.zoom;
         const offset = this.getOffset();
 
-        // Check atoms
-        for (const atom of this.environment.getAllAtoms()) {
-            if (atom.containsPoint(screenX, screenY, scale, offset)) {
-                return { type: 'atom', entity: atom };
+        // At molecule level or higher, prioritize molecules
+        if (this.level >= 1) {
+            // Check molecules first
+            for (const molecule of this.environment.getAllMolecules()) {
+                if (molecule.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'molecule', entity: molecule };
+                }
             }
-        }
-
-        // Check molecules
-        for (const molecule of this.environment.getAllMolecules()) {
-            if (molecule.containsPoint(screenX, screenY, scale, offset)) {
-                return { type: 'molecule', entity: molecule };
+            // Then check free atoms (not in molecules)
+            for (const atom of this.environment.getAllAtoms()) {
+                if (!atom.moleculeId && atom.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'atom', entity: atom };
+                }
+            }
+        } else {
+            // At atom level, prioritize atoms
+            for (const atom of this.environment.getAllAtoms()) {
+                if (atom.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'atom', entity: atom };
+                }
+            }
+            // Then check molecules
+            for (const molecule of this.environment.getAllMolecules()) {
+                if (molecule.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'molecule', entity: molecule };
+                }
             }
         }
 

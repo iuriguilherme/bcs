@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cell Simulator - Multi-Level Life Simulation</title>
-    <meta name="description" content="A hierarchical life simulation from atoms to social organisms">
     <style>/* CSS Reset & Variables */
 *, *::before, *::after {
     box-sizing: border-box;
@@ -508,11 +507,6 @@ html, body {
             </aside>
             <div class="canvas-container">
                 <canvas id="simCanvas"></canvas>
-                <div class="canvas-overlay" id="canvasOverlay">
-                    <div class="info-popup" id="infoPopup" style="display: none;">
-                        <div class="popup-content" id="popupContent"></div>
-                    </div>
-                </div>
             </div>
             <aside class="panel right-panel">
                 <div class="panel-tabs">
@@ -1892,14 +1886,35 @@ class Molecule {
     }
 
     /**
-     * Check if point is inside molecule
+     * Check if point is inside molecule (also checks blob area for level 2+ selection)
      */
     containsPoint(x, y, scale = 1, offset = { x: 0, y: 0 }) {
+        // Check individual atoms
         for (const atom of this.atoms) {
             if (atom.containsPoint(x, y, scale, offset)) {
                 return true;
             }
         }
+
+        // Also check the blob area (for molecule level selection)
+        const center = this.centerOfMass;
+        const screenX = (center.x + offset.x) * scale;
+        const screenY = (center.y + offset.y) * scale;
+
+        // Calculate bounding radius (same as renderSimplified)
+        let maxDist = 0;
+        for (const atom of this.atoms) {
+            const dist = atom.position.distanceTo(center) + atom.radius;
+            maxDist = Math.max(maxDist, dist);
+        }
+        const screenRadius = Math.max(20, maxDist * scale);
+
+        const dx = x - screenX;
+        const dy = y - screenY;
+        if (dx * dx + dy * dy <= screenRadius * screenRadius) {
+            return true;
+        }
+
         return false;
     }
 
@@ -4208,17 +4223,32 @@ class Viewer {
         const scale = this.camera.zoom;
         const offset = this.getOffset();
 
-        // Check atoms
-        for (const atom of this.environment.getAllAtoms()) {
-            if (atom.containsPoint(screenX, screenY, scale, offset)) {
-                return { type: 'atom', entity: atom };
+        // At molecule level or higher, prioritize molecules
+        if (this.level >= 1) {
+            // Check molecules first
+            for (const molecule of this.environment.getAllMolecules()) {
+                if (molecule.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'molecule', entity: molecule };
+                }
             }
-        }
-
-        // Check molecules
-        for (const molecule of this.environment.getAllMolecules()) {
-            if (molecule.containsPoint(screenX, screenY, scale, offset)) {
-                return { type: 'molecule', entity: molecule };
+            // Then check free atoms (not in molecules)
+            for (const atom of this.environment.getAllAtoms()) {
+                if (!atom.moleculeId && atom.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'atom', entity: atom };
+                }
+            }
+        } else {
+            // At atom level, prioritize atoms
+            for (const atom of this.environment.getAllAtoms()) {
+                if (atom.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'atom', entity: atom };
+                }
+            }
+            // Then check molecules
+            for (const molecule of this.environment.getAllMolecules()) {
+                if (molecule.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'molecule', entity: molecule };
+                }
             }
         }
 
@@ -4538,10 +4568,28 @@ class Controls {
      */
     _handleDelete(screenX, screenY) {
         const result = this.viewer.getEntityAt(screenX, screenY);
+        if (!result) return;
 
-        if (result && result.type === 'atom') {
+        // At molecule level (1) or higher, delete entire molecules
+        if (this.viewer.level >= 1 && result.type === 'molecule') {
+            const atoms = [...result.entity.atoms];
+            for (const atom of atoms) {
+                this.environment.removeAtom(atom.id);
+            }
+            this.environment.removeMolecule(result.entity.id);
+        } else if (result.type === 'atom') {
             this.environment.removeAtom(result.entity.id);
+        } else if (result.type === 'molecule') {
+            // Fallback: delete molecule at any level
+            const atoms = [...result.entity.atoms];
+            for (const atom of atoms) {
+                this.environment.removeAtom(atom.id);
+            }
+            this.environment.removeMolecule(result.entity.id);
         }
+
+        // Immediate render to show deletion
+        this.viewer.render();
     }
 
     /**
@@ -4744,17 +4792,19 @@ class CatalogueUI {
      * Render a single catalogue item
      */
     _renderItem(blueprint) {
-        const isSelected = this.controls.selectedBlueprint?.id === blueprint.id;
+        const isSelected = this.controls.selectedBlueprint?.fingerprint === blueprint.fingerprint;
         const atomCount = blueprint.atomData ? blueprint.atomData.length : 0;
+        // Encode fingerprint for safe HTML attribute storage
+        const encodedFingerprint = encodeURIComponent(blueprint.fingerprint);
 
         return `
             <div class="catalogue-item ${isSelected ? 'selected' : ''}" 
-                 data-fingerprint="${blueprint.fingerprint}"
+                 data-fingerprint="${encodedFingerprint}"
                  title="${blueprint.name} - ${blueprint.formula}">
                 <div class="catalogue-item-preview">
                     <canvas class="preview-canvas" 
                             width="40" height="40"
-                            data-fingerprint="${blueprint.fingerprint}"></canvas>
+                            data-fingerprint="${encodedFingerprint}"></canvas>
                 </div>
                 <div class="catalogue-item-info">
                     <div class="catalogue-item-name">${blueprint.name}</div>
@@ -4770,7 +4820,9 @@ class CatalogueUI {
     /**
      * Select a blueprint for placement
      */
-    _selectBlueprint(fingerprint) {
+    _selectBlueprint(encodedFingerprint) {
+        // Decode the URI-encoded fingerprint
+        const fingerprint = decodeURIComponent(encodedFingerprint);
         const blueprint = this.catalogue.getMolecule(fingerprint);
         if (blueprint) {
             this.controls.setSelectedBlueprint(blueprint);
@@ -4778,7 +4830,7 @@ class CatalogueUI {
 
             // Update UI
             document.querySelectorAll('.catalogue-item').forEach(item => {
-                item.classList.toggle('selected', item.dataset.fingerprint === fingerprint);
+                item.classList.toggle('selected', item.dataset.fingerprint === encodedFingerprint);
             });
 
             // Clear atom selection
