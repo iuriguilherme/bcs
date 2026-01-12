@@ -1,0 +1,3883 @@
+﻿/**
+ * Core Utilities
+ * Helper functions used throughout the simulation
+ */
+
+const Utils = {
+    /**
+     * Generate a unique ID
+     */
+    generateId() {
+        return `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 9)}`;
+    },
+
+    /**
+     * Calculate distance between two points
+     */
+    distance(x1, y1, x2, y2) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        return Math.sqrt(dx * dx + dy * dy);
+    },
+
+    /**
+     * Calculate distance squared (faster, no sqrt)
+     */
+    distanceSquared(x1, y1, x2, y2) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        return dx * dx + dy * dy;
+    },
+
+    /**
+     * Clamp a value between min and max
+     */
+    clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    },
+
+    /**
+     * Linear interpolation
+     */
+    lerp(a, b, t) {
+        return a + (b - a) * t;
+    },
+
+    /**
+     * Random number in range
+     */
+    random(min, max) {
+        return min + Math.random() * (max - min);
+    },
+
+    /**
+     * Random integer in range (inclusive)
+     */
+    randomInt(min, max) {
+        return Math.floor(min + Math.random() * (max - min + 1));
+    },
+
+    /**
+     * Pick random element from array
+     */
+    randomChoice(array) {
+        return array[Math.floor(Math.random() * array.length)];
+    },
+
+    /**
+     * Shuffle array in place
+     */
+    shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    },
+
+    /**
+     * Convert HSL to RGB hex color
+     */
+    hslToHex(h, s, l) {
+        s /= 100;
+        l /= 100;
+        const a = s * Math.min(l, 1 - l);
+        const f = n => {
+            const k = (n + h / 30) % 12;
+            const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+            return Math.round(255 * color).toString(16).padStart(2, '0');
+        };
+        return `#${f(0)}${f(8)}${f(4)}`;
+    },
+
+    /**
+     * Normalize a 2D vector
+     */
+    normalize(x, y) {
+        const len = Math.sqrt(x * x + y * y);
+        if (len === 0) return { x: 0, y: 0 };
+        return { x: x / len, y: y / len };
+    },
+
+    /**
+     * Calculate angle between two points
+     */
+    angle(x1, y1, x2, y2) {
+        return Math.atan2(y2 - y1, x2 - x1);
+    },
+
+    /**
+     * Deep clone an object
+     */
+    deepClone(obj) {
+        return JSON.parse(JSON.stringify(obj));
+    },
+
+    /**
+     * Debounce a function
+     */
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    },
+
+    /**
+     * Format number with commas
+     */
+    formatNumber(num) {
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+};
+
+// Vector2 class for physics calculations
+class Vector2 {
+    constructor(x = 0, y = 0) {
+        this.x = x;
+        this.y = y;
+    }
+
+    add(v) {
+        return new Vector2(this.x + v.x, this.y + v.y);
+    }
+
+    sub(v) {
+        return new Vector2(this.x - v.x, this.y - v.y);
+    }
+
+    mul(scalar) {
+        return new Vector2(this.x * scalar, this.y * scalar);
+    }
+
+    div(scalar) {
+        if (scalar === 0) return new Vector2(0, 0);
+        return new Vector2(this.x / scalar, this.y / scalar);
+    }
+
+    length() {
+        return Math.sqrt(this.x * this.x + this.y * this.y);
+    }
+
+    lengthSquared() {
+        return this.x * this.x + this.y * this.y;
+    }
+
+    normalize() {
+        const len = this.length();
+        if (len === 0) return new Vector2(0, 0);
+        return this.div(len);
+    }
+
+    dot(v) {
+        return this.x * v.x + this.y * v.y;
+    }
+
+    distanceTo(v) {
+        return this.sub(v).length();
+    }
+
+    clone() {
+        return new Vector2(this.x, this.y);
+    }
+
+    set(x, y) {
+        this.x = x;
+        this.y = y;
+        return this;
+    }
+
+    static fromAngle(angle, length = 1) {
+        return new Vector2(
+            Math.cos(angle) * length,
+            Math.sin(angle) * length
+        );
+    }
+
+    static random(minX, maxX, minY, maxY) {
+        return new Vector2(
+            Utils.random(minX, maxX),
+            Utils.random(minY, maxY)
+        );
+    }
+}
+
+// Make available globally
+window.Utils = Utils;
+window.Vector2 = Vector2;
+
+/**
+ * Periodic Table Data
+ * Extensible structure for all chemical elements
+ * Currently includes essential elements for biochemistry
+ * Can be expanded to full 118 elements without refactoring
+ */
+
+const ELEMENTS = {
+    // Essential for organic chemistry / life
+    H: {
+        number: 1,
+        symbol: 'H',
+        name: 'Hydrogen',
+        valence: 1,
+        mass: 1.008,
+        radius: 25,
+        color: '#FFFFFF',
+        category: 'nonmetal'
+    },
+    C: {
+        number: 6,
+        symbol: 'C',
+        name: 'Carbon',
+        valence: 4,
+        mass: 12.011,
+        radius: 35,
+        color: '#333333',
+        category: 'nonmetal'
+    },
+    N: {
+        number: 7,
+        symbol: 'N',
+        name: 'Nitrogen',
+        valence: 3,
+        mass: 14.007,
+        radius: 32,
+        color: '#3050F8',
+        category: 'nonmetal'
+    },
+    O: {
+        number: 8,
+        symbol: 'O',
+        name: 'Oxygen',
+        valence: 2,
+        mass: 15.999,
+        radius: 30,
+        color: '#FF0D0D',
+        category: 'nonmetal'
+    },
+    P: {
+        number: 15,
+        symbol: 'P',
+        name: 'Phosphorus',
+        valence: 5,
+        mass: 30.974,
+        radius: 38,
+        color: '#FF8000',
+        category: 'nonmetal'
+    },
+    S: {
+        number: 16,
+        symbol: 'S',
+        name: 'Sulfur',
+        valence: 2,  // Can also be 4 or 6, keeping simple
+        mass: 32.065,
+        radius: 36,
+        color: '#FFFF30',
+        category: 'nonmetal'
+    },
+
+    // Metals important for biology
+    Na: {
+        number: 11,
+        symbol: 'Na',
+        name: 'Sodium',
+        valence: 1,
+        mass: 22.990,
+        radius: 40,
+        color: '#AB5CF2',
+        category: 'alkali-metal'
+    },
+    K: {
+        number: 19,
+        symbol: 'K',
+        name: 'Potassium',
+        valence: 1,
+        mass: 39.098,
+        radius: 45,
+        color: '#8F40D4',
+        category: 'alkali-metal'
+    },
+    Ca: {
+        number: 20,
+        symbol: 'Ca',
+        name: 'Calcium',
+        valence: 2,
+        mass: 40.078,
+        radius: 42,
+        color: '#3DFF00',
+        category: 'alkaline-earth'
+    },
+    Fe: {
+        number: 26,
+        symbol: 'Fe',
+        name: 'Iron',
+        valence: 2,  // Can also be 3
+        mass: 55.845,
+        radius: 38,
+        color: '#E06633',
+        category: 'transition-metal'
+    },
+    Mg: {
+        number: 12,
+        symbol: 'Mg',
+        name: 'Magnesium',
+        valence: 2,
+        mass: 24.305,
+        radius: 38,
+        color: '#8AFF00',
+        category: 'alkaline-earth'
+    },
+    Zn: {
+        number: 30,
+        symbol: 'Zn',
+        name: 'Zinc',
+        valence: 2,
+        mass: 65.38,
+        radius: 37,
+        color: '#7D80B0',
+        category: 'transition-metal'
+    },
+
+    // Halogens
+    Cl: {
+        number: 17,
+        symbol: 'Cl',
+        name: 'Chlorine',
+        valence: 1,
+        mass: 35.453,
+        radius: 34,
+        color: '#1FF01F',
+        category: 'halogen'
+    },
+
+    // Noble gases (for future use)
+    He: {
+        number: 2,
+        symbol: 'He',
+        name: 'Helium',
+        valence: 0,
+        mass: 4.003,
+        radius: 28,
+        color: '#D9FFFF',
+        category: 'noble-gas'
+    }
+};
+
+// Bond energies (simplified, in arbitrary units)
+// Higher = stronger bond
+const BOND_ENERGIES = {
+    'C-C': 83,
+    'C=C': 146,
+    'Câ‰¡C': 200,
+    'C-H': 99,
+    'C-O': 86,
+    'C=O': 177,
+    'C-N': 73,
+    'C=N': 147,
+    'Câ‰¡N': 213,
+    'O-H': 111,
+    'O-O': 35,
+    'O=O': 119,
+    'N-H': 93,
+    'N-N': 39,
+    'N=N': 100,
+    'Nâ‰¡N': 226,
+    'P-O': 90,
+    'S-H': 82,
+    'S-S': 54,
+    'DEFAULT': 60
+};
+
+// Electronegativity values (Pauling scale)
+const ELECTRONEGATIVITY = {
+    H: 2.20,
+    C: 2.55,
+    N: 3.04,
+    O: 3.44,
+    P: 2.19,
+    S: 2.58,
+    Na: 0.93,
+    K: 0.82,
+    Ca: 1.00,
+    Fe: 1.83,
+    Mg: 1.31,
+    Zn: 1.65,
+    Cl: 3.16,
+    He: 0
+};
+
+// Common molecules templates (can be expanded)
+const MOLECULE_TEMPLATES = {
+    water: {
+        formula: 'H2O',
+        atoms: ['O', 'H', 'H'],
+        bonds: [[0, 1], [0, 2]]
+    },
+    carbonDioxide: {
+        formula: 'CO2',
+        atoms: ['C', 'O', 'O'],
+        bonds: [[0, 1, 2], [0, 2, 2]]  // double bonds
+    },
+    methane: {
+        formula: 'CH4',
+        atoms: ['C', 'H', 'H', 'H', 'H'],
+        bonds: [[0, 1], [0, 2], [0, 3], [0, 4]]
+    },
+    ammonia: {
+        formula: 'NH3',
+        atoms: ['N', 'H', 'H', 'H'],
+        bonds: [[0, 1], [0, 2], [0, 3]]
+    },
+    oxygen: {
+        formula: 'O2',
+        atoms: ['O', 'O'],
+        bonds: [[0, 1, 2]]  // double bond
+    }
+};
+
+/**
+ * Get element data by symbol
+ * @param {string} symbol - Element symbol (e.g., 'C', 'H', 'O')
+ * @returns {object|null} Element data or null if not found
+ */
+function getElement(symbol) {
+    return ELEMENTS[symbol] || null;
+}
+
+/**
+ * Get bond energy between two elements
+ * @param {string} symbol1 - First element symbol
+ * @param {string} symbol2 - Second element symbol
+ * @param {number} bondOrder - 1, 2, or 3 for single/double/triple
+ * @returns {number} Bond energy
+ */
+function getBondEnergy(symbol1, symbol2, bondOrder = 1) {
+    const bondSymbols = ['', '-', '=', 'â‰¡'];
+    const key1 = `${symbol1}${bondSymbols[bondOrder]}${symbol2}`;
+    const key2 = `${symbol2}${bondSymbols[bondOrder]}${symbol1}`;
+
+    return BOND_ENERGIES[key1] || BOND_ENERGIES[key2] || BOND_ENERGIES.DEFAULT;
+}
+
+/**
+ * Get all available element symbols
+ * @returns {string[]} Array of element symbols
+ */
+function getAvailableElements() {
+    return Object.keys(ELEMENTS);
+}
+
+/**
+ * Get elements by category
+ * @param {string} category - Element category
+ * @returns {object[]} Array of elements in that category
+ */
+function getElementsByCategory(category) {
+    return Object.values(ELEMENTS).filter(e => e.category === category);
+}
+
+// Make available globally
+window.ELEMENTS = ELEMENTS;
+window.BOND_ENERGIES = BOND_ENERGIES;
+window.ELECTRONEGATIVITY = ELECTRONEGATIVITY;
+window.MOLECULE_TEMPLATES = MOLECULE_TEMPLATES;
+window.getElement = getElement;
+window.getBondEnergy = getBondEnergy;
+window.getAvailableElements = getAvailableElements;
+window.getElementsByCategory = getElementsByCategory;
+
+/**
+ * Atom Entity
+ * The fundamental building block of the simulation
+ */
+
+class Atom {
+    /**
+     * Create a new atom
+     * @param {string} symbol - Element symbol (e.g., 'C', 'H', 'O')
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     */
+    constructor(symbol, x, y) {
+        this.id = Utils.generateId();
+        this.symbol = symbol;
+        this.element = getElement(symbol);
+
+        if (!this.element) {
+            throw new Error(`Unknown element: ${symbol}`);
+        }
+
+        // Position and physics
+        this.position = new Vector2(x, y);
+        this.velocity = new Vector2(0, 0);
+        this.acceleration = new Vector2(0, 0);
+
+        // Bonding
+        this.bonds = [];  // Array of Bond objects
+        this.maxBonds = this.element.valence;
+
+        // State
+        this.selected = false;
+        this.highlighted = false;
+        this.moleculeId = null;  // Reference to parent molecule if bonded
+
+        // Physics properties
+        this.mass = this.element.mass;
+        this.radius = this.element.radius * 0.5;  // Visual radius scaled down
+        this.charge = 0;  // Net charge (for ions)
+    }
+
+    /**
+     * Get the number of current bonds (counting bond order)
+     */
+    get bondCount() {
+        return this.bonds.reduce((sum, bond) => sum + bond.order, 0);
+    }
+
+    /**
+     * Get available valence (how many more bonds can form)
+     */
+    get availableValence() {
+        return Math.max(0, this.maxBonds - this.bondCount);
+    }
+
+    /**
+     * Check if this atom can bond with another
+     * @param {Atom} other - The other atom
+     * @param {number} order - Bond order (1, 2, or 3)
+     */
+    canBondWith(other, order = 1) {
+        if (this === other) return false;
+        if (this.availableValence < order) return false;
+        if (other.availableValence < order) return false;
+
+        // Check if already bonded
+        if (this.isBondedTo(other)) return false;
+
+        return true;
+    }
+
+    /**
+     * Check if already bonded to another atom
+     * @param {Atom} other - The other atom
+     */
+    isBondedTo(other) {
+        return this.bonds.some(bond =>
+            bond.atom1 === other || bond.atom2 === other
+        );
+    }
+
+    /**
+     * Get the bond with another atom
+     * @param {Atom} other - The other atom
+     * @returns {Bond|null}
+     */
+    getBondWith(other) {
+        return this.bonds.find(bond =>
+            bond.atom1 === other || bond.atom2 === other
+        ) || null;
+    }
+
+    /**
+     * Add a bond to this atom
+     * @param {Bond} bond - The bond to add
+     */
+    addBond(bond) {
+        if (!this.bonds.includes(bond)) {
+            this.bonds.push(bond);
+        }
+    }
+
+    /**
+     * Remove a bond from this atom
+     * @param {Bond} bond - The bond to remove
+     */
+    removeBond(bond) {
+        const index = this.bonds.indexOf(bond);
+        if (index !== -1) {
+            this.bonds.splice(index, 1);
+        }
+    }
+
+    /**
+     * Get all atoms bonded to this one
+     * @returns {Atom[]}
+     */
+    getBondedAtoms() {
+        return this.bonds.map(bond =>
+            bond.atom1 === this ? bond.atom2 : bond.atom1
+        );
+    }
+
+    /**
+     * Apply a force to this atom
+     * @param {Vector2} force - Force vector
+     */
+    applyForce(force) {
+        // F = ma, so a = F/m
+        const a = force.div(this.mass);
+        this.acceleration = this.acceleration.add(a);
+    }
+
+    /**
+     * Update physics
+     * @param {number} dt - Delta time
+     */
+    update(dt) {
+        // Verlet-style integration
+        this.velocity = this.velocity.add(this.acceleration.mul(dt));
+
+        // Apply damping (friction)
+        this.velocity = this.velocity.mul(0.99);
+
+        // Update position
+        this.position = this.position.add(this.velocity.mul(dt));
+
+        // Reset acceleration
+        this.acceleration = new Vector2(0, 0);
+    }
+
+    /**
+     * Render the atom
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} scale - Zoom scale
+     * @param {Vector2} offset - Camera offset
+     */
+    render(ctx, scale = 1, offset = { x: 0, y: 0 }) {
+        const screenX = (this.position.x + offset.x) * scale;
+        const screenY = (this.position.y + offset.y) * scale;
+        const screenRadius = this.radius * scale;
+
+        // Draw atom circle
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, screenRadius, 0, Math.PI * 2);
+
+        // Gradient fill
+        const gradient = ctx.createRadialGradient(
+            screenX - screenRadius * 0.3,
+            screenY - screenRadius * 0.3,
+            0,
+            screenX,
+            screenY,
+            screenRadius
+        );
+        gradient.addColorStop(0, this.lightenColor(this.element.color, 40));
+        gradient.addColorStop(1, this.element.color);
+
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Border
+        if (this.selected) {
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 3;
+        } else if (this.highlighted) {
+            ctx.strokeStyle = '#8b5cf6';
+            ctx.lineWidth = 2;
+        } else {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+        }
+        ctx.stroke();
+
+        // Draw symbol
+        if (screenRadius > 10) {
+            ctx.fillStyle = this.getContrastColor(this.element.color);
+            ctx.font = `bold ${Math.max(10, screenRadius * 0.7)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(this.symbol, screenX, screenY);
+        }
+    }
+
+    /**
+     * Lighten a hex color
+     */
+    lightenColor(hex, percent) {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = Math.min(255, (num >> 16) + amt);
+        const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
+        const B = Math.min(255, (num & 0x0000FF) + amt);
+        return `rgb(${R}, ${G}, ${B})`;
+    }
+
+    /**
+     * Get contrasting text color (black or white)
+     */
+    getContrastColor(hex) {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const r = (num >> 16) & 255;
+        const g = (num >> 8) & 255;
+        const b = num & 255;
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        return brightness > 128 ? '#000000' : '#FFFFFF';
+    }
+
+    /**
+     * Check if a point is inside this atom
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     * @param {number} scale - Current zoom scale
+     * @param {Vector2} offset - Camera offset
+     */
+    containsPoint(x, y, scale = 1, offset = { x: 0, y: 0 }) {
+        const screenX = (this.position.x + offset.x) * scale;
+        const screenY = (this.position.y + offset.y) * scale;
+        const screenRadius = this.radius * scale;
+
+        const dx = x - screenX;
+        const dy = y - screenY;
+        return (dx * dx + dy * dy) <= (screenRadius * screenRadius);
+    }
+
+    /**
+     * Serialize atom to plain object
+     */
+    serialize() {
+        return {
+            id: this.id,
+            symbol: this.symbol,
+            x: this.position.x,
+            y: this.position.y,
+            vx: this.velocity.x,
+            vy: this.velocity.y,
+            charge: this.charge,
+            moleculeId: this.moleculeId
+        };
+    }
+
+    /**
+     * Create atom from serialized data
+     */
+    static deserialize(data) {
+        const atom = new Atom(data.symbol, data.x, data.y);
+        atom.id = data.id;
+        atom.velocity = new Vector2(data.vx, data.vy);
+        atom.charge = data.charge || 0;
+        atom.moleculeId = data.moleculeId;
+        return atom;
+    }
+}
+
+// Make available globally
+window.Atom = Atom;
+
+/**
+ * Bond Entity
+ * Represents a chemical bond between two atoms
+ */
+
+class Bond {
+    /**
+     * Create a new bond
+     * @param {Atom} atom1 - First atom
+     * @param {Atom} atom2 - Second atom
+     * @param {number} order - Bond order (1=single, 2=double, 3=triple)
+     */
+    constructor(atom1, atom2, order = 1) {
+        this.id = Utils.generateId();
+        this.atom1 = atom1;
+        this.atom2 = atom2;
+        this.order = Utils.clamp(order, 1, 3);
+
+        // Visual properties
+        this.highlighted = false;
+        this.selected = false;
+
+        // Physics
+        this.restLength = this.calculateRestLength();
+        this.strength = this.calculateStrength();
+
+        // Register bond with atoms
+        atom1.addBond(this);
+        atom2.addBond(this);
+    }
+
+    /**
+     * Calculate the rest length based on atomic radii
+     */
+    calculateRestLength() {
+        const r1 = this.atom1.element.radius * 0.5;
+        const r2 = this.atom2.element.radius * 0.5;
+        // Shorter for higher bond orders
+        const orderFactor = 1 - (this.order - 1) * 0.1;
+        return (r1 + r2) * 1.5 * orderFactor;
+    }
+
+    /**
+     * Calculate bond strength based on elements
+     */
+    calculateStrength() {
+        return getBondEnergy(this.atom1.symbol, this.atom2.symbol, this.order);
+    }
+
+    /**
+     * Get the current length of the bond
+     */
+    get length() {
+        return this.atom1.position.distanceTo(this.atom2.position);
+    }
+
+    /**
+     * Get the strain on the bond (how stretched/compressed)
+     */
+    get strain() {
+        return Math.abs(this.length - this.restLength) / this.restLength;
+    }
+
+    /**
+     * Check if bond should break based on strain
+     */
+    shouldBreak() {
+        // Higher order bonds are stronger
+        const maxStrain = 0.5 + this.order * 0.2;
+        return this.strain > maxStrain;
+    }
+
+    /**
+     * Apply spring forces to maintain bond length
+     * @param {number} stiffness - Spring stiffness
+     */
+    applySpringForce(stiffness = 0.5) {
+        const delta = this.atom2.position.sub(this.atom1.position);
+        const distance = delta.length();
+
+        if (distance === 0) return;
+
+        // Spring force: F = -k * (x - rest)
+        const displacement = distance - this.restLength;
+        const forceMagnitude = stiffness * displacement * this.order;
+
+        const direction = delta.normalize();
+        const force = direction.mul(forceMagnitude);
+
+        this.atom1.applyForce(force);
+        this.atom2.applyForce(force.mul(-1));
+    }
+
+    /**
+     * Break this bond
+     */
+    break() {
+        this.atom1.removeBond(this);
+        this.atom2.removeBond(this);
+    }
+
+    /**
+     * Get the other atom in the bond
+     * @param {Atom} atom - One of the bonded atoms
+     * @returns {Atom} The other atom
+     */
+    getOther(atom) {
+        return atom === this.atom1 ? this.atom2 : this.atom1;
+    }
+
+    /**
+     * Get midpoint of the bond
+     */
+    getMidpoint() {
+        return this.atom1.position.add(this.atom2.position).div(2);
+    }
+
+    /**
+     * Render the bond
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} scale - Zoom scale
+     * @param {Vector2} offset - Camera offset
+     */
+    render(ctx, scale = 1, offset = { x: 0, y: 0 }) {
+        const x1 = (this.atom1.position.x + offset.x) * scale;
+        const y1 = (this.atom1.position.y + offset.y) * scale;
+        const x2 = (this.atom2.position.x + offset.x) * scale;
+        const y2 = (this.atom2.position.y + offset.y) * scale;
+
+        // Calculate perpendicular direction for multiple lines
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        const perpX = -dy / length;
+        const perpY = dx / length;
+
+        // Line spacing for multiple bonds
+        const spacing = 4 * scale;
+
+        // Set style
+        if (this.selected) {
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 4;
+        } else if (this.highlighted) {
+            ctx.strokeStyle = '#8b5cf6';
+            ctx.lineWidth = 3;
+        } else {
+            // Color based on strain
+            const strainColor = this.strain > 0.3
+                ? `rgba(255, ${Math.floor(255 * (1 - this.strain))}, 0, 0.8)`
+                : 'rgba(255, 255, 255, 0.6)';
+            ctx.strokeStyle = strainColor;
+            ctx.lineWidth = 2;
+        }
+
+        // Draw bond lines based on order
+        if (this.order === 1) {
+            // Single bond
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        } else if (this.order === 2) {
+            // Double bond
+            ctx.beginPath();
+            ctx.moveTo(x1 + perpX * spacing, y1 + perpY * spacing);
+            ctx.lineTo(x2 + perpX * spacing, y2 + perpY * spacing);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(x1 - perpX * spacing, y1 - perpY * spacing);
+            ctx.lineTo(x2 - perpX * spacing, y2 - perpY * spacing);
+            ctx.stroke();
+        } else if (this.order === 3) {
+            // Triple bond
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(x1 + perpX * spacing * 1.5, y1 + perpY * spacing * 1.5);
+            ctx.lineTo(x2 + perpX * spacing * 1.5, y2 + perpY * spacing * 1.5);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(x1 - perpX * spacing * 1.5, y1 - perpY * spacing * 1.5);
+            ctx.lineTo(x2 - perpX * spacing * 1.5, y2 - perpY * spacing * 1.5);
+            ctx.stroke();
+        }
+    }
+
+    /**
+     * Check if a point is near this bond
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     * @param {number} threshold - Distance threshold
+     * @param {number} scale - Current zoom scale
+     * @param {Vector2} offset - Camera offset
+     */
+    containsPoint(x, y, threshold = 5, scale = 1, offset = { x: 0, y: 0 }) {
+        const x1 = (this.atom1.position.x + offset.x) * scale;
+        const y1 = (this.atom1.position.y + offset.y) * scale;
+        const x2 = (this.atom2.position.x + offset.x) * scale;
+        const y2 = (this.atom2.position.y + offset.y) * scale;
+
+        // Point to line segment distance
+        const A = x - x1;
+        const B = y - y1;
+        const C = x2 - x1;
+        const D = y2 - y1;
+
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        let param = -1;
+
+        if (lenSq !== 0) {
+            param = dot / lenSq;
+        }
+
+        let xx, yy;
+
+        if (param < 0) {
+            xx = x1;
+            yy = y1;
+        } else if (param > 1) {
+            xx = x2;
+            yy = y2;
+        } else {
+            xx = x1 + param * C;
+            yy = y1 + param * D;
+        }
+
+        const dx = x - xx;
+        const dy = y - yy;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        return distance <= threshold;
+    }
+
+    /**
+     * Serialize bond to plain object
+     */
+    serialize() {
+        return {
+            id: this.id,
+            atom1Id: this.atom1.id,
+            atom2Id: this.atom2.id,
+            order: this.order
+        };
+    }
+
+    /**
+     * Create bond from serialized data
+     * @param {object} data - Serialized bond data
+     * @param {Map} atomMap - Map of atom IDs to Atom objects
+     */
+    static deserialize(data, atomMap) {
+        const atom1 = atomMap.get(data.atom1Id);
+        const atom2 = atomMap.get(data.atom2Id);
+
+        if (!atom1 || !atom2) {
+            throw new Error('Cannot deserialize bond: atoms not found');
+        }
+
+        const bond = new Bond(atom1, atom2, data.order);
+        bond.id = data.id;
+        return bond;
+    }
+}
+
+/**
+ * Try to form a bond between two atoms
+ * @param {Atom} atom1 - First atom
+ * @param {Atom} atom2 - Second atom
+ * @param {number} order - Desired bond order
+ * @returns {Bond|null} The created bond or null if not possible
+ */
+function tryFormBond(atom1, atom2, order = 1) {
+    if (!atom1.canBondWith(atom2, order)) {
+        return null;
+    }
+
+    return new Bond(atom1, atom2, order);
+}
+
+// Make available globally
+window.Bond = Bond;
+window.tryFormBond = tryFormBond;
+
+/**
+ * Molecule Entity
+ * A collection of bonded atoms forming a stable structure
+ */
+
+class Molecule {
+    /**
+     * Create a new molecule from a set of atoms
+     * @param {Atom[]} atoms - Array of bonded atoms
+     */
+    constructor(atoms = []) {
+        this.id = Utils.generateId();
+        this.atoms = atoms;
+        this.name = null;  // Set when catalogued
+        this.formula = null;
+
+        // Link atoms to this molecule
+        this.atoms.forEach(atom => atom.moleculeId = this.id);
+
+        // Calculate properties
+        this.updateProperties();
+
+        // State
+        this.selected = false;
+        this.highlighted = false;
+    }
+
+    /**
+     * Get all bonds in this molecule
+     */
+    get bonds() {
+        const bondSet = new Set();
+        for (const atom of this.atoms) {
+            for (const bond of atom.bonds) {
+                // Only include bonds where both atoms are in this molecule
+                if (this.atoms.includes(bond.atom1) && this.atoms.includes(bond.atom2)) {
+                    bondSet.add(bond);
+                }
+            }
+        }
+        return Array.from(bondSet);
+    }
+
+    /**
+     * Calculate center of mass
+     */
+    get centerOfMass() {
+        if (this.atoms.length === 0) return new Vector2(0, 0);
+
+        let totalMass = 0;
+        let weightedPos = new Vector2(0, 0);
+
+        for (const atom of this.atoms) {
+            totalMass += atom.mass;
+            weightedPos = weightedPos.add(atom.position.mul(atom.mass));
+        }
+
+        return weightedPos.div(totalMass);
+    }
+
+    /**
+     * Calculate total mass
+     */
+    get mass() {
+        return this.atoms.reduce((sum, atom) => sum + atom.mass, 0);
+    }
+
+    /**
+     * Update derived properties
+     */
+    updateProperties() {
+        this.formula = this.calculateFormula();
+        this.fingerprint = this.calculateFingerprint();
+    }
+
+    /**
+     * Calculate molecular formula (e.g., "H2O", "CH4")
+     */
+    calculateFormula() {
+        const counts = {};
+
+        for (const atom of this.atoms) {
+            counts[atom.symbol] = (counts[atom.symbol] || 0) + 1;
+        }
+
+        // Standard ordering: C, H, then alphabetical
+        const order = ['C', 'H'];
+        const symbols = Object.keys(counts).sort((a, b) => {
+            const ai = order.indexOf(a);
+            const bi = order.indexOf(b);
+            if (ai >= 0 && bi >= 0) return ai - bi;
+            if (ai >= 0) return -1;
+            if (bi >= 0) return 1;
+            return a.localeCompare(b);
+        });
+
+        let formula = '';
+        for (const symbol of symbols) {
+            formula += symbol;
+            if (counts[symbol] > 1) {
+                formula += counts[symbol];
+            }
+        }
+
+        return formula;
+    }
+
+    /**
+     * Calculate a fingerprint for identifying equivalent structures
+     */
+    calculateFingerprint() {
+        // Create a canonical representation
+        const atomCounts = {};
+        const bondCounts = {};
+
+        for (const atom of this.atoms) {
+            atomCounts[atom.symbol] = (atomCounts[atom.symbol] || 0) + 1;
+        }
+
+        for (const bond of this.bonds) {
+            const symbols = [bond.atom1.symbol, bond.atom2.symbol].sort();
+            const key = `${symbols[0]}-${symbols[1]}-${bond.order}`;
+            bondCounts[key] = (bondCounts[key] || 0) + 1;
+        }
+
+        return JSON.stringify({ atoms: atomCounts, bonds: bondCounts });
+    }
+
+    /**
+     * Check if molecule is stable (all valences satisfied)
+     */
+    isStable() {
+        for (const atom of this.atoms) {
+            if (atom.availableValence > 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Check if two molecules have the same structure
+     * @param {Molecule} other - Other molecule to compare
+     */
+    isEquivalentTo(other) {
+        return this.fingerprint === other.fingerprint;
+    }
+
+    /**
+     * Apply a force to the entire molecule (distributed by mass)
+     * @param {Vector2} force - Force vector
+     */
+    applyForce(force) {
+        const totalMass = this.mass;
+        for (const atom of this.atoms) {
+            const fraction = atom.mass / totalMass;
+            atom.applyForce(force.mul(fraction));
+        }
+    }
+
+    /**
+     * Update all atoms in the molecule
+     * @param {number} dt - Delta time
+     */
+    update(dt) {
+        // Apply bond spring forces
+        for (const bond of this.bonds) {
+            bond.applySpringForce(0.8);
+        }
+
+        // Update atom positions
+        for (const atom of this.atoms) {
+            atom.update(dt);
+        }
+    }
+
+    /**
+     * Render the molecule at the molecule abstraction level
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} scale - Zoom scale
+     * @param {Vector2} offset - Camera offset
+     */
+    render(ctx, scale = 1, offset = { x: 0, y: 0 }) {
+        // Draw bonds first (behind atoms)
+        for (const bond of this.bonds) {
+            bond.render(ctx, scale, offset);
+        }
+
+        // Draw atoms
+        for (const atom of this.atoms) {
+            atom.render(ctx, scale, offset);
+        }
+
+        // Draw molecule highlight/selection
+        if (this.selected || this.highlighted) {
+            this.renderBoundingBox(ctx, scale, offset);
+        }
+    }
+
+    /**
+     * Render at molecule level (simplified view)
+     */
+    renderSimplified(ctx, scale = 1, offset = { x: 0, y: 0 }) {
+        const center = this.centerOfMass;
+        const screenX = (center.x + offset.x) * scale;
+        const screenY = (center.y + offset.y) * scale;
+
+        // Calculate bounding radius
+        let maxDist = 0;
+        for (const atom of this.atoms) {
+            const dist = atom.position.distanceTo(center) + atom.radius;
+            maxDist = Math.max(maxDist, dist);
+        }
+        const screenRadius = Math.max(20, maxDist * scale);
+
+        // Draw molecule blob
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, screenRadius, 0, Math.PI * 2);
+
+        const gradient = ctx.createRadialGradient(
+            screenX - screenRadius * 0.3,
+            screenY - screenRadius * 0.3,
+            0,
+            screenX,
+            screenY,
+            screenRadius
+        );
+        gradient.addColorStop(0, 'rgba(139, 92, 246, 0.6)');
+        gradient.addColorStop(1, 'rgba(99, 102, 241, 0.3)');
+
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        if (this.selected) {
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 3;
+        } else {
+            ctx.strokeStyle = 'rgba(139, 92, 246, 0.5)';
+            ctx.lineWidth = 1;
+        }
+        ctx.stroke();
+
+        // Draw formula label
+        if (screenRadius > 15) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = `bold ${Math.max(10, screenRadius * 0.4)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(this.formula, screenX, screenY);
+        }
+    }
+
+    /**
+     * Render bounding box for selection
+     */
+    renderBoundingBox(ctx, scale, offset) {
+        const bounds = this.getBounds();
+        const padding = 10;
+
+        const x = (bounds.minX + offset.x) * scale - padding;
+        const y = (bounds.minY + offset.y) * scale - padding;
+        const w = (bounds.maxX - bounds.minX) * scale + padding * 2;
+        const h = (bounds.maxY - bounds.minY) * scale + padding * 2;
+
+        ctx.strokeStyle = this.selected ? '#6366f1' : '#8b5cf6';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(x, y, w, h);
+        ctx.setLineDash([]);
+    }
+
+    /**
+     * Get bounding box
+     */
+    getBounds() {
+        let minX = Infinity, minY = Infinity;
+        let maxX = -Infinity, maxY = -Infinity;
+
+        for (const atom of this.atoms) {
+            minX = Math.min(minX, atom.position.x - atom.radius);
+            minY = Math.min(minY, atom.position.y - atom.radius);
+            maxX = Math.max(maxX, atom.position.x + atom.radius);
+            maxY = Math.max(maxY, atom.position.y + atom.radius);
+        }
+
+        return { minX, minY, maxX, maxY };
+    }
+
+    /**
+     * Check if point is inside molecule
+     */
+    containsPoint(x, y, scale = 1, offset = { x: 0, y: 0 }) {
+        for (const atom of this.atoms) {
+            if (atom.containsPoint(x, y, scale, offset)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Serialize molecule to plain object
+     */
+    serialize() {
+        return {
+            id: this.id,
+            name: this.name,
+            formula: this.formula,
+            atoms: this.atoms.map(a => a.serialize()),
+            bonds: this.bonds.map(b => b.serialize())
+        };
+    }
+
+    /**
+     * Create molecule from serialized data
+     */
+    static deserialize(data) {
+        // Recreate atoms
+        const atomMap = new Map();
+        const atoms = data.atoms.map(atomData => {
+            const atom = Atom.deserialize(atomData);
+            atomMap.set(atom.id, atom);
+            return atom;
+        });
+
+        // Recreate bonds
+        data.bonds.forEach(bondData => {
+            Bond.deserialize(bondData, atomMap);
+        });
+
+        const molecule = new Molecule(atoms);
+        molecule.id = data.id;
+        molecule.name = data.name;
+
+        return molecule;
+    }
+}
+
+/**
+ * Find connected atom groups using BFS
+ * @param {Atom[]} atoms - Array of atoms
+ * @returns {Atom[][]} Array of connected groups
+ */
+function findConnectedGroups(atoms) {
+    const visited = new Set();
+    const groups = [];
+
+    for (const startAtom of atoms) {
+        if (visited.has(startAtom)) continue;
+
+        const group = [];
+        const queue = [startAtom];
+
+        while (queue.length > 0) {
+            const atom = queue.shift();
+            if (visited.has(atom)) continue;
+
+            visited.add(atom);
+            group.push(atom);
+
+            for (const bond of atom.bonds) {
+                const other = bond.getOther(atom);
+                if (!visited.has(other) && atoms.includes(other)) {
+                    queue.push(other);
+                }
+            }
+        }
+
+        if (group.length > 0) {
+            groups.push(group);
+        }
+    }
+
+    return groups;
+}
+
+/**
+ * Create molecules from a set of atoms
+ * @param {Atom[]} atoms - Array of atoms
+ * @returns {Molecule[]} Array of molecules
+ */
+function createMoleculesFromAtoms(atoms) {
+    const groups = findConnectedGroups(atoms);
+    return groups.map(group => new Molecule(group));
+}
+
+// Make available globally
+window.Molecule = Molecule;
+window.findConnectedGroups = findConnectedGroups;
+window.createMoleculesFromAtoms = createMoleculesFromAtoms;
+
+/**
+ * Environment
+ * The container for all simulation entities with spatial management
+ */
+
+class Environment {
+    /**
+     * Create a new environment
+     * @param {number} width - World width
+     * @param {number} height - World height
+     */
+    constructor(width = 2000, height = 2000) {
+        this.width = width;
+        this.height = height;
+
+        // Entity storage
+        this.atoms = new Map();      // id -> Atom
+        this.bonds = new Map();      // id -> Bond
+        this.molecules = new Map();  // id -> Molecule
+        this.cells = new Map();      // id -> Cell (future)
+        this.organisms = new Map();  // id -> Organism (future)
+
+        // Spatial partitioning for performance
+        this.gridSize = 100;
+        this.grid = new Map();  // "x,y" -> Set of entity ids
+
+        // Environment properties
+        this.temperature = 300;  // Kelvin
+        this.pressure = 1;       // Atmospheres
+
+        // Statistics
+        this.stats = {
+            atomCount: 0,
+            moleculeCount: 0,
+            cellCount: 0,
+            organismCount: 0
+        };
+    }
+
+    /**
+     * Add an atom to the environment
+     * @param {Atom} atom - Atom to add
+     */
+    addAtom(atom) {
+        this.atoms.set(atom.id, atom);
+        this.updateGridPosition(atom);
+        this.stats.atomCount = this.atoms.size;
+    }
+
+    /**
+     * Remove an atom from the environment
+     * @param {string} atomId - Atom ID to remove
+     */
+    removeAtom(atomId) {
+        const atom = this.atoms.get(atomId);
+        if (atom) {
+            // Remove all bonds
+            const bonds = [...atom.bonds];
+            bonds.forEach(bond => this.removeBond(bond.id));
+
+            // Remove from grid
+            this.removeFromGrid(atom);
+
+            // Remove from storage
+            this.atoms.delete(atomId);
+            this.stats.atomCount = this.atoms.size;
+        }
+    }
+
+    /**
+     * Add a bond to the environment
+     * @param {Bond} bond - Bond to add
+     */
+    addBond(bond) {
+        this.bonds.set(bond.id, bond);
+    }
+
+    /**
+     * Remove a bond from the environment
+     * @param {string} bondId - Bond ID to remove
+     */
+    removeBond(bondId) {
+        const bond = this.bonds.get(bondId);
+        if (bond) {
+            bond.break();
+            this.bonds.delete(bondId);
+        }
+    }
+
+    /**
+     * Register a molecule
+     * @param {Molecule} molecule - Molecule to register
+     */
+    addMolecule(molecule) {
+        this.molecules.set(molecule.id, molecule);
+        this.stats.moleculeCount = this.molecules.size;
+    }
+
+    /**
+     * Remove a molecule (doesn't remove atoms)
+     * @param {string} moleculeId - Molecule ID
+     */
+    removeMolecule(moleculeId) {
+        const molecule = this.molecules.get(moleculeId);
+        if (molecule) {
+            molecule.atoms.forEach(atom => atom.moleculeId = null);
+            this.molecules.delete(moleculeId);
+            this.stats.moleculeCount = this.molecules.size;
+        }
+    }
+
+    /**
+     * Update spatial grid position for an entity
+     * @param {Atom} atom - Atom to update
+     */
+    updateGridPosition(atom) {
+        // Remove from old position
+        this.removeFromGrid(atom);
+
+        // Add to new position
+        const cellX = Math.floor(atom.position.x / this.gridSize);
+        const cellY = Math.floor(atom.position.y / this.gridSize);
+        const key = `${cellX},${cellY}`;
+
+        if (!this.grid.has(key)) {
+            this.grid.set(key, new Set());
+        }
+        this.grid.get(key).add(atom.id);
+        atom._gridKey = key;
+    }
+
+    /**
+     * Remove entity from grid
+     * @param {Atom} atom - Atom to remove
+     */
+    removeFromGrid(atom) {
+        if (atom._gridKey && this.grid.has(atom._gridKey)) {
+            this.grid.get(atom._gridKey).delete(atom.id);
+        }
+    }
+
+    /**
+     * Get atoms near a position
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @param {number} radius - Search radius
+     * @returns {Atom[]}
+     */
+    getAtomsNear(x, y, radius) {
+        const results = [];
+        const radiusSq = radius * radius;
+
+        // Check surrounding grid cells
+        const minCellX = Math.floor((x - radius) / this.gridSize);
+        const maxCellX = Math.floor((x + radius) / this.gridSize);
+        const minCellY = Math.floor((y - radius) / this.gridSize);
+        const maxCellY = Math.floor((y + radius) / this.gridSize);
+
+        for (let cx = minCellX; cx <= maxCellX; cx++) {
+            for (let cy = minCellY; cy <= maxCellY; cy++) {
+                const key = `${cx},${cy}`;
+                const cell = this.grid.get(key);
+                if (!cell) continue;
+
+                for (const atomId of cell) {
+                    const atom = this.atoms.get(atomId);
+                    if (!atom) continue;
+
+                    const dx = atom.position.x - x;
+                    const dy = atom.position.y - y;
+                    if (dx * dx + dy * dy <= radiusSq) {
+                        results.push(atom);
+                    }
+                }
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Get atom at a screen position
+     * @param {number} screenX - Screen X coordinate
+     * @param {number} screenY - Screen Y coordinate
+     * @param {number} scale - Current zoom
+     * @param {Vector2} offset - Camera offset
+     */
+    getAtomAtPosition(screenX, screenY, scale, offset) {
+        for (const atom of this.atoms.values()) {
+            if (atom.containsPoint(screenX, screenY, scale, offset)) {
+                return atom;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Apply forces between nearby atoms (repulsion/attraction)
+     */
+    applyAtomicForces() {
+        const atoms = Array.from(this.atoms.values());
+        const repulsionStrength = 500;
+        const attractionRadius = 80;
+        const attractionStrength = 20;
+
+        for (let i = 0; i < atoms.length; i++) {
+            const atom1 = atoms[i];
+
+            // Get nearby atoms from grid
+            const nearby = this.getAtomsNear(
+                atom1.position.x,
+                atom1.position.y,
+                100
+            );
+
+            for (const atom2 of nearby) {
+                if (atom1 === atom2) continue;
+
+                const delta = atom1.position.sub(atom2.position);
+                const distSq = delta.lengthSquared();
+                const minDist = atom1.radius + atom2.radius;
+                const minDistSq = minDist * minDist;
+
+                if (distSq === 0) continue;
+                const dist = Math.sqrt(distSq);
+
+                // Repulsion when overlapping
+                if (distSq < minDistSq) {
+                    const overlap = minDist - dist;
+                    const force = delta.normalize().mul(repulsionStrength * overlap);
+                    atom1.applyForce(force);
+                }
+                // Slight attraction for non-bonded atoms with available valence
+                else if (dist < attractionRadius &&
+                    !atom1.isBondedTo(atom2) &&
+                    atom1.availableValence > 0 &&
+                    atom2.availableValence > 0) {
+                    const factor = 1 - dist / attractionRadius;
+                    const force = delta.normalize().mul(-attractionStrength * factor);
+                    atom1.applyForce(force);
+                }
+            }
+        }
+    }
+
+    /**
+     * Try to form bonds between nearby eligible atoms
+     */
+    tryFormBonds() {
+        const bondingRadius = 40;
+        const atoms = Array.from(this.atoms.values());
+
+        for (const atom1 of atoms) {
+            if (atom1.availableValence === 0) continue;
+
+            const nearby = this.getAtomsNear(
+                atom1.position.x,
+                atom1.position.y,
+                bondingRadius
+            );
+
+            for (const atom2 of nearby) {
+                if (atom1 === atom2) continue;
+                if (atom1.isBondedTo(atom2)) continue;
+                if (atom2.availableValence === 0) continue;
+
+                const dist = atom1.position.distanceTo(atom2.position);
+                const bondDist = (atom1.radius + atom2.radius) * 1.5;
+
+                if (dist < bondDist) {
+                    // Probability increases as atoms get closer
+                    const prob = 1 - (dist / bondDist);
+                    if (Math.random() < prob * 0.3) {
+                        const bond = tryFormBond(atom1, atom2, 1);
+                        if (bond) {
+                            this.addBond(bond);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Detect and register new molecules
+     */
+    updateMolecules() {
+        // Find atoms not in molecules
+        const freeAtoms = Array.from(this.atoms.values())
+            .filter(a => a.bonds.length > 0 && !a.moleculeId);
+
+        if (freeAtoms.length === 0) return;
+
+        const groups = findConnectedGroups(freeAtoms);
+
+        for (const group of groups) {
+            // Check if any atom is already in a molecule
+            const existingMolId = group.find(a => a.moleculeId)?.moleculeId;
+
+            if (existingMolId) {
+                // Extend existing molecule
+                const molecule = this.molecules.get(existingMolId);
+                if (molecule) {
+                    for (const atom of group) {
+                        if (!molecule.atoms.includes(atom)) {
+                            molecule.atoms.push(atom);
+                            atom.moleculeId = molecule.id;
+                        }
+                    }
+                    molecule.updateProperties();
+                }
+            } else {
+                // Create new molecule
+                const molecule = new Molecule(group);
+                this.addMolecule(molecule);
+            }
+        }
+    }
+
+    /**
+     * Apply boundary constraints
+     */
+    applyBoundaries() {
+        const padding = 50;
+        const bounceForce = 100;
+
+        for (const atom of this.atoms.values()) {
+            const pos = atom.position;
+
+            if (pos.x < padding) {
+                atom.applyForce(new Vector2(bounceForce, 0));
+            }
+            if (pos.x > this.width - padding) {
+                atom.applyForce(new Vector2(-bounceForce, 0));
+            }
+            if (pos.y < padding) {
+                atom.applyForce(new Vector2(0, bounceForce));
+            }
+            if (pos.y > this.height - padding) {
+                atom.applyForce(new Vector2(0, -bounceForce));
+            }
+        }
+    }
+
+    /**
+     * Update all entities
+     * @param {number} dt - Delta time
+     */
+    update(dt) {
+        // Apply forces
+        this.applyBoundaries();
+        this.applyAtomicForces();
+
+        // Apply bond spring forces
+        for (const bond of this.bonds.values()) {
+            bond.applySpringForce(0.6);
+        }
+
+        // Update atoms
+        for (const atom of this.atoms.values()) {
+            const oldKey = atom._gridKey;
+            atom.update(dt);
+
+            // Update grid if moved significantly
+            const newCellX = Math.floor(atom.position.x / this.gridSize);
+            const newCellY = Math.floor(atom.position.y / this.gridSize);
+            const newKey = `${newCellX},${newCellY}`;
+
+            if (oldKey !== newKey) {
+                this.updateGridPosition(atom);
+            }
+        }
+
+        // Try to form new bonds
+        this.tryFormBonds();
+
+        // Update molecule registry
+        this.updateMolecules();
+    }
+
+    /**
+     * Get all atoms as array
+     */
+    getAllAtoms() {
+        return Array.from(this.atoms.values());
+    }
+
+    /**
+     * Get all bonds as array
+     */
+    getAllBonds() {
+        return Array.from(this.bonds.values());
+    }
+
+    /**
+     * Get all molecules as array
+     */
+    getAllMolecules() {
+        return Array.from(this.molecules.values());
+    }
+
+    /**
+     * Clear the environment
+     */
+    clear() {
+        this.atoms.clear();
+        this.bonds.clear();
+        this.molecules.clear();
+        this.cells.clear();
+        this.organisms.clear();
+        this.grid.clear();
+        this.stats = {
+            atomCount: 0,
+            moleculeCount: 0,
+            cellCount: 0,
+            organismCount: 0
+        };
+    }
+
+    /**
+     * Serialize environment state
+     */
+    serialize() {
+        return {
+            width: this.width,
+            height: this.height,
+            temperature: this.temperature,
+            pressure: this.pressure,
+            atoms: Array.from(this.atoms.values()).map(a => a.serialize()),
+            bonds: Array.from(this.bonds.values()).map(b => b.serialize()),
+            molecules: Array.from(this.molecules.values()).map(m => ({
+                id: m.id,
+                name: m.name,
+                atomIds: m.atoms.map(a => a.id)
+            }))
+        };
+    }
+
+    /**
+     * Load environment from serialized data
+     */
+    deserialize(data) {
+        this.clear();
+
+        this.width = data.width;
+        this.height = data.height;
+        this.temperature = data.temperature;
+        this.pressure = data.pressure;
+
+        // Load atoms
+        const atomMap = new Map();
+        for (const atomData of data.atoms) {
+            const atom = Atom.deserialize(atomData);
+            atomMap.set(atom.id, atom);
+            this.addAtom(atom);
+        }
+
+        // Load bonds
+        for (const bondData of data.bonds) {
+            const bond = Bond.deserialize(bondData, atomMap);
+            this.addBond(bond);
+        }
+
+        // Load molecules
+        for (const molData of data.molecules) {
+            const atoms = molData.atomIds.map(id => atomMap.get(id));
+            const molecule = new Molecule(atoms);
+            molecule.id = molData.id;
+            molecule.name = molData.name;
+            this.addMolecule(molecule);
+        }
+    }
+}
+
+// Make available globally
+window.Environment = Environment;
+
+/**
+ * Simulation Engine
+ * Main loop and timing control
+ */
+
+class Simulation {
+    /**
+     * Create a new simulation
+     * @param {Environment} environment - The environment to simulate
+     */
+    constructor(environment) {
+        this.environment = environment;
+
+        // Timing
+        this.running = false;
+        this.tick = 0;
+        this.speed = 1.0;  // Simulation speed multiplier
+        this.targetFPS = 60;
+        this.actualFPS = 0;
+        this.lastTime = 0;
+        this.accumulator = 0;
+        this.fixedDt = 1 / 60;  // Fixed timestep
+
+        // Animation frame request
+        this.frameId = null;
+
+        // Callbacks
+        this.onTick = null;
+        this.onUpdate = null;
+
+        // Bound update for requestAnimationFrame
+        this._update = this._update.bind(this);
+    }
+
+    /**
+     * Start the simulation
+     */
+    start() {
+        if (this.running) return;
+
+        this.running = true;
+        this.lastTime = performance.now();
+        this.frameId = requestAnimationFrame(this._update);
+    }
+
+    /**
+     * Pause the simulation
+     */
+    pause() {
+        this.running = false;
+        if (this.frameId) {
+            cancelAnimationFrame(this.frameId);
+            this.frameId = null;
+        }
+    }
+
+    /**
+     * Toggle running state
+     */
+    toggle() {
+        if (this.running) {
+            this.pause();
+        } else {
+            this.start();
+        }
+    }
+
+    /**
+     * Advance one step
+     */
+    step() {
+        this._simulationStep(this.fixedDt);
+    }
+
+    /**
+     * Set simulation speed
+     * @param {number} speed - Speed multiplier (0.1 to 10)
+     */
+    setSpeed(speed) {
+        this.speed = Utils.clamp(speed, 0.1, 10);
+    }
+
+    /**
+     * Main update loop
+     * @param {number} currentTime - Current timestamp
+     */
+    _update(currentTime) {
+        if (!this.running) return;
+
+        // Calculate delta time
+        const deltaTime = Math.min((currentTime - this.lastTime) / 1000, 0.1);
+        this.lastTime = currentTime;
+
+        // Track FPS
+        this.actualFPS = 1 / deltaTime;
+
+        // Accumulator for fixed timestep
+        this.accumulator += deltaTime * this.speed;
+
+        // Run simulation steps
+        while (this.accumulator >= this.fixedDt) {
+            this._simulationStep(this.fixedDt);
+            this.accumulator -= this.fixedDt;
+        }
+
+        // Call update callback (for rendering)
+        if (this.onUpdate) {
+            this.onUpdate(deltaTime);
+        }
+
+        // Continue loop
+        this.frameId = requestAnimationFrame(this._update);
+    }
+
+    /**
+     * Single simulation step
+     * @param {number} dt - Fixed delta time
+     */
+    _simulationStep(dt) {
+        this.tick++;
+
+        // Update environment
+        this.environment.update(dt);
+
+        // Call tick callback
+        if (this.onTick) {
+            this.onTick(this.tick);
+        }
+    }
+
+    /**
+     * Reset simulation
+     */
+    reset() {
+        this.pause();
+        this.tick = 0;
+        this.environment.clear();
+    }
+
+    /**
+     * Get statistics
+     */
+    getStats() {
+        return {
+            tick: this.tick,
+            fps: Math.round(this.actualFPS),
+            running: this.running,
+            speed: this.speed,
+            ...this.environment.stats
+        };
+    }
+}
+
+// Make available globally
+window.Simulation = Simulation;
+
+/**
+ * Blueprint Classes
+ * Templates for spawning entities from the catalogue
+ */
+
+/**
+ * Base Blueprint class
+ */
+class Blueprint {
+    constructor(type, name) {
+        this.id = Utils.generateId();
+        this.type = type;
+        this.name = name;
+        this.createdAt = Date.now();
+        this.description = '';
+        this.tags = [];
+    }
+
+    /**
+     * Generate a preview rendering
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} x - Center X
+     * @param {number} y - Center Y
+     * @param {number} size - Preview size
+     */
+    renderPreview(ctx, x, y, size) {
+        // Override in subclasses
+        ctx.fillStyle = '#6366f1';
+        ctx.fillRect(x - size / 2, y - size / 2, size, size);
+    }
+
+    /**
+     * Serialize to plain object
+     */
+    serialize() {
+        return {
+            id: this.id,
+            type: this.type,
+            name: this.name,
+            createdAt: this.createdAt,
+            description: this.description,
+            tags: this.tags
+        };
+    }
+}
+
+/**
+ * Molecule Blueprint
+ */
+class MoleculeBlueprint extends Blueprint {
+    /**
+     * Create from an existing molecule
+     * @param {Molecule} molecule - Source molecule
+     * @param {string} name - Blueprint name
+     */
+    constructor(molecule, name = null) {
+        super('molecule', name || molecule.formula);
+
+        this.formula = molecule.formula;
+        this.fingerprint = molecule.fingerprint;
+
+        // Store relative positions from center of mass
+        const center = molecule.centerOfMass;
+        this.atomData = molecule.atoms.map((atom, index) => ({
+            index,
+            symbol: atom.symbol,
+            relX: atom.position.x - center.x,
+            relY: atom.position.y - center.y
+        }));
+
+        // Store bonds by atom indices
+        this.bondData = molecule.bonds.map(bond => ({
+            atom1Index: molecule.atoms.indexOf(bond.atom1),
+            atom2Index: molecule.atoms.indexOf(bond.atom2),
+            order: bond.order
+        }));
+
+        this.mass = molecule.mass;
+        this.isStable = molecule.isStable();
+    }
+
+    /**
+     * Instantiate this blueprint at a position
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @returns {Molecule} New molecule instance
+     */
+    instantiate(x, y) {
+        // Create atoms at relative positions
+        const atoms = this.atomData.map(data =>
+            new Atom(data.symbol, x + data.relX, y + data.relY)
+        );
+
+        // Create bonds
+        for (const bondData of this.bondData) {
+            const atom1 = atoms[bondData.atom1Index];
+            const atom2 = atoms[bondData.atom2Index];
+            new Bond(atom1, atom2, bondData.order);
+        }
+
+        // Create molecule
+        const molecule = new Molecule(atoms);
+        molecule.name = this.name;
+
+        return molecule;
+    }
+
+    /**
+     * Render preview
+     */
+    renderPreview(ctx, x, y, size) {
+        const scale = size / 100;
+
+        // Draw bonds
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 1;
+
+        for (const bondData of this.bondData) {
+            const a1 = this.atomData[bondData.atom1Index];
+            const a2 = this.atomData[bondData.atom2Index];
+
+            ctx.beginPath();
+            ctx.moveTo(x + a1.relX * scale, y + a1.relY * scale);
+            ctx.lineTo(x + a2.relX * scale, y + a2.relY * scale);
+            ctx.stroke();
+        }
+
+        // Draw atoms
+        for (const atomData of this.atomData) {
+            const element = getElement(atomData.symbol);
+            const ax = x + atomData.relX * scale;
+            const ay = y + atomData.relY * scale;
+            const radius = Math.max(4, element.radius * scale * 0.3);
+
+            ctx.beginPath();
+            ctx.arc(ax, ay, radius, 0, Math.PI * 2);
+            ctx.fillStyle = element.color;
+            ctx.fill();
+        }
+    }
+
+    serialize() {
+        return {
+            ...super.serialize(),
+            formula: this.formula,
+            fingerprint: this.fingerprint,
+            atomData: this.atomData,
+            bondData: this.bondData,
+            mass: this.mass,
+            isStable: this.isStable
+        };
+    }
+
+    static deserialize(data) {
+        const blueprint = Object.assign(
+            Object.create(MoleculeBlueprint.prototype),
+            data
+        );
+        return blueprint;
+    }
+}
+
+/**
+ * Cell Blueprint (placeholder for Phase 2)
+ */
+class CellBlueprint extends Blueprint {
+    constructor(name) {
+        super('cell', name);
+        this.molecules = [];
+        this.behavior = null;
+        this.genome = null;
+    }
+
+    instantiate(x, y) {
+        // TODO: Implement in Phase 2
+        console.warn('CellBlueprint.instantiate not yet implemented');
+        return null;
+    }
+}
+
+/**
+ * Organism Blueprint (placeholder for Phase 3)
+ */
+class OrganismBlueprint extends Blueprint {
+    constructor(name) {
+        super('organism', name);
+        this.cells = [];
+        this.genome = null;
+        this.phenotype = null;
+    }
+
+    instantiate(x, y) {
+        // TODO: Implement in Phase 3
+        console.warn('OrganismBlueprint.instantiate not yet implemented');
+        return null;
+    }
+}
+
+// Make available globally
+window.Blueprint = Blueprint;
+window.MoleculeBlueprint = MoleculeBlueprint;
+window.CellBlueprint = CellBlueprint;
+window.OrganismBlueprint = OrganismBlueprint;
+
+/**
+ * Catalogue
+ * Central storage for blueprints with IndexedDB persistence
+ */
+
+class Catalogue {
+    constructor() {
+        this.molecules = new Map();  // fingerprint -> MoleculeBlueprint
+        this.cells = new Map();      // id -> CellBlueprint
+        this.organisms = new Map();  // id -> OrganismBlueprint
+
+        // IndexedDB connection
+        this.db = null;
+        this.dbName = 'CellSimulatorCatalogue';
+        this.dbVersion = 1;
+
+        // Auto-discovery settings
+        this.autoRegisterStable = true;
+        this.knownFingerprints = new Set();
+
+        // Event callbacks
+        this.onBlueprintAdded = null;
+    }
+
+    /**
+     * Initialize IndexedDB connection
+     */
+    async init() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.dbName, this.dbVersion);
+
+            request.onerror = () => reject(request.error);
+
+            request.onsuccess = () => {
+                this.db = request.result;
+                this._loadFromDB().then(resolve);
+            };
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+
+                // Create object stores
+                if (!db.objectStoreNames.contains('molecules')) {
+                    db.createObjectStore('molecules', { keyPath: 'fingerprint' });
+                }
+                if (!db.objectStoreNames.contains('cells')) {
+                    db.createObjectStore('cells', { keyPath: 'id' });
+                }
+                if (!db.objectStoreNames.contains('organisms')) {
+                    db.createObjectStore('organisms', { keyPath: 'id' });
+                }
+            };
+        });
+    }
+
+    /**
+     * Load all blueprints from IndexedDB
+     */
+    async _loadFromDB() {
+        if (!this.db) return;
+
+        // Load molecules
+        const moleculeStore = this.db
+            .transaction('molecules', 'readonly')
+            .objectStore('molecules');
+
+        return new Promise((resolve) => {
+            const request = moleculeStore.getAll();
+
+            request.onsuccess = () => {
+                for (const data of request.result) {
+                    const blueprint = MoleculeBlueprint.deserialize(data);
+                    this.molecules.set(data.fingerprint, blueprint);
+                    this.knownFingerprints.add(data.fingerprint);
+                }
+                console.log(`Loaded ${this.molecules.size} molecule blueprints`);
+                resolve();
+            };
+
+            request.onerror = () => {
+                console.error('Failed to load molecules:', request.error);
+                resolve();
+            };
+        });
+    }
+
+    /**
+     * Save a molecule blueprint to IndexedDB
+     */
+    async _saveMolecule(blueprint) {
+        if (!this.db) return;
+
+        return new Promise((resolve) => {
+            const transaction = this.db.transaction('molecules', 'readwrite');
+            const store = transaction.objectStore('molecules');
+
+            const data = {
+                ...blueprint.serialize(),
+                fingerprint: blueprint.fingerprint
+            };
+
+            const request = store.put(data);
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => {
+                console.error('Failed to save molecule:', request.error);
+                resolve(false);
+            };
+        });
+    }
+
+    /**
+     * Register a new molecule blueprint
+     * @param {Molecule} molecule - The molecule to register
+     * @param {string} name - Optional custom name
+     * @returns {MoleculeBlueprint|null} The created blueprint or null if already exists
+     */
+    registerMolecule(molecule, name = null) {
+        if (this.hasMolecule(molecule.fingerprint)) {
+            return null;  // Already registered
+        }
+
+        const blueprint = new MoleculeBlueprint(molecule, name);
+        this.molecules.set(blueprint.fingerprint, blueprint);
+        this.knownFingerprints.add(blueprint.fingerprint);
+
+        // Persist
+        this._saveMolecule(blueprint);
+
+        // Callback
+        if (this.onBlueprintAdded) {
+            this.onBlueprintAdded(blueprint);
+        }
+
+        console.log(`Registered new molecule: ${blueprint.name}`);
+        return blueprint;
+    }
+
+    /**
+     * Check if molecule fingerprint is already registered
+     */
+    hasMolecule(fingerprint) {
+        return this.molecules.has(fingerprint);
+    }
+
+    /**
+     * Get molecule blueprint by fingerprint
+     */
+    getMolecule(fingerprint) {
+        return this.molecules.get(fingerprint) || null;
+    }
+
+    /**
+     * Get all molecule blueprints
+     */
+    getAllMolecules() {
+        return Array.from(this.molecules.values());
+    }
+
+    /**
+     * Search blueprints by name/formula
+     * @param {string} query - Search query
+     * @returns {Blueprint[]} Matching blueprints
+     */
+    search(query) {
+        const q = query.toLowerCase();
+        const results = [];
+
+        for (const blueprint of this.molecules.values()) {
+            if (blueprint.name.toLowerCase().includes(q) ||
+                blueprint.formula.toLowerCase().includes(q)) {
+                results.push(blueprint);
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Auto-discover and register stable molecules
+     * @param {Molecule[]} molecules - Molecules to check
+     */
+    autoDiscover(molecules) {
+        if (!this.autoRegisterStable) return;
+
+        for (const molecule of molecules) {
+            if (molecule.isStable() && !this.hasMolecule(molecule.fingerprint)) {
+                this.registerMolecule(molecule);
+            }
+        }
+    }
+
+    /**
+     * Instantiate a blueprint at a position
+     * @param {string} fingerprint - Blueprint fingerprint
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @returns {Molecule|null}
+     */
+    instantiateMolecule(fingerprint, x, y) {
+        const blueprint = this.molecules.get(fingerprint);
+        if (!blueprint) return null;
+
+        return blueprint.instantiate(x, y);
+    }
+
+    /**
+     * Delete a molecule blueprint
+     * @param {string} fingerprint - Blueprint fingerprint
+     */
+    async deleteMolecule(fingerprint) {
+        if (!this.molecules.has(fingerprint)) return;
+
+        this.molecules.delete(fingerprint);
+        this.knownFingerprints.delete(fingerprint);
+
+        if (this.db) {
+            const transaction = this.db.transaction('molecules', 'readwrite');
+            const store = transaction.objectStore('molecules');
+            store.delete(fingerprint);
+        }
+    }
+
+    /**
+     * Export catalogue to JSON
+     */
+    export() {
+        return JSON.stringify({
+            molecules: Array.from(this.molecules.values()).map(b => b.serialize()),
+            cells: Array.from(this.cells.values()).map(b => b.serialize()),
+            organisms: Array.from(this.organisms.values()).map(b => b.serialize())
+        }, null, 2);
+    }
+
+    /**
+     * Import catalogue from JSON
+     * @param {string} json - JSON string
+     */
+    import(json) {
+        const data = JSON.parse(json);
+
+        if (data.molecules) {
+            for (const molData of data.molecules) {
+                const blueprint = MoleculeBlueprint.deserialize(molData);
+                if (!this.molecules.has(blueprint.fingerprint)) {
+                    this.molecules.set(blueprint.fingerprint, blueprint);
+                    this.knownFingerprints.add(blueprint.fingerprint);
+                    this._saveMolecule(blueprint);
+                }
+            }
+        }
+
+        console.log(`Imported ${data.molecules?.length || 0} molecules`);
+    }
+
+    /**
+     * Clear all blueprints
+     */
+    async clear() {
+        this.molecules.clear();
+        this.cells.clear();
+        this.organisms.clear();
+        this.knownFingerprints.clear();
+
+        if (this.db) {
+            const transaction = this.db.transaction(
+                ['molecules', 'cells', 'organisms'],
+                'readwrite'
+            );
+            transaction.objectStore('molecules').clear();
+            transaction.objectStore('cells').clear();
+            transaction.objectStore('organisms').clear();
+        }
+    }
+}
+
+// Make available globally
+window.Catalogue = Catalogue;
+
+/**
+ * Viewer
+ * Multi-level renderer for the simulation
+ */
+
+// Abstraction levels
+const AbstractionLevel = {
+    ATOM: 0,
+    MOLECULE: 1,
+    CELL: 2,
+    ORGANISM: 3,
+    POPULATION: 4
+};
+
+const LEVEL_NAMES = ['Atoms', 'Molecules', 'Cells', 'Organisms', 'Populations'];
+
+class Viewer {
+    /**
+     * Create a new viewer
+     * @param {HTMLCanvasElement} canvas - Canvas element
+     * @param {Environment} environment - Environment to render
+     */
+    constructor(canvas, environment) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.environment = environment;
+
+        // Camera
+        this.camera = {
+            x: 0,
+            y: 0,
+            zoom: 1,
+            minZoom: 0.1,
+            maxZoom: 5
+        };
+
+        // Abstraction level
+        this.level = AbstractionLevel.ATOM;
+
+        // Selection
+        this.selectedAtom = null;
+        this.selectedMolecule = null;
+        this.hoveredAtom = null;
+        this.hoveredMolecule = null;
+
+        // Performance
+        this.lastRenderTime = 0;
+
+        // Grid settings
+        this.showGrid = true;
+        this.gridSpacing = 100;
+
+        // Resize handler
+        this._resizeHandler = this._handleResize.bind(this);
+        window.addEventListener('resize', this._resizeHandler);
+        this._handleResize();
+    }
+
+    /**
+     * Handle window resize
+     */
+    _handleResize() {
+        const rect = this.canvas.parentElement.getBoundingClientRect();
+        this.canvas.width = rect.width;
+        this.canvas.height = rect.height;
+    }
+
+    /**
+     * Set abstraction level
+     * @param {number} level - Level from AbstractionLevel enum
+     */
+    setLevel(level) {
+        this.level = Utils.clamp(level, 0, 4);
+        this.clearSelection();
+    }
+
+    /**
+     * Clear all selections
+     */
+    clearSelection() {
+        if (this.selectedAtom) {
+            this.selectedAtom.selected = false;
+            this.selectedAtom = null;
+        }
+        if (this.selectedMolecule) {
+            this.selectedMolecule.selected = false;
+            this.selectedMolecule = null;
+        }
+    }
+
+    /**
+     * Get camera offset
+     */
+    getOffset() {
+        return {
+            x: this.canvas.width / (2 * this.camera.zoom) - this.camera.x,
+            y: this.canvas.height / (2 * this.camera.zoom) - this.camera.y
+        };
+    }
+
+    /**
+     * Screen to world coordinates
+     * @param {number} screenX - Screen X
+     * @param {number} screenY - Screen Y
+     */
+    screenToWorld(screenX, screenY) {
+        const offset = this.getOffset();
+        return {
+            x: screenX / this.camera.zoom - offset.x,
+            y: screenY / this.camera.zoom - offset.y
+        };
+    }
+
+    /**
+     * World to screen coordinates
+     * @param {number} worldX - World X
+     * @param {number} worldY - World Y
+     */
+    worldToScreen(worldX, worldY) {
+        const offset = this.getOffset();
+        return {
+            x: (worldX + offset.x) * this.camera.zoom,
+            y: (worldY + offset.y) * this.camera.zoom
+        };
+    }
+
+    /**
+     * Pan the camera
+     * @param {number} dx - Delta X in screen space
+     * @param {number} dy - Delta Y in screen space
+     */
+    pan(dx, dy) {
+        this.camera.x -= dx / this.camera.zoom;
+        this.camera.y -= dy / this.camera.zoom;
+    }
+
+    /**
+     * Zoom the camera
+     * @param {number} delta - Zoom delta
+     * @param {number} centerX - Zoom center X (screen)
+     * @param {number} centerY - Zoom center Y (screen)
+     */
+    zoom(delta, centerX, centerY) {
+        const oldZoom = this.camera.zoom;
+        const newZoom = Utils.clamp(
+            oldZoom * (1 + delta * 0.1),
+            this.camera.minZoom,
+            this.camera.maxZoom
+        );
+
+        // Zoom towards cursor
+        const worldBefore = this.screenToWorld(centerX, centerY);
+        this.camera.zoom = newZoom;
+        const worldAfter = this.screenToWorld(centerX, centerY);
+
+        this.camera.x += worldBefore.x - worldAfter.x;
+        this.camera.y += worldBefore.y - worldAfter.y;
+    }
+
+    /**
+     * Center camera on environment
+     */
+    centerCamera() {
+        this.camera.x = this.environment.width / 2;
+        this.camera.y = this.environment.height / 2;
+    }
+
+    /**
+     * Render the simulation
+     */
+    render() {
+        const ctx = this.ctx;
+        const startTime = performance.now();
+
+        // Clear
+        ctx.fillStyle = '#0a0a0f';
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Draw based on level
+        switch (this.level) {
+            case AbstractionLevel.ATOM:
+                this._renderAtomLevel();
+                break;
+            case AbstractionLevel.MOLECULE:
+                this._renderMoleculeLevel();
+                break;
+            case AbstractionLevel.CELL:
+                this._renderCellLevel();
+                break;
+            case AbstractionLevel.ORGANISM:
+                this._renderOrganismLevel();
+                break;
+            case AbstractionLevel.POPULATION:
+                this._renderPopulationLevel();
+                break;
+        }
+
+        // Draw environment bounds
+        this._renderBounds();
+
+        // Draw grid (optional)
+        if (this.showGrid && this.camera.zoom > 0.3) {
+            this._renderGrid();
+        }
+
+        this.lastRenderTime = performance.now() - startTime;
+    }
+
+    /**
+     * Render at atom level
+     */
+    _renderAtomLevel() {
+        const scale = this.camera.zoom;
+        const offset = this.getOffset();
+
+        // Render bonds first
+        for (const bond of this.environment.getAllBonds()) {
+            bond.render(this.ctx, scale, offset);
+        }
+
+        // Render atoms
+        for (const atom of this.environment.getAllAtoms()) {
+            atom.render(this.ctx, scale, offset);
+        }
+    }
+
+    /**
+     * Render at molecule level
+     */
+    _renderMoleculeLevel() {
+        const scale = this.camera.zoom;
+        const offset = this.getOffset();
+
+        // Render molecules as simplified blobs
+        for (const molecule of this.environment.getAllMolecules()) {
+            molecule.renderSimplified(this.ctx, scale, offset);
+        }
+
+        // Render free atoms (not in molecules)
+        for (const atom of this.environment.getAllAtoms()) {
+            if (!atom.moleculeId) {
+                atom.render(this.ctx, scale, offset);
+            }
+        }
+    }
+
+    /**
+     * Render at cell level (placeholder)
+     */
+    _renderCellLevel() {
+        const ctx = this.ctx;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.font = '24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+            'Cell level - Coming in Phase 2',
+            this.canvas.width / 2,
+            this.canvas.height / 2
+        );
+
+        // Still show molecules in the background
+        this._renderMoleculeLevel();
+    }
+
+    /**
+     * Render at organism level (placeholder)
+     */
+    _renderOrganismLevel() {
+        const ctx = this.ctx;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.font = '24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+            'Organism level - Coming in Phase 3',
+            this.canvas.width / 2,
+            this.canvas.height / 2
+        );
+    }
+
+    /**
+     * Render at population level (placeholder)
+     */
+    _renderPopulationLevel() {
+        const ctx = this.ctx;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.font = '24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+            'Population level - Coming in Phase 4',
+            this.canvas.width / 2,
+            this.canvas.height / 2
+        );
+    }
+
+    /**
+     * Render environment bounds
+     */
+    _renderBounds() {
+        const ctx = this.ctx;
+        const scale = this.camera.zoom;
+        const offset = this.getOffset();
+
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(
+            offset.x * scale,
+            offset.y * scale,
+            this.environment.width * scale,
+            this.environment.height * scale
+        );
+    }
+
+    /**
+     * Render grid
+     */
+    _renderGrid() {
+        const ctx = this.ctx;
+        const scale = this.camera.zoom;
+        const offset = this.getOffset();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+
+        const startX = Math.floor(-offset.x / this.gridSpacing) * this.gridSpacing;
+        const endX = this.environment.width;
+        const startY = Math.floor(-offset.y / this.gridSpacing) * this.gridSpacing;
+        const endY = this.environment.height;
+
+        // Vertical lines
+        for (let x = startX; x <= endX; x += this.gridSpacing) {
+            const screenX = (x + offset.x) * scale;
+            ctx.beginPath();
+            ctx.moveTo(screenX, 0);
+            ctx.lineTo(screenX, this.canvas.height);
+            ctx.stroke();
+        }
+
+        // Horizontal lines
+        for (let y = startY; y <= endY; y += this.gridSpacing) {
+            const screenY = (y + offset.y) * scale;
+            ctx.beginPath();
+            ctx.moveTo(0, screenY);
+            ctx.lineTo(this.canvas.width, screenY);
+            ctx.stroke();
+        }
+    }
+
+    /**
+     * Find entity at screen position
+     * @param {number} screenX - Screen X
+     * @param {number} screenY - Screen Y
+     */
+    getEntityAt(screenX, screenY) {
+        const scale = this.camera.zoom;
+        const offset = this.getOffset();
+
+        // Check atoms
+        for (const atom of this.environment.getAllAtoms()) {
+            if (atom.containsPoint(screenX, screenY, scale, offset)) {
+                return { type: 'atom', entity: atom };
+            }
+        }
+
+        // Check molecules
+        for (const molecule of this.environment.getAllMolecules()) {
+            if (molecule.containsPoint(screenX, screenY, scale, offset)) {
+                return { type: 'molecule', entity: molecule };
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Cleanup
+     */
+    destroy() {
+        window.removeEventListener('resize', this._resizeHandler);
+    }
+}
+
+// Make available globally
+window.AbstractionLevel = AbstractionLevel;
+window.LEVEL_NAMES = LEVEL_NAMES;
+window.Viewer = Viewer;
+
+/**
+ * Controls
+ * User interaction handling
+ */
+
+class Controls {
+    /**
+     * Create controls handler
+     * @param {Viewer} viewer - The viewer instance
+     * @param {Simulation} simulation - The simulation instance
+     * @param {Catalogue} catalogue - The catalogue instance
+     */
+    constructor(viewer, simulation, catalogue) {
+        this.viewer = viewer;
+        this.simulation = simulation;
+        this.catalogue = catalogue;
+        this.environment = simulation.environment;
+
+        // Current tool
+        this.tool = 'place';  // 'select', 'place', 'delete'
+        this.selectedElement = 'C';  // Currently selected atom type for placement
+
+        // Mouse state
+        this.mouse = {
+            x: 0,
+            y: 0,
+            down: false,
+            dragging: false,
+            dragStartX: 0,
+            dragStartY: 0
+        };
+
+        // Selected blueprint for placement
+        this.selectedBlueprint = null;
+
+        // Key states
+        this.keys = new Set();
+
+        // Bind event handlers
+        this._bindEvents();
+    }
+
+    /**
+     * Bind all event listeners
+     */
+    _bindEvents() {
+        const canvas = this.viewer.canvas;
+
+        // Mouse events
+        canvas.addEventListener('mousedown', this._onMouseDown.bind(this));
+        canvas.addEventListener('mousemove', this._onMouseMove.bind(this));
+        canvas.addEventListener('mouseup', this._onMouseUp.bind(this));
+        canvas.addEventListener('wheel', this._onWheel.bind(this));
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // Keyboard events
+        document.addEventListener('keydown', this._onKeyDown.bind(this));
+        document.addEventListener('keyup', this._onKeyUp.bind(this));
+    }
+
+    /**
+     * Set current tool
+     * @param {string} tool - Tool name
+     */
+    setTool(tool) {
+        this.tool = tool;
+        this.viewer.canvas.style.cursor = this._getCursorForTool(tool);
+    }
+
+    /**
+     * Get cursor style for tool
+     */
+    _getCursorForTool(tool) {
+        switch (tool) {
+            case 'select': return 'default';
+            case 'place': return 'crosshair';
+            case 'delete': return 'not-allowed';
+            default: return 'default';
+        }
+    }
+
+    /**
+     * Set selected element for placement
+     * @param {string} symbol - Element symbol
+     */
+    setSelectedElement(symbol) {
+        this.selectedElement = symbol;
+        this.selectedBlueprint = null;
+    }
+
+    /**
+     * Set selected blueprint for placement
+     * @param {Blueprint} blueprint - Blueprint to place
+     */
+    setSelectedBlueprint(blueprint) {
+        this.selectedBlueprint = blueprint;
+    }
+
+    /**
+     * Handle mouse down
+     */
+    _onMouseDown(event) {
+        const rect = this.viewer.canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        this.mouse.down = true;
+        this.mouse.dragStartX = x;
+        this.mouse.dragStartY = y;
+
+        // Right-click or middle-click for panning
+        if (event.button === 1 || event.button === 2) {
+            this.mouse.dragging = true;
+            this.viewer.canvas.style.cursor = 'grabbing';
+            return;
+        }
+
+        // Left-click actions based on tool
+        switch (this.tool) {
+            case 'place':
+                this._handlePlace(x, y);
+                break;
+            case 'select':
+                this._handleSelect(x, y);
+                break;
+            case 'delete':
+                this._handleDelete(x, y);
+                break;
+        }
+    }
+
+    /**
+     * Handle mouse move
+     */
+    _onMouseMove(event) {
+        const rect = this.viewer.canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        this.mouse.x = x;
+        this.mouse.y = y;
+
+        // Panning
+        if (this.mouse.dragging && this.mouse.down) {
+            const dx = x - this.mouse.dragStartX;
+            const dy = y - this.mouse.dragStartY;
+
+            this.viewer.pan(-dx, -dy);
+
+            this.mouse.dragStartX = x;
+            this.mouse.dragStartY = y;
+        }
+
+        // Hover effects
+        this._updateHover(x, y);
+    }
+
+    /**
+     * Handle mouse up
+     */
+    _onMouseUp(event) {
+        this.mouse.down = false;
+        this.mouse.dragging = false;
+
+        this.viewer.canvas.style.cursor = this._getCursorForTool(this.tool);
+    }
+
+    /**
+     * Handle mouse wheel (zoom)
+     */
+    _onWheel(event) {
+        event.preventDefault();
+
+        const rect = this.viewer.canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        const delta = -Math.sign(event.deltaY);
+        this.viewer.zoom(delta, x, y);
+    }
+
+    /**
+     * Handle key down
+     */
+    _onKeyDown(event) {
+        this.keys.add(event.key);
+
+        // Number keys for abstraction level
+        if (event.key >= '1' && event.key <= '5') {
+            this.viewer.setLevel(parseInt(event.key) - 1);
+            this._updateLevelButtons();
+        }
+
+        // Space to toggle simulation
+        if (event.key === ' ') {
+            event.preventDefault();
+            this.simulation.toggle();
+            this._updatePlayButton();
+        }
+
+        // S for step
+        if (event.key === 's' || event.key === 'S') {
+            this.simulation.step();
+        }
+
+        // Delete/Backspace to delete selected
+        if (event.key === 'Delete' || event.key === 'Backspace') {
+            this._deleteSelected();
+        }
+
+        // Escape to clear selection
+        if (event.key === 'Escape') {
+            this.viewer.clearSelection();
+            this.selectedBlueprint = null;
+        }
+    }
+
+    /**
+     * Handle key up
+     */
+    _onKeyUp(event) {
+        this.keys.delete(event.key);
+    }
+
+    /**
+     * Handle place action
+     */
+    _handlePlace(screenX, screenY) {
+        const worldPos = this.viewer.screenToWorld(screenX, screenY);
+
+        // Check bounds
+        if (worldPos.x < 0 || worldPos.x > this.environment.width ||
+            worldPos.y < 0 || worldPos.y > this.environment.height) {
+            return;
+        }
+
+        if (this.selectedBlueprint) {
+            // Place blueprint
+            const molecule = this.selectedBlueprint.instantiate(worldPos.x, worldPos.y);
+            if (molecule) {
+                for (const atom of molecule.atoms) {
+                    this.environment.addAtom(atom);
+                }
+                for (const bond of molecule.bonds) {
+                    this.environment.addBond(bond);
+                }
+                this.environment.addMolecule(molecule);
+            }
+        } else {
+            // Place single atom
+            const atom = new Atom(this.selectedElement, worldPos.x, worldPos.y);
+            this.environment.addAtom(atom);
+        }
+    }
+
+    /**
+     * Handle select action
+     */
+    _handleSelect(screenX, screenY) {
+        const result = this.viewer.getEntityAt(screenX, screenY);
+
+        this.viewer.clearSelection();
+
+        if (result) {
+            if (result.type === 'atom') {
+                result.entity.selected = true;
+                this.viewer.selectedAtom = result.entity;
+            } else if (result.type === 'molecule') {
+                result.entity.selected = true;
+                this.viewer.selectedMolecule = result.entity;
+            }
+
+            this._updateInspector(result);
+        }
+    }
+
+    /**
+     * Handle delete action
+     */
+    _handleDelete(screenX, screenY) {
+        const result = this.viewer.getEntityAt(screenX, screenY);
+
+        if (result && result.type === 'atom') {
+            this.environment.removeAtom(result.entity.id);
+        }
+    }
+
+    /**
+     * Delete currently selected entity
+     */
+    _deleteSelected() {
+        if (this.viewer.selectedAtom) {
+            this.environment.removeAtom(this.viewer.selectedAtom.id);
+            this.viewer.selectedAtom = null;
+        }
+        if (this.viewer.selectedMolecule) {
+            // Delete all atoms in molecule
+            const atoms = [...this.viewer.selectedMolecule.atoms];
+            for (const atom of atoms) {
+                this.environment.removeAtom(atom.id);
+            }
+            this.environment.removeMolecule(this.viewer.selectedMolecule.id);
+            this.viewer.selectedMolecule = null;
+        }
+    }
+
+    /**
+     * Update hover effects
+     */
+    _updateHover(screenX, screenY) {
+        // Clear previous hover
+        if (this.viewer.hoveredAtom) {
+            this.viewer.hoveredAtom.highlighted = false;
+            this.viewer.hoveredAtom = null;
+        }
+        if (this.viewer.hoveredMolecule) {
+            this.viewer.hoveredMolecule.highlighted = false;
+            this.viewer.hoveredMolecule = null;
+        }
+
+        // Find new hover
+        const result = this.viewer.getEntityAt(screenX, screenY);
+
+        if (result) {
+            result.entity.highlighted = true;
+            if (result.type === 'atom') {
+                this.viewer.hoveredAtom = result.entity;
+            } else {
+                this.viewer.hoveredMolecule = result.entity;
+            }
+        }
+    }
+
+    /**
+     * Update level buttons UI
+     */
+    _updateLevelButtons() {
+        const buttons = document.querySelectorAll('.level-btn');
+        buttons.forEach((btn, i) => {
+            btn.classList.toggle('active', i === this.viewer.level);
+        });
+    }
+
+    /**
+     * Update play button UI
+     */
+    _updatePlayButton() {
+        const btn = document.getElementById('playPauseBtn');
+        if (btn) {
+            btn.textContent = this.simulation.running ? 'â¸ï¸' : 'â–¶ï¸';
+        }
+    }
+
+    /**
+     * Update inspector panel
+     */
+    _updateInspector(result) {
+        const content = document.getElementById('inspectorContent');
+        if (!content) return;
+
+        if (result.type === 'atom') {
+            const atom = result.entity;
+            content.innerHTML = `
+                <div class="inspector-item">
+                    <h3>${atom.element.name} (${atom.symbol})</h3>
+                    <p>Atomic Number: ${atom.element.number}</p>
+                    <p>Mass: ${atom.mass.toFixed(3)} u</p>
+                    <p>Valence: ${atom.bondCount}/${atom.maxBonds}</p>
+                    <p>Bonds: ${atom.bonds.length}</p>
+                    <p>Position: (${atom.position.x.toFixed(1)}, ${atom.position.y.toFixed(1)})</p>
+                    ${atom.moleculeId ? `<p>Molecule ID: ${atom.moleculeId.substring(0, 8)}...</p>` : ''}
+                </div>
+            `;
+        } else if (result.type === 'molecule') {
+            const mol = result.entity;
+            content.innerHTML = `
+                <div class="inspector-item">
+                    <h3>${mol.name || mol.formula}</h3>
+                    <p>Formula: ${mol.formula}</p>
+                    <p>Mass: ${mol.mass.toFixed(3)} u</p>
+                    <p>Atoms: ${mol.atoms.length}</p>
+                    <p>Bonds: ${mol.bonds.length}</p>
+                    <p>Stable: ${mol.isStable() ? 'Yes âœ“' : 'No'}</p>
+                    ${mol.isStable() ? '<button class="tool-btn" onclick="window.app.registerMolecule()">Add to Catalogue</button>' : ''}
+                </div>
+            `;
+        }
+    }
+}
+
+// Make available globally
+window.Controls = Controls;
+
+/**
+ * Catalogue UI
+ * User interface for the catalogue panel
+ */
+
+class CatalogueUI {
+    /**
+     * Create catalogue UI
+     * @param {Catalogue} catalogue - The catalogue instance
+     * @param {Controls} controls - The controls instance
+     */
+    constructor(catalogue, controls) {
+        this.catalogue = catalogue;
+        this.controls = controls;
+
+        // DOM elements
+        this.listContainer = document.getElementById('catalogueList');
+        this.searchInput = document.getElementById('catalogueSearch');
+
+        // Set up callbacks
+        this.catalogue.onBlueprintAdded = this._onBlueprintAdded.bind(this);
+
+        // Bind events
+        this._bindEvents();
+
+        // Initial render
+        this.render();
+    }
+
+    /**
+     * Bind event listeners
+     */
+    _bindEvents() {
+        if (this.searchInput) {
+            this.searchInput.addEventListener('input', Utils.debounce(() => {
+                this.render(this.searchInput.value);
+            }, 200));
+        }
+    }
+
+    /**
+     * Callback when new blueprint is added
+     */
+    _onBlueprintAdded(blueprint) {
+        this.render();
+    }
+
+    /**
+     * Render the catalogue list
+     * @param {string} filter - Optional search filter
+     */
+    render(filter = '') {
+        if (!this.listContainer) return;
+
+        const blueprints = filter
+            ? this.catalogue.search(filter)
+            : this.catalogue.getAllMolecules();
+
+        if (blueprints.length === 0) {
+            this.listContainer.innerHTML = `
+                <p class="empty-state">
+                    ${filter ? 'No matches found.' : 'No blueprints yet. Create stable molecules to add them!'}
+                </p>
+            `;
+            return;
+        }
+
+        // Sort by creation date (newest first)
+        blueprints.sort((a, b) => b.createdAt - a.createdAt);
+
+        this.listContainer.innerHTML = blueprints.map(bp => this._renderItem(bp)).join('');
+
+        // Bind click handlers
+        this.listContainer.querySelectorAll('.catalogue-item').forEach(item => {
+            const fingerprint = item.dataset.fingerprint;
+
+            item.addEventListener('click', () => {
+                this._selectBlueprint(fingerprint);
+            });
+
+            item.addEventListener('dblclick', () => {
+                // Place immediately at center
+                const bp = this.catalogue.getMolecule(fingerprint);
+                if (bp) {
+                    this.controls.setSelectedBlueprint(bp);
+                }
+            });
+        });
+    }
+
+    /**
+     * Render a single catalogue item
+     */
+    _renderItem(blueprint) {
+        const isSelected = this.controls.selectedBlueprint?.id === blueprint.id;
+
+        return `
+            <div class="catalogue-item ${isSelected ? 'selected' : ''}" 
+                 data-fingerprint="${blueprint.fingerprint}"
+                 title="${blueprint.name}">
+                <div class="catalogue-item-preview">
+                    <canvas class="preview-canvas" 
+                            width="40" height="40"
+                            data-fingerprint="${blueprint.fingerprint}"></canvas>
+                </div>
+                <div class="catalogue-item-info">
+                    <div class="catalogue-item-name">${blueprint.name}</div>
+                    <div class="catalogue-item-formula">${blueprint.formula}</div>
+                </div>
+                <div class="catalogue-item-status">
+                    ${blueprint.isStable ? 'âœ“' : 'âš ï¸'}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Select a blueprint for placement
+     */
+    _selectBlueprint(fingerprint) {
+        const blueprint = this.catalogue.getMolecule(fingerprint);
+        if (blueprint) {
+            this.controls.setSelectedBlueprint(blueprint);
+            this.controls.setTool('place');
+
+            // Update UI
+            document.querySelectorAll('.catalogue-item').forEach(item => {
+                item.classList.toggle('selected', item.dataset.fingerprint === fingerprint);
+            });
+
+            // Clear atom selection
+            document.querySelectorAll('.atom-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+        }
+    }
+
+    /**
+     * Render preview canvases
+     */
+    renderPreviews() {
+        const canvases = this.listContainer.querySelectorAll('.preview-canvas');
+
+        canvases.forEach(canvas => {
+            const fingerprint = canvas.dataset.fingerprint;
+            const blueprint = this.catalogue.getMolecule(fingerprint);
+
+            if (blueprint) {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                blueprint.renderPreview(ctx, canvas.width / 2, canvas.height / 2, 35);
+            }
+        });
+    }
+}
+
+// Style additions for catalogue items
+const style = document.createElement('style');
+style.textContent = `
+    .catalogue-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-subtle);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 150ms ease;
+    }
+    
+    .catalogue-item:hover {
+        border-color: var(--accent-primary);
+        transform: translateX(4px);
+    }
+    
+    .catalogue-item.selected {
+        border-color: var(--accent-primary);
+        background: rgba(99, 102, 241, 0.1);
+    }
+    
+    .catalogue-item-preview {
+        flex-shrink: 0;
+    }
+    
+    .preview-canvas {
+        display: block;
+        background: var(--bg-secondary);
+        border-radius: 4px;
+    }
+    
+    .catalogue-item-info {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .catalogue-item-name {
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .catalogue-item-formula {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+    
+    .catalogue-item-status {
+        font-size: 1rem;
+    }
+    
+    .inspector-item {
+        padding: 8px 0;
+    }
+    
+    .inspector-item h3 {
+        font-size: 1rem;
+        margin-bottom: 8px;
+        color: var(--accent-primary);
+    }
+    
+    .inspector-item p {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+    }
+`;
+document.head.appendChild(style);
+
+// Make available globally
+window.CatalogueUI = CatalogueUI;
+
+/**
+ * Main Application Entry Point
+ * Initializes and connects all components
+ */
+
+class App {
+    constructor() {
+        // Core components
+        this.environment = null;
+        this.simulation = null;
+        this.catalogue = null;
+        this.viewer = null;
+        this.controls = null;
+        this.catalogueUI = null;
+
+        // State
+        this.initialized = false;
+    }
+
+    /**
+     * Initialize the application
+     */
+    async init() {
+        console.log('ðŸ§¬ Initializing Cell Simulator...');
+
+        // Create environment
+        this.environment = new Environment(2000, 2000);
+
+        // Create simulation
+        this.simulation = new Simulation(this.environment);
+
+        // Create and initialize catalogue
+        this.catalogue = new Catalogue();
+        await this.catalogue.init();
+
+        // Create viewer
+        const canvas = document.getElementById('simCanvas');
+        this.viewer = new Viewer(canvas, this.environment);
+        this.viewer.centerCamera();
+
+        // Create controls
+        this.controls = new Controls(this.viewer, this.simulation, this.catalogue);
+
+        // Create catalogue UI
+        this.catalogueUI = new CatalogueUI(this.catalogue, this.controls);
+
+        // Set up simulation callbacks
+        this.simulation.onUpdate = () => {
+            this.viewer.render();
+            this._updateStats();
+        };
+
+        this.simulation.onTick = (tick) => {
+            // Auto-discover stable molecules every 60 ticks
+            if (tick % 60 === 0) {
+                this.catalogue.autoDiscover(this.environment.getAllMolecules());
+                this.catalogueUI.render();
+            }
+        };
+
+        // Set up UI
+        this._setupUI();
+
+        // Initial render
+        this.viewer.render();
+
+        // Add some initial atoms for demo
+        this._addDemoAtoms();
+
+        this.initialized = true;
+        console.log('âœ… Cell Simulator initialized!');
+    }
+
+    /**
+     * Set up UI event handlers
+     */
+    _setupUI() {
+        // Play/Pause button
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        playPauseBtn?.addEventListener('click', () => {
+            this.simulation.toggle();
+            playPauseBtn.textContent = this.simulation.running ? 'â¸ï¸' : 'â–¶ï¸';
+        });
+
+        // Step button
+        const stepBtn = document.getElementById('stepBtn');
+        stepBtn?.addEventListener('click', () => {
+            this.simulation.step();
+            this.viewer.render();
+            this._updateStats();
+        });
+
+        // Speed slider
+        const speedSlider = document.getElementById('speedSlider');
+        speedSlider?.addEventListener('input', (e) => {
+            const speed = e.target.value / 50;  // 0.02 to 2.0
+            this.simulation.setSpeed(speed);
+        });
+
+        // Level buttons
+        const levelButtons = document.getElementById('levelButtons');
+        levelButtons?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.level-btn');
+            if (btn) {
+                const level = parseInt(btn.dataset.level);
+                this.viewer.setLevel(level);
+
+                // Update button states
+                document.querySelectorAll('.level-btn').forEach((b, i) => {
+                    b.classList.toggle('active', i === level);
+                });
+            }
+        });
+
+        // Tool buttons
+        document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tool = btn.dataset.tool;
+                this.controls.setTool(tool);
+
+                // Update button states
+                document.querySelectorAll('.tool-btn[data-tool]').forEach(b => {
+                    b.classList.toggle('active', b.dataset.tool === tool);
+                });
+            });
+        });
+
+        // Atom palette
+        this._populateAtomPalette();
+
+        // Tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+
+                // Update tab buttons
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.toggle('active', b.dataset.tab === tab);
+                });
+
+                // Update tab content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.toggle('active', content.id === tab + 'Tab');
+                });
+            });
+        });
+    }
+
+    /**
+     * Populate the atom palette with available elements
+     */
+    _populateAtomPalette() {
+        const palette = document.getElementById('atomPalette');
+        if (!palette) return;
+
+        // Essential elements for Phase 1
+        const elements = ['H', 'C', 'N', 'O', 'P', 'S', 'Na', 'Cl'];
+
+        palette.innerHTML = elements.map(symbol => {
+            const element = getElement(symbol);
+            return `
+                <button class="atom-btn ${symbol === 'C' ? 'selected' : ''}" 
+                        data-symbol="${symbol}"
+                        style="color: ${element.color}; border-color: ${element.color}40;">
+                    <span class="symbol">${symbol}</span>
+                    <span class="number">${element.number}</span>
+                </button>
+            `;
+        }).join('');
+
+        // Add click handlers
+        palette.querySelectorAll('.atom-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const symbol = btn.dataset.symbol;
+                this.controls.setSelectedElement(symbol);
+
+                // Update selection state
+                palette.querySelectorAll('.atom-btn').forEach(b => {
+                    b.classList.toggle('selected', b.dataset.symbol === symbol);
+                });
+
+                // Clear blueprint selection
+                this.controls.selectedBlueprint = null;
+            });
+        });
+    }
+
+    /**
+     * Update statistics display
+     */
+    _updateStats() {
+        const stats = this.simulation.getStats();
+
+        document.getElementById('atomCount').textContent = `Atoms: ${stats.atomCount}`;
+        document.getElementById('moleculeCount').textContent = `Molecules: ${stats.moleculeCount}`;
+        document.getElementById('cellCount').textContent = `Cells: ${stats.cellCount}`;
+        document.getElementById('organismCount').textContent = `Organisms: ${stats.organismCount}`;
+        document.getElementById('tickCounter').textContent = `Tick: ${stats.tick}`;
+        document.getElementById('fpsCounter').textContent = `FPS: ${stats.fps}`;
+    }
+
+    /**
+     * Add demo atoms for testing
+     */
+    _addDemoAtoms() {
+        const centerX = this.environment.width / 2;
+        const centerY = this.environment.height / 2;
+
+        // Create a water molecule (H2O) manually
+        const oxygen = new Atom('O', centerX, centerY);
+        const hydrogen1 = new Atom('H', centerX - 30, centerY - 20);
+        const hydrogen2 = new Atom('H', centerX + 30, centerY - 20);
+
+        this.environment.addAtom(oxygen);
+        this.environment.addAtom(hydrogen1);
+        this.environment.addAtom(hydrogen2);
+
+        // Create bonds
+        const bond1 = new Bond(oxygen, hydrogen1, 1);
+        const bond2 = new Bond(oxygen, hydrogen2, 1);
+
+        this.environment.addBond(bond1);
+        this.environment.addBond(bond2);
+
+        // Add some free atoms
+        for (let i = 0; i < 10; i++) {
+            const symbol = Utils.randomChoice(['C', 'H', 'O', 'N']);
+            const x = centerX + Utils.random(-200, 200);
+            const y = centerY + Utils.random(-200, 200);
+            const atom = new Atom(symbol, x, y);
+            this.environment.addAtom(atom);
+        }
+
+        // Update molecules
+        this.environment.updateMolecules();
+    }
+
+    /**
+     * Register currently selected molecule to catalogue
+     */
+    registerMolecule() {
+        if (this.viewer.selectedMolecule && this.viewer.selectedMolecule.isStable()) {
+            const name = prompt('Enter a name for this molecule:', this.viewer.selectedMolecule.formula);
+            if (name) {
+                this.catalogue.registerMolecule(this.viewer.selectedMolecule, name);
+                this.catalogueUI.render();
+            }
+        }
+    }
+
+    /**
+     * Export simulation state
+     */
+    exportState() {
+        const state = {
+            environment: this.environment.serialize(),
+            catalogue: this.catalogue.export()
+        };
+
+        const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'cell-simulator-state.json';
+        a.click();
+
+        URL.revokeObjectURL(url);
+    }
+
+    /**
+     * Import simulation state
+     */
+    importState(json) {
+        try {
+            const state = JSON.parse(json);
+
+            if (state.environment) {
+                this.environment.deserialize(state.environment);
+            }
+            if (state.catalogue) {
+                this.catalogue.import(state.catalogue);
+            }
+
+            this.viewer.render();
+            this._updateStats();
+            this.catalogueUI.render();
+
+            console.log('State imported successfully');
+        } catch (e) {
+            console.error('Failed to import state:', e);
+        }
+    }
+}
+
+// Create global app instance
+window.app = new App();
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    window.app.init().catch(console.error);
+});
+

@@ -1,0 +1,277 @@
+/**
+ * Catalogue
+ * Central storage for blueprints with IndexedDB persistence
+ */
+
+class Catalogue {
+    constructor() {
+        this.molecules = new Map();  // fingerprint -> MoleculeBlueprint
+        this.cells = new Map();      // id -> CellBlueprint
+        this.organisms = new Map();  // id -> OrganismBlueprint
+
+        // IndexedDB connection
+        this.db = null;
+        this.dbName = 'CellSimulatorCatalogue';
+        this.dbVersion = 1;
+
+        // Auto-discovery settings
+        this.autoRegisterStable = true;
+        this.knownFingerprints = new Set();
+
+        // Event callbacks
+        this.onBlueprintAdded = null;
+    }
+
+    /**
+     * Initialize IndexedDB connection
+     */
+    async init() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.dbName, this.dbVersion);
+
+            request.onerror = () => reject(request.error);
+
+            request.onsuccess = () => {
+                this.db = request.result;
+                this._loadFromDB().then(resolve);
+            };
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+
+                // Create object stores
+                if (!db.objectStoreNames.contains('molecules')) {
+                    db.createObjectStore('molecules', { keyPath: 'fingerprint' });
+                }
+                if (!db.objectStoreNames.contains('cells')) {
+                    db.createObjectStore('cells', { keyPath: 'id' });
+                }
+                if (!db.objectStoreNames.contains('organisms')) {
+                    db.createObjectStore('organisms', { keyPath: 'id' });
+                }
+            };
+        });
+    }
+
+    /**
+     * Load all blueprints from IndexedDB
+     */
+    async _loadFromDB() {
+        if (!this.db) return;
+
+        // Load molecules
+        const moleculeStore = this.db
+            .transaction('molecules', 'readonly')
+            .objectStore('molecules');
+
+        return new Promise((resolve) => {
+            const request = moleculeStore.getAll();
+
+            request.onsuccess = () => {
+                for (const data of request.result) {
+                    const blueprint = MoleculeBlueprint.deserialize(data);
+                    this.molecules.set(data.fingerprint, blueprint);
+                    this.knownFingerprints.add(data.fingerprint);
+                }
+                console.log(`Loaded ${this.molecules.size} molecule blueprints`);
+                resolve();
+            };
+
+            request.onerror = () => {
+                console.error('Failed to load molecules:', request.error);
+                resolve();
+            };
+        });
+    }
+
+    /**
+     * Save a molecule blueprint to IndexedDB
+     */
+    async _saveMolecule(blueprint) {
+        if (!this.db) return;
+
+        return new Promise((resolve) => {
+            const transaction = this.db.transaction('molecules', 'readwrite');
+            const store = transaction.objectStore('molecules');
+
+            const data = {
+                ...blueprint.serialize(),
+                fingerprint: blueprint.fingerprint
+            };
+
+            const request = store.put(data);
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => {
+                console.error('Failed to save molecule:', request.error);
+                resolve(false);
+            };
+        });
+    }
+
+    /**
+     * Register a new molecule blueprint
+     * @param {Molecule} molecule - The molecule to register
+     * @param {string} name - Optional custom name
+     * @returns {MoleculeBlueprint|null} The created blueprint or null if already exists
+     */
+    registerMolecule(molecule, name = null) {
+        if (this.hasMolecule(molecule.fingerprint)) {
+            return null;  // Already registered
+        }
+
+        const blueprint = new MoleculeBlueprint(molecule, name);
+        this.molecules.set(blueprint.fingerprint, blueprint);
+        this.knownFingerprints.add(blueprint.fingerprint);
+
+        // Persist
+        this._saveMolecule(blueprint);
+
+        // Callback
+        if (this.onBlueprintAdded) {
+            this.onBlueprintAdded(blueprint);
+        }
+
+        console.log(`Registered new molecule: ${blueprint.name}`);
+        return blueprint;
+    }
+
+    /**
+     * Check if molecule fingerprint is already registered
+     */
+    hasMolecule(fingerprint) {
+        return this.molecules.has(fingerprint);
+    }
+
+    /**
+     * Get molecule blueprint by fingerprint
+     */
+    getMolecule(fingerprint) {
+        return this.molecules.get(fingerprint) || null;
+    }
+
+    /**
+     * Get all molecule blueprints
+     */
+    getAllMolecules() {
+        return Array.from(this.molecules.values());
+    }
+
+    /**
+     * Search blueprints by name/formula
+     * @param {string} query - Search query
+     * @returns {Blueprint[]} Matching blueprints
+     */
+    search(query) {
+        const q = query.toLowerCase();
+        const results = [];
+
+        for (const blueprint of this.molecules.values()) {
+            if (blueprint.name.toLowerCase().includes(q) ||
+                blueprint.formula.toLowerCase().includes(q)) {
+                results.push(blueprint);
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Auto-discover and register stable molecules
+     * @param {Molecule[]} molecules - Molecules to check
+     */
+    autoDiscover(molecules) {
+        if (!this.autoRegisterStable) return;
+
+        for (const molecule of molecules) {
+            if (molecule.isStable() && !this.hasMolecule(molecule.fingerprint)) {
+                this.registerMolecule(molecule);
+            }
+        }
+    }
+
+    /**
+     * Instantiate a blueprint at a position
+     * @param {string} fingerprint - Blueprint fingerprint
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @returns {Molecule|null}
+     */
+    instantiateMolecule(fingerprint, x, y) {
+        const blueprint = this.molecules.get(fingerprint);
+        if (!blueprint) return null;
+
+        return blueprint.instantiate(x, y);
+    }
+
+    /**
+     * Delete a molecule blueprint
+     * @param {string} fingerprint - Blueprint fingerprint
+     */
+    async deleteMolecule(fingerprint) {
+        if (!this.molecules.has(fingerprint)) return;
+
+        this.molecules.delete(fingerprint);
+        this.knownFingerprints.delete(fingerprint);
+
+        if (this.db) {
+            const transaction = this.db.transaction('molecules', 'readwrite');
+            const store = transaction.objectStore('molecules');
+            store.delete(fingerprint);
+        }
+    }
+
+    /**
+     * Export catalogue to JSON
+     */
+    export() {
+        return JSON.stringify({
+            molecules: Array.from(this.molecules.values()).map(b => b.serialize()),
+            cells: Array.from(this.cells.values()).map(b => b.serialize()),
+            organisms: Array.from(this.organisms.values()).map(b => b.serialize())
+        }, null, 2);
+    }
+
+    /**
+     * Import catalogue from JSON
+     * @param {string} json - JSON string
+     */
+    import(json) {
+        const data = JSON.parse(json);
+
+        if (data.molecules) {
+            for (const molData of data.molecules) {
+                const blueprint = MoleculeBlueprint.deserialize(molData);
+                if (!this.molecules.has(blueprint.fingerprint)) {
+                    this.molecules.set(blueprint.fingerprint, blueprint);
+                    this.knownFingerprints.add(blueprint.fingerprint);
+                    this._saveMolecule(blueprint);
+                }
+            }
+        }
+
+        console.log(`Imported ${data.molecules?.length || 0} molecules`);
+    }
+
+    /**
+     * Clear all blueprints
+     */
+    async clear() {
+        this.molecules.clear();
+        this.cells.clear();
+        this.organisms.clear();
+        this.knownFingerprints.clear();
+
+        if (this.db) {
+            const transaction = this.db.transaction(
+                ['molecules', 'cells', 'organisms'],
+                'readwrite'
+            );
+            transaction.objectStore('molecules').clear();
+            transaction.objectStore('cells').clear();
+            transaction.objectStore('organisms').clear();
+        }
+    }
+}
+
+// Make available globally
+window.Catalogue = Catalogue;

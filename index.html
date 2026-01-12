@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cell Simulator - Multi-Level Life Simulation</title>
+    <meta name="description" content="A hierarchical life simulation from atoms to social organisms">
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="logo">🧬 Cell Simulator</h1>
+            <div class="level-indicator">
+                <span class="level-label">Abstraction Level:</span>
+                <div class="level-buttons" id="levelButtons">
+                    <button class="level-btn active" data-level="0" title="Atoms">⚛️</button>
+                    <button class="level-btn" data-level="1" title="Molecules">🔗</button>
+                    <button class="level-btn" data-level="2" title="Cells">🦠</button>
+                    <button class="level-btn" data-level="3" title="Organisms">🐛</button>
+                    <button class="level-btn" data-level="4" title="Populations">👥</button>
+                </div>
+            </div>
+            <div class="sim-controls">
+                <button id="playPauseBtn" class="control-btn" title="Play/Pause">▶️</button>
+                <button id="stepBtn" class="control-btn" title="Step">⏭️</button>
+                <input type="range" id="speedSlider" min="1" max="100" value="50" title="Simulation Speed">
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Left Panel - Tools -->
+            <aside class="panel left-panel">
+                <h2 class="panel-title">Tools</h2>
+                <div class="tool-section">
+                    <h3>Place Atoms</h3>
+                    <div class="atom-palette" id="atomPalette">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+                <div class="tool-section">
+                    <h3>Actions</h3>
+                    <button class="tool-btn" id="selectTool" data-tool="select">🔍 Select</button>
+                    <button class="tool-btn active" id="placeTool" data-tool="place">➕ Place</button>
+                    <button class="tool-btn" id="deleteTool" data-tool="delete">🗑️ Delete</button>
+                </div>
+            </aside>
+
+            <!-- Canvas Area -->
+            <div class="canvas-container">
+                <canvas id="simCanvas"></canvas>
+                <div class="canvas-overlay" id="canvasOverlay">
+                    <div class="info-popup" id="infoPopup" style="display: none;">
+                        <div class="popup-content" id="popupContent"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Catalogue & Info -->
+            <aside class="panel right-panel">
+                <div class="panel-tabs">
+                    <button class="tab-btn active" data-tab="catalogue">Catalogue</button>
+                    <button class="tab-btn" data-tab="inspector">Inspector</button>
+                </div>
+                
+                <div class="tab-content active" id="catalogueTab">
+                    <div class="search-box">
+                        <input type="text" id="catalogueSearch" placeholder="Search blueprints...">
+                    </div>
+                    <div class="catalogue-list" id="catalogueList">
+                        <p class="empty-state">No blueprints yet. Create stable molecules to add them!</p>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="inspectorTab">
+                    <div class="inspector-content" id="inspectorContent">
+                        <p class="empty-state">Click on an entity to inspect it.</p>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Status Bar -->
+        <footer class="status-bar">
+            <span id="atomCount">Atoms: 0</span>
+            <span id="moleculeCount">Molecules: 0</span>
+            <span id="cellCount">Cells: 0</span>
+            <span id="organismCount">Organisms: 0</span>
+            <span id="tickCounter">Tick: 0</span>
+            <span id="fpsCounter">FPS: 0</span>
+        </footer>
+    </div>
+
+    <!-- Scripts (order matters) -->
+    <script src="src/core/utils.js"></script>
+    <script src="src/data/periodic-table.js"></script>
+    <script src="src/entities/atom.js"></script>
+    <script src="src/entities/bond.js"></script>
+    <script src="src/entities/molecule.js"></script>
+    <script src="src/core/environment.js"></script>
+    <script src="src/core/simulation.js"></script>
+    <script src="src/catalogue/blueprint.js"></script>
+    <script src="src/catalogue/catalogue.js"></script>
+    <script src="src/viewer/viewer.js"></script>
+    <script src="src/viewer/controls.js"></script>
+    <script src="src/viewer/catalogue-ui.js"></script>
+    <script src="src/main.js"></script>
+</body>
+</html>
