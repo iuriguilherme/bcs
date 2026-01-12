@@ -1199,6 +1199,25 @@ class Molecule {
     }
 
     /**
+     * Check if molecule can participate in polymer formation
+     * Molecules with 3+ atoms that are at least 50% stable can polymerize
+     */
+    canPolymerize() {
+        if (this.atoms.length < 3) return false;
+
+        // Calculate stability ratio
+        let totalValence = 0;
+        let usedValence = 0;
+        for (const atom of this.atoms) {
+            totalValence += atom.maxValence || 4;
+            usedValence += (atom.maxValence || 4) - (atom.availableValence || 0);
+        }
+
+        const stabilityRatio = usedValence / totalValence;
+        return stabilityRatio >= 0.5; // At least 50% of bonds are satisfied
+    }
+
+    /**
      * Check if two molecules have the same structure
      * @param {Molecule} other - Other molecule to compare
      */
@@ -1471,28 +1490,65 @@ window.findConnectedGroups = findConnectedGroups;
 window.createMoleculesFromAtoms = createMoleculesFromAtoms;
 
 /**
- * Protein
+ * Polymer / Biomolecule
  * Chains of molecules with functional properties
  * Level 3 in the abstraction hierarchy
+ * 
+ * Polymer Types:
+ * - LIPID: Fatty acid chains (membranes)
+ * - CARBOHYDRATE: Sugar chains (energy)
+ * - PROTEIN: Amino acid chains (structure/enzymes)
+ * - NUCLEIC_ACID: Nucleotide chains (DNA/RNA)
  */
 
-class Protein {
+// Polymer type constants
+const PolymerType = {
+    GENERIC: 'generic',
+    LIPID: 'lipid',
+    CARBOHYDRATE: 'carbohydrate',
+    PROTEIN: 'protein',
+    NUCLEIC_ACID: 'nucleic_acid'
+};
+
+// Type colors for visualization
+const PolymerColors = {
+    generic: { primary: '#8b5cf6', secondary: '#a78bfa' },     // Purple
+    lipid: { primary: '#eab308', secondary: '#fde047' },       // Yellow/Gold
+    carbohydrate: { primary: '#22c55e', secondary: '#86efac' }, // Green
+    protein: { primary: '#3b82f6', secondary: '#93c5fd' },     // Blue
+    nucleic_acid: { primary: '#ef4444', secondary: '#fca5a5' }  // Red
+};
+
+// Type labels for display
+const PolymerLabels = {
+    generic: 'Polymer',
+    lipid: 'Lipid',
+    carbohydrate: 'Carbohydrate',
+    protein: 'Protein',
+    nucleic_acid: 'Nucleic Acid'
+};
+
+class Polymer {
     /**
-     * Create a protein from molecules
+     * Create a polymer from molecules
      * @param {Molecule[]} molecules - Array of molecules forming the chain
-     * @param {string} name - Optional name for this protein
+     * @param {string} type - Polymer type (from PolymerType)
+     * @param {string} name - Optional name for this polymer
      */
-    constructor(molecules = [], name = null) {
+    constructor(molecules = [], type = null, name = null) {
         this.id = Utils.generateId();
         this.molecules = molecules;
         this.name = name;
 
-        // Link molecules to this protein
+        // Auto-detect type if not specified
+        this.type = type || this._detectType();
+
+        // Link molecules to this polymer
         for (const mol of molecules) {
-            mol.proteinId = this.id;
+            mol.proteinId = this.id;  // Using proteinId for backward compatibility
         }
 
-        // Protein properties
+        // Polymer properties
         this.activeSites = [];  // Functional regions
         this.folded = false;
         this.foldPattern = null;  // 2D shape after folding
@@ -1503,6 +1559,66 @@ class Protein {
 
         // Calculate derived properties
         this._updateProperties();
+    }
+
+    /**
+     * Detect polymer type based on molecule composition
+     */
+    _detectType() {
+        if (this.molecules.length === 0) return PolymerType.GENERIC;
+
+        // Count elements across all molecules
+        const elementCounts = { C: 0, H: 0, O: 0, N: 0, P: 0, S: 0 };
+        let totalAtoms = 0;
+
+        for (const mol of this.molecules) {
+            for (const atom of mol.atoms) {
+                const symbol = atom.symbol;
+                if (elementCounts[symbol] !== undefined) {
+                    elementCounts[symbol]++;
+                }
+                totalAtoms++;
+            }
+        }
+
+        // Calculate ratios
+        const C = elementCounts.C || 0;
+        const H = elementCounts.H || 0;
+        const O = elementCounts.O || 0;
+        const N = elementCounts.N || 0;
+        const P = elementCounts.P || 0;
+
+        // Classification heuristics
+
+        // Nucleic Acid: Has phosphorus and nitrogen (DNA/RNA backbone)
+        if (P > 0 && N > 0) {
+            return PolymerType.NUCLEIC_ACID;
+        }
+
+        // Protein/Amino Acid: Has nitrogen but no phosphorus
+        if (N > 0 && P === 0) {
+            return PolymerType.PROTEIN;
+        }
+
+        // Carbohydrate: C:H:O ratio approximately 1:2:1
+        if (C > 0 && H > 0 && O > 0 && N === 0 && P === 0) {
+            const hToC = H / C;
+            const oToC = O / C;
+            if (hToC >= 1.5 && hToC <= 2.5 && oToC >= 0.5 && oToC <= 1.5) {
+                return PolymerType.CARBOHYDRATE;
+            }
+        }
+
+        // Lipid: High C:H ratio, low O, no N (fatty acids)
+        if (C > 0 && H > 0 && N === 0 && P === 0) {
+            const hToC = H / C;
+            const oToC = O / (C || 1);
+            if (hToC >= 1.8 && oToC < 0.5) {
+                return PolymerType.LIPID;
+            }
+        }
+
+        return PolymerType.GENERIC;
     }
 
     /**
@@ -1520,11 +1636,26 @@ class Protein {
     }
 
     /**
-     * Generate unique fingerprint for this protein
+     * Generate unique fingerprint for this polymer
      */
     _generateFingerprint() {
+        const typePrefix = this.type.toUpperCase().substring(0, 3);
         const parts = this.molecules.map(m => m.fingerprint).sort();
-        return `PROT:${parts.join('|')}`;
+        return `${typePrefix}:${parts.join('|')}`;
+    }
+
+    /**
+     * Get the display color for this polymer's type
+     */
+    getColor() {
+        return PolymerColors[this.type] || PolymerColors.generic;
+    }
+
+    /**
+     * Get the display label for this polymer's type
+     */
+    getLabel() {
+        return PolymerLabels[this.type] || 'Polymer';
     }
 
     /**
@@ -1535,6 +1666,8 @@ class Protein {
         molecule.proteinId = this.id;
         this.molecules.push(molecule);
         this._updateProperties();
+        // Re-detect type with new molecule
+        this.type = this._detectType();
     }
 
     /**
@@ -1551,53 +1684,46 @@ class Protein {
     }
 
     /**
-     * Define an active site on this protein
+     * Define an active site on this polymer
      * @param {object} site - Active site definition
      */
     addActiveSite(site) {
         this.activeSites.push({
             id: Utils.generateId(),
-            moleculeIndices: site.moleculeIndices || [],  // Which molecules form this site
-            type: site.type || 'catalytic',  // 'catalytic', 'binding', 'regulatory'
-            specificity: site.specificity || [],  // What molecules it can interact with
+            moleculeIndices: site.moleculeIndices || [],
+            type: site.type || 'catalytic',
+            specificity: site.specificity || [],
             strength: site.strength || 1.0
         });
     }
 
     /**
-     * Fold the protein into a 2D shape
-     * In this simplified model, folding arranges molecules in a compact pattern
+     * Fold the polymer into a 2D shape
      */
     fold() {
         if (this.molecules.length < 2) return;
 
         this.folded = true;
-
-        // Simple folding: arrange molecules in a spiral pattern
         const center = this.getCenter();
         const numMols = this.molecules.length;
-        const spacing = 50;  // Distance between molecules
+        const spacing = 50;
 
         this.foldPattern = [];
 
         for (let i = 0; i < numMols; i++) {
-            // Spiral layout
-            const angle = i * 0.8;  // Angle increment
+            const angle = i * 0.8;
             const radius = spacing * (1 + i * 0.3);
-
-            const offsetX = Math.cos(angle) * radius;
-            const offsetY = Math.sin(angle) * radius;
 
             this.foldPattern.push({
                 moleculeId: this.molecules[i].id,
-                relativeX: offsetX,
-                relativeY: offsetY
+                relativeX: Math.cos(angle) * radius,
+                relativeY: Math.sin(angle) * radius
             });
         }
     }
 
     /**
-     * Unfold the protein (linearize)
+     * Unfold the polymer (linearize)
      */
     unfold() {
         this.folded = false;
@@ -1605,7 +1731,7 @@ class Protein {
     }
 
     /**
-     * Get the center position of the protein
+     * Get the center position of the polymer
      */
     getCenter() {
         if (this.molecules.length === 0) {
@@ -1626,8 +1752,7 @@ class Protein {
     }
 
     /**
-     * Check if the protein is stable
-     * A protein is stable if it has multiple molecules and all are stable
+     * Check if the polymer is stable
      */
     isStable() {
         if (this.molecules.length < 2) return false;
@@ -1635,16 +1760,14 @@ class Protein {
     }
 
     /**
-     * Check if this protein can catalyze a reaction with given molecules
-     * @param {Molecule[]} substrates - Molecules to check
+     * Check if this polymer can catalyze a reaction
      */
     canCatalyze(substrates) {
         for (const site of this.activeSites) {
             if (site.type === 'catalytic') {
-                // Check if substrates match specificity
                 const matches = substrates.filter(s =>
                     site.specificity.includes(s.formula) ||
-                    site.specificity.includes('*')  // Wildcard
+                    site.specificity.includes('*')
                 );
                 if (matches.length > 0) return true;
             }
@@ -1653,11 +1776,9 @@ class Protein {
     }
 
     /**
-     * Apply forces to maintain protein structure
-     * @param {number} dt - Delta time
+     * Apply forces to maintain structure
      */
     applyForces(dt) {
-        // Keep molecules together as a chain
         for (let i = 0; i < this.molecules.length - 1; i++) {
             const mol1 = this.molecules[i];
             const mol2 = this.molecules[i + 1];
@@ -1669,7 +1790,7 @@ class Protein {
             const dy = center2.y - center1.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
-            const targetDist = 80;  // Desired distance between molecules
+            const targetDist = 80;
             const stiffness = 0.05;
 
             if (dist > 0) {
@@ -1677,7 +1798,6 @@ class Protein {
                 const fx = (dx / dist) * forceMag;
                 const fy = (dy / dist) * forceMag;
 
-                // Apply to all atoms in each molecule
                 for (const atom of mol1.atoms) {
                     atom.velocity.x += fx * dt;
                     atom.velocity.y += fy * dt;
@@ -1691,8 +1811,7 @@ class Protein {
     }
 
     /**
-     * Update all molecules in this protein
-     * @param {number} dt - Delta time
+     * Update all molecules
      */
     update(dt) {
         this.applyForces(dt);
@@ -1702,37 +1821,33 @@ class Protein {
     }
 
     /**
-     * Render the protein
-     * @param {CanvasRenderingContext2D} ctx 
-     * @param {number} level - Abstraction level
-     * @param {object} camera - Camera transform
+     * Render the polymer
      */
     render(ctx, level, camera) {
         if (this.molecules.length === 0) return;
 
+        const colors = this.getColor();
+
         if (level <= 1) {
-            // At atom/molecule level, just render molecules with connections
-            this._renderChainConnections(ctx, camera);
+            this._renderChainConnections(ctx, camera, colors);
             for (const mol of this.molecules) {
                 mol.render(ctx, level, camera);
             }
         } else if (level === 2) {
-            // Protein level - show as connected blobs
-            this._renderAsProtein(ctx, camera);
+            this._renderAsPolymer(ctx, camera, colors);
         } else {
-            // Higher levels - simplified blob
-            this._renderAsBlob(ctx, camera);
+            this._renderAsBlob(ctx, camera, colors);
         }
     }
 
     /**
      * Render chain connections between molecules
      */
-    _renderChainConnections(ctx, camera) {
+    _renderChainConnections(ctx, camera, colors) {
         if (this.molecules.length < 2) return;
 
         ctx.save();
-        ctx.strokeStyle = this.selected ? '#f59e0b' : '#8b5cf6';
+        ctx.strokeStyle = this.selected ? '#f59e0b' : colors.primary;
         ctx.lineWidth = 3 / camera.zoom;
         ctx.setLineDash([5, 5]);
 
@@ -1741,13 +1856,8 @@ class Protein {
             const center1 = this.molecules[i].getCenter();
             const center2 = this.molecules[i + 1].getCenter();
 
-            const x1 = (center1.x - camera.x) * camera.zoom;
-            const y1 = (center1.y - camera.y) * camera.zoom;
-            const x2 = (center2.x - camera.x) * camera.zoom;
-            const y2 = (center2.y - camera.y) * camera.zoom;
-
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
+            ctx.moveTo((center1.x - camera.x) * camera.zoom, (center1.y - camera.y) * camera.zoom);
+            ctx.lineTo((center2.x - camera.x) * camera.zoom, (center2.y - camera.y) * camera.zoom);
         }
         ctx.stroke();
         ctx.setLineDash([]);
@@ -1755,18 +1865,17 @@ class Protein {
     }
 
     /**
-     * Render as a protein structure
+     * Render as polymer structure
      */
-    _renderAsProtein(ctx, camera) {
+    _renderAsPolymer(ctx, camera, colors) {
         const center = this.getCenter();
         const screenX = (center.x - camera.x) * camera.zoom;
         const screenY = (center.y - camera.y) * camera.zoom;
 
-        // Draw molecule chain as connected circles
         ctx.save();
 
         // Draw connections
-        ctx.strokeStyle = '#8b5cf6';
+        ctx.strokeStyle = colors.primary;
         ctx.lineWidth = 4 / camera.zoom;
         ctx.beginPath();
 
@@ -1787,57 +1896,38 @@ class Protein {
 
             ctx.beginPath();
             ctx.arc(mx, my, radius, 0, Math.PI * 2);
-            ctx.fillStyle = this.highlighted ? 'rgba(139, 92, 246, 0.6)' : 'rgba(139, 92, 246, 0.4)';
+            ctx.fillStyle = this.highlighted ? colors.secondary + 'aa' : colors.primary + '66';
             ctx.fill();
-            ctx.strokeStyle = this.selected ? '#f59e0b' : '#8b5cf6';
+            ctx.strokeStyle = this.selected ? '#f59e0b' : colors.primary;
             ctx.stroke();
         }
 
-        // Draw active sites
-        for (const site of this.activeSites) {
-            for (const idx of site.moleculeIndices) {
-                if (idx < this.molecules.length) {
-                    const mol = this.molecules[idx];
-                    const mc = mol.getCenter();
-                    const mx = (mc.x - camera.x) * camera.zoom;
-                    const my = (mc.y - camera.y) * camera.zoom;
-
-                    // Star marker for active site
-                    ctx.fillStyle = '#10b981';
-                    ctx.beginPath();
-                    ctx.arc(mx, my - 25 * camera.zoom, 5 * camera.zoom, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-        }
-
-        // Draw name/sequence
+        // Draw label with type
+        const label = this.name || `${this.getLabel()} (${this.molecules.length})`;
         ctx.fillStyle = '#e8e8f0';
         ctx.font = `${12 * camera.zoom}px sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText(this.name || `Protein (${this.molecules.length})`, screenX, screenY + 40 * camera.zoom);
+        ctx.fillText(label, screenX, screenY + 40 * camera.zoom);
 
         ctx.restore();
     }
 
     /**
-     * Render as simplified blob for higher levels
+     * Render as simplified blob
      */
-    _renderAsBlob(ctx, camera) {
+    _renderAsBlob(ctx, camera, colors) {
         const center = this.getCenter();
         const screenX = (center.x - camera.x) * camera.zoom;
         const screenY = (center.y - camera.y) * camera.zoom;
-
-        // Calculate size based on molecule count
         const radius = (15 + this.molecules.length * 5) * camera.zoom;
 
         ctx.save();
 
         // Outer glow
         const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, radius);
-        gradient.addColorStop(0, 'rgba(139, 92, 246, 0.8)');
-        gradient.addColorStop(0.7, 'rgba(139, 92, 246, 0.3)');
-        gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+        gradient.addColorStop(0, colors.primary + 'cc');
+        gradient.addColorStop(0.7, colors.primary + '4d');
+        gradient.addColorStop(1, colors.primary + '00');
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -1845,7 +1935,7 @@ class Protein {
         ctx.fill();
 
         // Core
-        ctx.fillStyle = this.highlighted ? '#a78bfa' : '#8b5cf6';
+        ctx.fillStyle = this.highlighted ? colors.secondary : colors.primary;
         ctx.beginPath();
         ctx.arc(screenX, screenY, radius * 0.6, 0, Math.PI * 2);
         ctx.fill();
@@ -1860,12 +1950,13 @@ class Protein {
     }
 
     /**
-     * Serialize protein for storage
+     * Serialize polymer for storage
      */
     serialize() {
         return {
             id: this.id,
             name: this.name,
+            type: this.type,
             moleculeIds: this.molecules.map(m => m.id),
             activeSites: this.activeSites,
             folded: this.folded,
@@ -1874,7 +1965,7 @@ class Protein {
     }
 
     /**
-     * Get all atoms in this protein
+     * Get all atoms in this polymer
      */
     getAllAtoms() {
         const atoms = [];
@@ -1885,7 +1976,7 @@ class Protein {
     }
 
     /**
-     * Get all bonds in this protein
+     * Get all bonds in this polymer
      */
     getAllBonds() {
         const bonds = [];
@@ -1897,13 +1988,13 @@ class Protein {
 }
 
 /**
- * Create proteins from nearby molecules
+ * Create polymers from nearby molecules
  * @param {Molecule[]} molecules - All molecules
- * @param {number} maxDistance - Max distance for molecules to form a protein
- * @returns {Protein[]} New proteins found
+ * @param {number} maxDistance - Max distance for molecules to form a polymer
+ * @returns {Polymer[]} New polymers found
  */
-function findPotentialProteins(molecules, maxDistance = 100) {
-    const proteins = [];
+function findPotentialPolymers(molecules, maxDistance = 100) {
+    const polymers = [];
     const assigned = new Set();
 
     for (const mol of molecules) {
@@ -1941,18 +2032,832 @@ function findPotentialProteins(molecules, maxDistance = 100) {
             }
         }
 
-        // Only create protein if we have a chain of 2+ molecules
+        // Only create polymer if we have a chain of 2+ molecules
         if (chain.length >= 2) {
-            proteins.push(new Protein(chain));
+            polymers.push(new Polymer(chain));
         }
     }
 
-    return proteins;
+    return polymers;
+}
+
+// Backward compatibility aliases
+const Protein = Polymer;
+const findPotentialProteins = findPotentialPolymers;
+
+// Make available globally
+window.PolymerType = PolymerType;
+window.PolymerColors = PolymerColors;
+window.PolymerLabels = PolymerLabels;
+window.Polymer = Polymer;
+window.Protein = Protein;  // Backward compatibility
+window.findPotentialPolymers = findPotentialPolymers;
+window.findPotentialProteins = findPotentialProteins;  // Backward compatibility
+
+/**
+ * Neural Network
+ * Lightweight feed-forward neural network for cell behavior
+ * No external dependencies
+ */
+
+class NeuralNetwork {
+    /**
+     * Create a neural network
+     * @param {number[]} layers - Layer sizes, e.g., [4, 8, 4] for 4 inputs, 8 hidden, 4 outputs
+     * @param {string} activation - Activation function: 'sigmoid', 'relu', 'tanh'
+     */
+    constructor(layers, activation = 'sigmoid') {
+        this.layers = layers;
+        this.activation = activation;
+
+        // Initialize weights and biases
+        this.weights = [];
+        this.biases = [];
+
+        for (let i = 0; i < layers.length - 1; i++) {
+            // Weight matrix from layer i to layer i+1
+            const weightMatrix = this._createMatrix(layers[i + 1], layers[i]);
+            this._randomizeMatrix(weightMatrix);
+            this.weights.push(weightMatrix);
+
+            // Bias vector for layer i+1
+            const biasVector = new Array(layers[i + 1]).fill(0).map(() => (Math.random() - 0.5) * 0.5);
+            this.biases.push(biasVector);
+        }
+    }
+
+    /**
+     * Create a matrix (2D array)
+     */
+    _createMatrix(rows, cols) {
+        return Array.from({ length: rows }, () => new Array(cols).fill(0));
+    }
+
+    /**
+     * Randomize matrix values (Xavier initialization)
+     */
+    _randomizeMatrix(matrix) {
+        const rows = matrix.length;
+        const cols = matrix[0].length;
+        const scale = Math.sqrt(2 / (rows + cols));
+
+        for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
+                matrix[i][j] = (Math.random() - 0.5) * 2 * scale;
+            }
+        }
+    }
+
+    /**
+     * Activation function
+     */
+    _activate(x) {
+        switch (this.activation) {
+            case 'sigmoid':
+                return 1 / (1 + Math.exp(-x));
+            case 'relu':
+                return Math.max(0, x);
+            case 'tanh':
+                return Math.tanh(x);
+            default:
+                return 1 / (1 + Math.exp(-x));
+        }
+    }
+
+    /**
+     * Forward propagation
+     * @param {number[]} inputs - Input values
+     * @returns {number[]} Output values
+     */
+    forward(inputs) {
+        if (inputs.length !== this.layers[0]) {
+            throw new Error(`Expected ${this.layers[0]} inputs, got ${inputs.length}`);
+        }
+
+        let current = inputs.slice();
+
+        for (let i = 0; i < this.weights.length; i++) {
+            const weights = this.weights[i];
+            const biases = this.biases[i];
+            const next = [];
+
+            for (let j = 0; j < weights.length; j++) {
+                let sum = biases[j];
+                for (let k = 0; k < current.length; k++) {
+                    sum += weights[j][k] * current[k];
+                }
+                next.push(this._activate(sum));
+            }
+
+            current = next;
+        }
+
+        return current;
+    }
+
+    /**
+     * Get all weights as a flat array
+     * @returns {number[]} Flattened weights and biases
+     */
+    getWeights() {
+        const flat = [];
+
+        for (let i = 0; i < this.weights.length; i++) {
+            const weights = this.weights[i];
+            for (let j = 0; j < weights.length; j++) {
+                for (let k = 0; k < weights[j].length; k++) {
+                    flat.push(weights[j][k]);
+                }
+            }
+            for (let j = 0; j < this.biases[i].length; j++) {
+                flat.push(this.biases[i][j]);
+            }
+        }
+
+        return flat;
+    }
+
+    /**
+     * Set all weights from a flat array
+     * @param {number[]} flat - Flattened weights and biases
+     */
+    setWeights(flat) {
+        let index = 0;
+
+        for (let i = 0; i < this.weights.length; i++) {
+            const weights = this.weights[i];
+            for (let j = 0; j < weights.length; j++) {
+                for (let k = 0; k < weights[j].length; k++) {
+                    weights[j][k] = flat[index++];
+                }
+            }
+            for (let j = 0; j < this.biases[i].length; j++) {
+                this.biases[i][j] = flat[index++];
+            }
+        }
+    }
+
+    /**
+     * Get total number of weights
+     */
+    getWeightCount() {
+        let count = 0;
+        for (let i = 0; i < this.layers.length - 1; i++) {
+            count += this.layers[i] * this.layers[i + 1]; // weights
+            count += this.layers[i + 1]; // biases
+        }
+        return count;
+    }
+
+    /**
+     * Mutate weights randomly
+     * @param {number} rate - Mutation rate (0-1), probability of each weight being mutated
+     * @param {number} strength - Mutation strength, max change amount
+     */
+    mutate(rate = 0.1, strength = 0.5) {
+        for (let i = 0; i < this.weights.length; i++) {
+            const weights = this.weights[i];
+            for (let j = 0; j < weights.length; j++) {
+                for (let k = 0; k < weights[j].length; k++) {
+                    if (Math.random() < rate) {
+                        weights[j][k] += (Math.random() - 0.5) * 2 * strength;
+                    }
+                }
+            }
+            for (let j = 0; j < this.biases[i].length; j++) {
+                if (Math.random() < rate) {
+                    this.biases[i][j] += (Math.random() - 0.5) * 2 * strength;
+                }
+            }
+        }
+    }
+
+    /**
+     * Create a copy of this neural network
+     * @returns {NeuralNetwork} Cloned network
+     */
+    clone() {
+        const clone = new NeuralNetwork(this.layers.slice(), this.activation);
+        clone.setWeights(this.getWeights());
+        return clone;
+    }
+
+    /**
+     * Serialize to JSON-compatible object
+     */
+    serialize() {
+        return {
+            layers: this.layers,
+            activation: this.activation,
+            weights: this.getWeights()
+        };
+    }
+
+    /**
+     * Create from serialized data
+     * @param {object} data - Serialized network data
+     * @returns {NeuralNetwork}
+     */
+    static deserialize(data) {
+        const nn = new NeuralNetwork(data.layers, data.activation);
+        nn.setWeights(data.weights);
+        return nn;
+    }
+
+    /**
+     * Create a random neural network with random topology
+     * @param {number} inputs - Number of inputs
+     * @param {number} outputs - Number of outputs
+     * @param {number} hiddenLayers - Number of hidden layers (0-3)
+     * @param {number} hiddenSize - Size of hidden layers
+     * @returns {NeuralNetwork}
+     */
+    static random(inputs, outputs, hiddenLayers = 1, hiddenSize = 8) {
+        const layers = [inputs];
+        for (let i = 0; i < hiddenLayers; i++) {
+            layers.push(hiddenSize);
+        }
+        layers.push(outputs);
+
+        return new NeuralNetwork(layers);
+    }
 }
 
 // Make available globally
-window.Protein = Protein;
-window.findPotentialProteins = findPotentialProteins;
+window.NeuralNetwork = NeuralNetwork;
+
+/**
+ * Cell Memory
+ * Simple key-value memory with decay for cell learning
+ */
+
+class CellMemory {
+    constructor() {
+        this.memories = new Map();
+        this.decayRate = 0.01; // Per tick decay
+        this.maxMemories = 20;
+    }
+
+    /**
+     * Store a memory
+     * @param {string} key - Memory key
+     * @param {*} value - Memory value
+     * @param {number} strength - Initial strength (0-1)
+     */
+    store(key, value, strength = 1.0) {
+        this.memories.set(key, {
+            value,
+            strength,
+            timestamp: Date.now()
+        });
+
+        // Limit memory count
+        if (this.memories.size > this.maxMemories) {
+            this._pruneWeakest();
+        }
+    }
+
+    /**
+     * Retrieve a memory
+     * @param {string} key - Memory key
+     * @returns {*} Memory value or null
+     */
+    recall(key) {
+        const memory = this.memories.get(key);
+        if (!memory) return null;
+
+        // Strengthen on recall
+        memory.strength = Math.min(1, memory.strength + 0.1);
+
+        return memory.value;
+    }
+
+    /**
+     * Check if memory exists and is strong enough
+     * @param {string} key - Memory key
+     * @param {number} threshold - Minimum strength threshold
+     */
+    has(key, threshold = 0.1) {
+        const memory = this.memories.get(key);
+        return memory && memory.strength >= threshold;
+    }
+
+    /**
+     * Get memory strength
+     * @param {string} key - Memory key
+     */
+    getStrength(key) {
+        const memory = this.memories.get(key);
+        return memory ? memory.strength : 0;
+    }
+
+    /**
+     * Update memories (decay over time)
+     */
+    update() {
+        for (const [key, memory] of this.memories) {
+            memory.strength -= this.decayRate;
+
+            if (memory.strength <= 0) {
+                this.memories.delete(key);
+            }
+        }
+    }
+
+    /**
+     * Remove weakest memories
+     */
+    _pruneWeakest() {
+        const sorted = Array.from(this.memories.entries())
+            .sort((a, b) => a[1].strength - b[1].strength);
+
+        // Remove weakest half
+        const removeCount = Math.floor(sorted.length / 2);
+        for (let i = 0; i < removeCount; i++) {
+            this.memories.delete(sorted[i][0]);
+        }
+    }
+
+    /**
+     * Get all memories as array
+     */
+    getAll() {
+        return Array.from(this.memories.entries()).map(([key, mem]) => ({
+            key,
+            value: mem.value,
+            strength: mem.strength
+        }));
+    }
+
+    /**
+     * Clear all memories
+     */
+    clear() {
+        this.memories.clear();
+    }
+
+    /**
+     * Serialize memory
+     */
+    serialize() {
+        return Array.from(this.memories.entries()).map(([key, mem]) => ({
+            key,
+            value: mem.value,
+            strength: mem.strength
+        }));
+    }
+
+    /**
+     * Deserialize memory
+     */
+    static deserialize(data) {
+        const memory = new CellMemory();
+        for (const item of data) {
+            memory.store(item.key, item.value, item.strength);
+        }
+        return memory;
+    }
+}
+
+// Make available globally
+window.CellMemory = CellMemory;
+
+/**
+ * Cell
+ * Living unit with neural network-based behavior
+ */
+
+class Cell {
+    /**
+     * Create a cell
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @param {NeuralNetwork} brain - Neural network for behavior (optional)
+     */
+    constructor(x, y, brain = null) {
+        this.id = Utils.generateId();
+        this.position = new Vector2(x, y);
+        this.velocity = new Vector2(0, 0);
+
+        // Physical properties
+        this.radius = 30;
+        this.mass = 1;
+        this.maxSpeed = 2;
+
+        // Energy and metabolism
+        this.energy = 100;
+        this.maxEnergy = 100;
+        this.metabolismRate = 0.1; // Energy consumed per tick
+        this.movementCost = 0.05; // Extra energy per movement
+
+        // Neural network brain
+        // Inputs: [energy, food_dist, food_angle, threat_dist, threat_angle, random]
+        // Outputs: [move_forward, turn, eat, reproduce]
+        this.brain = brain || new NeuralNetwork([6, 12, 8, 4], 'tanh');
+
+        // Sensor data (updated each tick)
+        this.sensorData = {
+            nearestFood: null,
+            nearestThreat: null,
+            energyLevel: 1
+        };
+
+        // State
+        this.age = 0;
+        this.generation = 0;
+        this.isAlive = true;
+        this.reproductionCooldown = 0;
+        this.reproductionCost = 50;
+        this.minReproductionEnergy = 70;
+
+        // Visual properties
+        this.color = this._generateColor();
+        this.hue = Math.random() * 360;
+
+        // Memory (for learning behaviors)
+        this.memory = new CellMemory();
+
+        // Component molecules (optional detail)
+        this.molecules = [];
+    }
+
+    /**
+     * Generate a color based on neural network weights
+     */
+    _generateColor() {
+        const weights = this.brain.getWeights();
+        const sum = weights.slice(0, 10).reduce((a, b) => a + Math.abs(b), 0);
+        const hue = (sum * 50) % 360;
+        return `hsl(${hue}, 70%, 50%)`;
+    }
+
+    /**
+     * Update sensors based on environment
+     * @param {Environment} environment
+     */
+    updateSensors(environment) {
+        this.sensorData.energyLevel = this.energy / this.maxEnergy;
+
+        // Find nearest food (free molecules with energy value)
+        let nearestFoodDist = Infinity;
+        let nearestFood = null;
+
+        for (const molecule of environment.getAllMolecules()) {
+            if (molecule.isStable && molecule.isStable()) {
+                const dist = this.position.distanceTo(molecule.centerOfMass);
+                if (dist < nearestFoodDist && dist < 200) {
+                    nearestFoodDist = dist;
+                    nearestFood = molecule;
+                }
+            }
+        }
+
+        this.sensorData.nearestFood = nearestFood;
+        this.sensorData.nearestFoodDist = nearestFoodDist === Infinity ? 200 : nearestFoodDist;
+
+        // Calculate angle to food
+        if (nearestFood) {
+            const dx = nearestFood.centerOfMass.x - this.position.x;
+            const dy = nearestFood.centerOfMass.y - this.position.y;
+            this.sensorData.nearestFoodAngle = Math.atan2(dy, dx);
+        } else {
+            this.sensorData.nearestFoodAngle = 0;
+        }
+
+        // Find nearest threat (other cells with more energy)
+        let nearestThreatDist = Infinity;
+        let nearestThreat = null;
+
+        if (environment.cells) {
+            for (const cell of environment.cells.values()) {
+                if (cell.id !== this.id && cell.isAlive) {
+                    const dist = this.position.distanceTo(cell.position);
+                    if (dist < nearestThreatDist && dist < 200 && cell.energy > this.energy * 1.2) {
+                        nearestThreatDist = dist;
+                        nearestThreat = cell;
+                    }
+                }
+            }
+        }
+
+        this.sensorData.nearestThreat = nearestThreat;
+        this.sensorData.nearestThreatDist = nearestThreatDist === Infinity ? 200 : nearestThreatDist;
+
+        // Calculate angle to threat
+        if (nearestThreat) {
+            const dx = nearestThreat.position.x - this.position.x;
+            const dy = nearestThreat.position.y - this.position.y;
+            this.sensorData.nearestThreatAngle = Math.atan2(dy, dx);
+        } else {
+            this.sensorData.nearestThreatAngle = 0;
+        }
+    }
+
+    /**
+     * Process brain and get actions
+     * @returns {object} Actions to take
+     */
+    think() {
+        // Prepare inputs (normalized 0-1 or -1 to 1)
+        const inputs = [
+            this.sensorData.energyLevel,
+            1 - (this.sensorData.nearestFoodDist / 200), // Closer = higher
+            this.sensorData.nearestFoodAngle / Math.PI, // -1 to 1
+            1 - (this.sensorData.nearestThreatDist / 200),
+            this.sensorData.nearestThreatAngle / Math.PI,
+            Math.random() * 2 - 1 // Random input for exploration
+        ];
+
+        // Get outputs from brain
+        const outputs = this.brain.forward(inputs);
+
+        return {
+            moveForward: outputs[0], // -1 to 1
+            turn: outputs[1],        // -1 to 1
+            eat: outputs[2] > 0.5,   // boolean
+            reproduce: outputs[3] > 0.7 // boolean (higher threshold)
+        };
+    }
+
+    /**
+     * Update cell state
+     * @param {Environment} environment
+     */
+    update(environment) {
+        if (!this.isAlive) return;
+
+        this.age++;
+        this.reproductionCooldown = Math.max(0, this.reproductionCooldown - 1);
+
+        // Update sensors
+        this.updateSensors(environment);
+
+        // Think and get actions
+        const actions = this.think();
+
+        // Apply movement
+        this._applyMovement(actions, environment);
+
+        // Try to eat
+        if (actions.eat) {
+            this._tryEat(environment);
+        }
+
+        // Try to reproduce
+        if (actions.reproduce && this.canReproduce()) {
+            this._reproduce(environment);
+        }
+
+        // Metabolism
+        this.energy -= this.metabolismRate;
+
+        // Check death
+        if (this.energy <= 0) {
+            this.die(environment);
+        }
+
+        // Update visual color based on energy
+        this._updateColor();
+    }
+
+    /**
+     * Apply movement based on actions
+     */
+    _applyMovement(actions, environment) {
+        // Calculate movement direction
+        const currentAngle = Math.atan2(this.velocity.y, this.velocity.x);
+        const turnAmount = actions.turn * 0.1; // Max turn rate
+        const newAngle = currentAngle + turnAmount;
+
+        // Apply forward movement
+        const speed = actions.moveForward * this.maxSpeed;
+        const dx = Math.cos(newAngle) * speed;
+        const dy = Math.sin(newAngle) * speed;
+
+        this.velocity.x = dx;
+        this.velocity.y = dy;
+
+        // Update position
+        this.position.x += this.velocity.x;
+        this.position.y += this.velocity.y;
+
+        // Boundary collision
+        const padding = this.radius;
+        if (this.position.x < padding) {
+            this.position.x = padding;
+            this.velocity.x *= -0.5;
+        }
+        if (this.position.x > environment.width - padding) {
+            this.position.x = environment.width - padding;
+            this.velocity.x *= -0.5;
+        }
+        if (this.position.y < padding) {
+            this.position.y = padding;
+            this.velocity.y *= -0.5;
+        }
+        if (this.position.y > environment.height - padding) {
+            this.position.y = environment.height - padding;
+            this.velocity.y *= -0.5;
+        }
+
+        // Movement costs energy
+        const moveSpeed = Math.sqrt(dx * dx + dy * dy);
+        this.energy -= moveSpeed * this.movementCost;
+    }
+
+    /**
+     * Try to eat nearby food
+     */
+    _tryEat(environment) {
+        const food = this.sensorData.nearestFood;
+        if (!food) return;
+
+        const dist = this.position.distanceTo(food.centerOfMass);
+        if (dist < this.radius + 20) {
+            // Consume the molecule for energy
+            const energyGain = food.atoms.length * 5;
+            this.energy = Math.min(this.maxEnergy, this.energy + energyGain);
+
+            // Remove the molecule from environment
+            for (const atom of food.atoms) {
+                environment.removeAtom(atom.id);
+            }
+            environment.removeMolecule(food.id);
+
+            // Store in memory
+            this.memory.store('lastMeal', Date.now());
+        }
+    }
+
+    /**
+     * Check if can reproduce
+     */
+    canReproduce() {
+        return this.energy >= this.minReproductionEnergy &&
+            this.reproductionCooldown === 0 &&
+            this.age > 100;
+    }
+
+    /**
+     * Reproduce - create offspring
+     */
+    _reproduce(environment) {
+        if (!this.canReproduce()) return null;
+
+        // Energy cost
+        this.energy -= this.reproductionCost;
+        this.reproductionCooldown = 200;
+
+        // Create offspring with mutated brain
+        const offspringX = this.position.x + (Math.random() - 0.5) * 50;
+        const offspringY = this.position.y + (Math.random() - 0.5) * 50;
+
+        const offspringBrain = this.brain.clone();
+        offspringBrain.mutate(0.1, 0.3); // 10% mutation rate, 0.3 strength
+
+        const offspring = new Cell(offspringX, offspringY, offspringBrain);
+        offspring.generation = this.generation + 1;
+        offspring.energy = 40; // Start with some energy
+
+        // Add to environment
+        if (environment.addCell) {
+            environment.addCell(offspring);
+        }
+
+        return offspring;
+    }
+
+    /**
+     * Cell death
+     */
+    die(environment) {
+        this.isAlive = false;
+
+        // Could spawn molecules as remains
+        // For now, just mark as dead
+    }
+
+    /**
+     * Update color based on energy level
+     */
+    _updateColor() {
+        const energyRatio = this.energy / this.maxEnergy;
+        const saturation = 50 + energyRatio * 30;
+        const lightness = 30 + energyRatio * 30;
+        this.color = `hsl(${this.hue}, ${saturation}%, ${lightness}%)`;
+    }
+
+    /**
+     * Check if point is inside cell
+     */
+    containsPoint(x, y, scale = 1, offset = { x: 0, y: 0 }) {
+        const screenX = (this.position.x + offset.x) * scale;
+        const screenY = (this.position.y + offset.y) * scale;
+        const screenRadius = this.radius * scale;
+
+        const dx = x - screenX;
+        const dy = y - screenY;
+
+        return dx * dx + dy * dy <= screenRadius * screenRadius;
+    }
+
+    /**
+     * Render the cell
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {number} scale
+     * @param {object} offset
+     * @param {boolean} detailed - Show internal details
+     */
+    render(ctx, scale = 1, offset = { x: 0, y: 0 }, detailed = false) {
+        if (!this.isAlive) return;
+
+        const screenX = (this.position.x + offset.x) * scale;
+        const screenY = (this.position.y + offset.y) * scale;
+        const screenRadius = this.radius * scale;
+
+        // Cell membrane
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, screenRadius, 0, Math.PI * 2);
+
+        // Fill with gradient based on energy
+        const gradient = ctx.createRadialGradient(
+            screenX, screenY, 0,
+            screenX, screenY, screenRadius
+        );
+        gradient.addColorStop(0, this.color);
+        gradient.addColorStop(1, `hsla(${this.hue}, 60%, 30%, 0.8)`);
+
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Membrane outline
+        ctx.strokeStyle = `hsla(${this.hue}, 80%, 60%, 0.9)`;
+        ctx.lineWidth = 2 * scale;
+        ctx.stroke();
+
+        // Energy bar
+        const barWidth = screenRadius * 1.5;
+        const barHeight = 4 * scale;
+        const barX = screenX - barWidth / 2;
+        const barY = screenY - screenRadius - 10 * scale;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+
+        const energyRatio = Math.max(0, this.energy / this.maxEnergy);
+        ctx.fillStyle = energyRatio > 0.5 ? '#4ade80' : (energyRatio > 0.2 ? '#fbbf24' : '#ef4444');
+        ctx.fillRect(barX, barY, barWidth * energyRatio, barHeight);
+
+        // Detailed view - show nucleus and internal structures
+        if (detailed) {
+            // Nucleus
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, screenRadius * 0.3, 0, Math.PI * 2);
+            ctx.fillStyle = `hsla(${this.hue}, 50%, 40%, 0.7)`;
+            ctx.fill();
+
+            // Generation text
+            ctx.fillStyle = 'white';
+            ctx.font = `${10 * scale}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.fillText(`G${this.generation}`, screenX, screenY + 4 * scale);
+        }
+    }
+
+    /**
+     * Serialize cell data
+     */
+    serialize() {
+        return {
+            id: this.id,
+            x: this.position.x,
+            y: this.position.y,
+            energy: this.energy,
+            age: this.age,
+            generation: this.generation,
+            brain: this.brain.serialize(),
+            hue: this.hue
+        };
+    }
+
+    /**
+     * Deserialize cell data
+     */
+    static deserialize(data) {
+        const brain = NeuralNetwork.deserialize(data.brain);
+        const cell = new Cell(data.x, data.y, brain);
+        cell.id = data.id;
+        cell.energy = data.energy;
+        cell.age = data.age;
+        cell.generation = data.generation;
+        cell.hue = data.hue;
+        cell._updateColor();
+        return cell;
+    }
+}
+
+// Make available globally
+window.Cell = Cell;
 
 /**
  * Environment
@@ -2086,6 +2991,76 @@ class Environment {
             protein.molecules.forEach(mol => mol.proteinId = null);
             this.proteins.delete(proteinId);
             this.stats.proteinCount = this.proteins.size;
+        }
+    }
+
+    /**
+     * Add a cell to the environment
+     * @param {Cell} cell - Cell to add
+     */
+    addCell(cell) {
+        this.cells.set(cell.id, cell);
+        this.stats.cellCount = this.cells.size;
+    }
+
+    /**
+     * Remove a cell from the environment
+     * @param {string} cellId - Cell ID to remove
+     */
+    removeCell(cellId) {
+        this.cells.delete(cellId);
+        this.stats.cellCount = this.cells.size;
+    }
+
+    /**
+     * Get all cells as array
+     */
+    getAllCells() {
+        return Array.from(this.cells.values());
+    }
+
+    /**
+     * Update all cells
+     */
+    updateCells() {
+        for (const cell of this.cells.values()) {
+            if (cell.isAlive) {
+                cell.update(this);
+            }
+        }
+
+        // Remove dead cells
+        for (const [id, cell] of this.cells) {
+            if (!cell.isAlive) {
+                this.cells.delete(id);
+            }
+        }
+
+        this.stats.cellCount = this.cells.size;
+    }
+
+    /**
+     * Detect and register new polymers from nearby molecules
+     */
+    updatePolymers() {
+        // Only check occasionally for performance
+        if (!this._polymerCheckTick) this._polymerCheckTick = 0;
+        this._polymerCheckTick++;
+        if (this._polymerCheckTick % 30 !== 0) return;
+
+        // Get molecules that can polymerize (either stable or canPolymerize)
+        const freeMolecules = this.getAllMolecules().filter(m =>
+            !m.proteinId && (m.isStable() || (m.canPolymerize && m.canPolymerize()))
+        );
+
+        if (freeMolecules.length < 2) return;
+
+        // Find potential polymer chains
+        const newPolymers = findPotentialPolymers(freeMolecules, 120);
+
+        // Register new polymers
+        for (const polymer of newPolymers) {
+            this.addProtein(polymer);
         }
     }
 
@@ -2432,6 +3407,12 @@ class Environment {
 
         // Update molecule registry
         this.updateMolecules();
+
+        // Try to form polymers from nearby stable molecules
+        this.updatePolymers();
+
+        // Update cells
+        this.updateCells();
     }
 
     /**
@@ -3339,8 +4320,10 @@ class Viewer {
         // Selection
         this.selectedAtom = null;
         this.selectedMolecule = null;
+        this.selectedCell = null;
         this.hoveredAtom = null;
         this.hoveredMolecule = null;
+        this.hoveredCell = null;
 
         // Performance
         this.lastRenderTime = 0;
@@ -3348,6 +4331,9 @@ class Viewer {
         // Grid settings
         this.showGrid = true;
         this.gridSpacing = 100;
+
+        // Callbacks
+        this.onRender = null;
 
         // Resize handler
         this._resizeHandler = this._handleResize.bind(this);
@@ -3506,6 +4492,11 @@ class Viewer {
         }
 
         this.lastRenderTime = performance.now() - startTime;
+
+        // Trigger callback
+        if (this.onRender) {
+            this.onRender();
+        }
     }
 
     /**
@@ -3575,21 +4566,44 @@ class Viewer {
     }
 
     /**
-     * Render at cell level (placeholder)
+     * Render at cell level
      */
     _renderCellLevel() {
-        const ctx = this.ctx;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.font = '24px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(
-            'Cell level - Coming next',
-            this.canvas.width / 2,
-            this.canvas.height / 2
-        );
+        const scale = this.camera.zoom;
+        const offset = this.getOffset();
 
-        // Still show protein level in the background
-        this._renderProteinLevel();
+        // Render cells
+        const cells = this.environment.getAllCells ? this.environment.getAllCells() : [];
+        for (const cell of cells) {
+            if (cell.isAlive) {
+                const isSelected = this.selectedCell && this.selectedCell.id === cell.id;
+                cell.render(this.ctx, scale, offset, isSelected);
+            }
+        }
+
+        // Render molecules as small dots (simplified view)
+        for (const molecule of this.environment.getAllMolecules()) {
+            const center = molecule.centerOfMass;
+            const screenX = (center.x + offset.x) * scale;
+            const screenY = (center.y + offset.y) * scale;
+
+            this.ctx.beginPath();
+            this.ctx.arc(screenX, screenY, 4 * scale, 0, Math.PI * 2);
+            this.ctx.fillStyle = 'rgba(100, 200, 255, 0.5)';
+            this.ctx.fill();
+        }
+
+        // Show cell count if no cells
+        if (cells.length === 0) {
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            this.ctx.font = '18px sans-serif';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(
+                'No cells yet - Place cells from the palette',
+                this.canvas.width / 2,
+                this.canvas.height / 2
+            );
+        }
     }
 
     /**
@@ -3684,7 +4698,35 @@ class Viewer {
         const scale = this.camera.zoom;
         const offset = this.getOffset();
 
-        // At molecule level or higher, prioritize molecules
+        // At cell level or higher, prioritize cells
+        if (this.level >= 3) {
+            const cells = this.environment.getAllCells ? this.environment.getAllCells() : [];
+            for (const cell of cells) {
+                if (cell.isAlive && cell.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'cell', entity: cell };
+                }
+            }
+        }
+
+        // At protein/polymer level, check polymers
+        if (this.level >= 2) {
+            const polymers = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
+            for (const polymer of polymers) {
+                // Check if click is near polymer center
+                const center = polymer.getCenter();
+                const screenCX = (center.x + offset.x) * scale;
+                const screenCY = (center.y + offset.y) * scale;
+                const radius = (15 + polymer.molecules.length * 5) * scale;
+
+                const dx = screenX - screenCX;
+                const dy = screenY - screenCY;
+                if (dx * dx + dy * dy <= radius * radius) {
+                    return { type: 'polymer', entity: polymer };
+                }
+            }
+        }
+
+        // At molecule level or higher, check molecules
         if (this.level >= 1) {
             // Check molecules first
             for (const molecule of this.environment.getAllMolecules()) {
@@ -3970,7 +5012,12 @@ class Controls {
             return;
         }
 
-        if (this.selectedBlueprint) {
+        // At cell level (3+), place cells
+        if (this.viewer.level >= 3) {
+            const cell = new Cell(worldPos.x, worldPos.y);
+            this.environment.addCell(cell);
+        }
+        else if (this.selectedBlueprint) {
             // Place blueprint
             const molecule = this.selectedBlueprint.instantiate(worldPos.x, worldPos.y);
             if (molecule) {
@@ -4007,6 +5054,10 @@ class Controls {
             } else if (result.type === 'molecule') {
                 result.entity.selected = true;
                 this.viewer.selectedMolecule = result.entity;
+            } else if (result.type === 'cell') {
+                this.viewer.selectedCell = result.entity;
+            } else if (result.type === 'polymer') {
+                result.entity.selected = true;
             }
 
             this._updateInspector(result);
@@ -4036,8 +5087,12 @@ class Controls {
         const result = this.viewer.getEntityAt(screenX, screenY);
         if (!result) return;
 
+        // At cell level (3) or higher, delete cells
+        if (this.viewer.level >= 3 && result.type === 'cell') {
+            this.environment.removeCell(result.entity.id);
+        }
         // At molecule level (1) or higher, delete entire molecules
-        if (this.viewer.level >= 1 && result.type === 'molecule') {
+        else if (this.viewer.level >= 1 && result.type === 'molecule') {
             const atoms = [...result.entity.atoms];
             for (const atom of atoms) {
                 this.environment.removeAtom(atom.id);
@@ -4155,6 +5210,32 @@ class Controls {
                     <p>Bonds: ${mol.bonds.length}</p>
                     <p>Stable: ${mol.isStable() ? 'Yes &#10003;' : 'No'}</p>
                     ${mol.isStable() ? '<button class="tool-btn" onclick="window.app.registerMolecule()">Add to Catalogue</button>' : ''}
+                </div>
+            `;
+        } else if (result.type === 'cell') {
+            const cell = result.entity;
+            content.innerHTML = `
+                <div class="inspector-item">
+                    <h3>Cell (Gen ${cell.generation})</h3>
+                    <p>Energy: ${cell.energy.toFixed(1)} / ${cell.maxEnergy}</p>
+                    <p>Age: ${cell.age} ticks</p>
+                    <p>Position: (${cell.position.x.toFixed(1)}, ${cell.position.y.toFixed(1)})</p>
+                    <p>Brain: ${cell.brain.layers.join(' â†’ ')}</p>
+                    <p>Weights: ${cell.brain.getWeightCount()}</p>
+                    <p>Alive: ${cell.isAlive ? 'Yes &#10003;' : 'No'}</p>
+                </div>
+            `;
+        } else if (result.type === 'polymer') {
+            const poly = result.entity;
+            const typeLabel = poly.getLabel ? poly.getLabel() : 'Polymer';
+            content.innerHTML = `
+                <div class="inspector-item">
+                    <h3>${poly.name || typeLabel}</h3>
+                    <p>Type: ${typeLabel}</p>
+                    <p>Molecules: ${poly.molecules.length}</p>
+                    <p>Sequence: ${poly.sequence.substring(0, 30)}${poly.sequence.length > 30 ? '...' : ''}</p>
+                    <p>Mass: ${poly.mass.toFixed(3)} u</p>
+                    <p>Stable: ${poly.isStable() ? 'Yes &#10003;' : 'No'}</p>
                 </div>
             `;
         }
@@ -4462,6 +5543,11 @@ class App {
                 this.catalogue.autoDiscover(this.environment.getAllMolecules());
                 this.catalogueUI.render();
             }
+        };
+
+        // Update stats when viewer renders (for when paused)
+        this.viewer.onRender = () => {
+            this._updateStats();
         };
 
         // Set up UI

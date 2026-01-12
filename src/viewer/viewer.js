@@ -41,8 +41,10 @@ class Viewer {
         // Selection
         this.selectedAtom = null;
         this.selectedMolecule = null;
+        this.selectedCell = null;
         this.hoveredAtom = null;
         this.hoveredMolecule = null;
+        this.hoveredCell = null;
 
         // Performance
         this.lastRenderTime = 0;
@@ -50,6 +52,9 @@ class Viewer {
         // Grid settings
         this.showGrid = true;
         this.gridSpacing = 100;
+
+        // Callbacks
+        this.onRender = null;
 
         // Resize handler
         this._resizeHandler = this._handleResize.bind(this);
@@ -208,6 +213,11 @@ class Viewer {
         }
 
         this.lastRenderTime = performance.now() - startTime;
+
+        // Trigger callback
+        if (this.onRender) {
+            this.onRender();
+        }
     }
 
     /**
@@ -277,21 +287,44 @@ class Viewer {
     }
 
     /**
-     * Render at cell level (placeholder)
+     * Render at cell level
      */
     _renderCellLevel() {
-        const ctx = this.ctx;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.font = '24px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(
-            'Cell level - Coming next',
-            this.canvas.width / 2,
-            this.canvas.height / 2
-        );
+        const scale = this.camera.zoom;
+        const offset = this.getOffset();
 
-        // Still show protein level in the background
-        this._renderProteinLevel();
+        // Render cells
+        const cells = this.environment.getAllCells ? this.environment.getAllCells() : [];
+        for (const cell of cells) {
+            if (cell.isAlive) {
+                const isSelected = this.selectedCell && this.selectedCell.id === cell.id;
+                cell.render(this.ctx, scale, offset, isSelected);
+            }
+        }
+
+        // Render molecules as small dots (simplified view)
+        for (const molecule of this.environment.getAllMolecules()) {
+            const center = molecule.centerOfMass;
+            const screenX = (center.x + offset.x) * scale;
+            const screenY = (center.y + offset.y) * scale;
+
+            this.ctx.beginPath();
+            this.ctx.arc(screenX, screenY, 4 * scale, 0, Math.PI * 2);
+            this.ctx.fillStyle = 'rgba(100, 200, 255, 0.5)';
+            this.ctx.fill();
+        }
+
+        // Show cell count if no cells
+        if (cells.length === 0) {
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            this.ctx.font = '18px sans-serif';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(
+                'No cells yet - Place cells from the palette',
+                this.canvas.width / 2,
+                this.canvas.height / 2
+            );
+        }
     }
 
     /**
@@ -386,7 +419,35 @@ class Viewer {
         const scale = this.camera.zoom;
         const offset = this.getOffset();
 
-        // At molecule level or higher, prioritize molecules
+        // At cell level or higher, prioritize cells
+        if (this.level >= 3) {
+            const cells = this.environment.getAllCells ? this.environment.getAllCells() : [];
+            for (const cell of cells) {
+                if (cell.isAlive && cell.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'cell', entity: cell };
+                }
+            }
+        }
+
+        // At protein/polymer level, check polymers
+        if (this.level >= 2) {
+            const polymers = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
+            for (const polymer of polymers) {
+                // Check if click is near polymer center
+                const center = polymer.getCenter();
+                const screenCX = (center.x + offset.x) * scale;
+                const screenCY = (center.y + offset.y) * scale;
+                const radius = (15 + polymer.molecules.length * 5) * scale;
+
+                const dx = screenX - screenCX;
+                const dy = screenY - screenCY;
+                if (dx * dx + dy * dy <= radius * radius) {
+                    return { type: 'polymer', entity: polymer };
+                }
+            }
+        }
+
+        // At molecule level or higher, check molecules
         if (this.level >= 1) {
             // Check molecules first
             for (const molecule of this.environment.getAllMolecules()) {

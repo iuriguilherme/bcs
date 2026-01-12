@@ -139,6 +139,25 @@ class Molecule {
     }
 
     /**
+     * Check if molecule can participate in polymer formation
+     * Molecules with 3+ atoms that are at least 50% stable can polymerize
+     */
+    canPolymerize() {
+        if (this.atoms.length < 3) return false;
+
+        // Calculate stability ratio
+        let totalValence = 0;
+        let usedValence = 0;
+        for (const atom of this.atoms) {
+            totalValence += atom.maxValence || 4;
+            usedValence += (atom.maxValence || 4) - (atom.availableValence || 0);
+        }
+
+        const stabilityRatio = usedValence / totalValence;
+        return stabilityRatio >= 0.5; // At least 50% of bonds are satisfied
+    }
+
+    /**
      * Check if two molecules have the same structure
      * @param {Molecule} other - Other molecule to compare
      */

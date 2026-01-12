@@ -239,7 +239,12 @@ class Controls {
             return;
         }
 
-        if (this.selectedBlueprint) {
+        // At cell level (3+), place cells
+        if (this.viewer.level >= 3) {
+            const cell = new Cell(worldPos.x, worldPos.y);
+            this.environment.addCell(cell);
+        }
+        else if (this.selectedBlueprint) {
             // Place blueprint
             const molecule = this.selectedBlueprint.instantiate(worldPos.x, worldPos.y);
             if (molecule) {
@@ -276,6 +281,10 @@ class Controls {
             } else if (result.type === 'molecule') {
                 result.entity.selected = true;
                 this.viewer.selectedMolecule = result.entity;
+            } else if (result.type === 'cell') {
+                this.viewer.selectedCell = result.entity;
+            } else if (result.type === 'polymer') {
+                result.entity.selected = true;
             }
 
             this._updateInspector(result);
@@ -305,8 +314,12 @@ class Controls {
         const result = this.viewer.getEntityAt(screenX, screenY);
         if (!result) return;
 
+        // At cell level (3) or higher, delete cells
+        if (this.viewer.level >= 3 && result.type === 'cell') {
+            this.environment.removeCell(result.entity.id);
+        }
         // At molecule level (1) or higher, delete entire molecules
-        if (this.viewer.level >= 1 && result.type === 'molecule') {
+        else if (this.viewer.level >= 1 && result.type === 'molecule') {
             const atoms = [...result.entity.atoms];
             for (const atom of atoms) {
                 this.environment.removeAtom(atom.id);
@@ -424,6 +437,32 @@ class Controls {
                     <p>Bonds: ${mol.bonds.length}</p>
                     <p>Stable: ${mol.isStable() ? 'Yes &#10003;' : 'No'}</p>
                     ${mol.isStable() ? '<button class="tool-btn" onclick="window.app.registerMolecule()">Add to Catalogue</button>' : ''}
+                </div>
+            `;
+        } else if (result.type === 'cell') {
+            const cell = result.entity;
+            content.innerHTML = `
+                <div class="inspector-item">
+                    <h3>Cell (Gen ${cell.generation})</h3>
+                    <p>Energy: ${cell.energy.toFixed(1)} / ${cell.maxEnergy}</p>
+                    <p>Age: ${cell.age} ticks</p>
+                    <p>Position: (${cell.position.x.toFixed(1)}, ${cell.position.y.toFixed(1)})</p>
+                    <p>Brain: ${cell.brain.layers.join(' → ')}</p>
+                    <p>Weights: ${cell.brain.getWeightCount()}</p>
+                    <p>Alive: ${cell.isAlive ? 'Yes &#10003;' : 'No'}</p>
+                </div>
+            `;
+        } else if (result.type === 'polymer') {
+            const poly = result.entity;
+            const typeLabel = poly.getLabel ? poly.getLabel() : 'Polymer';
+            content.innerHTML = `
+                <div class="inspector-item">
+                    <h3>${poly.name || typeLabel}</h3>
+                    <p>Type: ${typeLabel}</p>
+                    <p>Molecules: ${poly.molecules.length}</p>
+                    <p>Sequence: ${poly.sequence.substring(0, 30)}${poly.sequence.length > 30 ? '...' : ''}</p>
+                    <p>Mass: ${poly.mass.toFixed(3)} u</p>
+                    <p>Stable: ${poly.isStable() ? 'Yes &#10003;' : 'No'}</p>
                 </div>
             `;
         }

@@ -58,6 +58,11 @@ class App {
             }
         };
 
+        // Update stats when viewer renders (for when paused)
+        this.viewer.onRender = () => {
+            this._updateStats();
+        };
+
         // Set up UI
         this._setupUI();
 

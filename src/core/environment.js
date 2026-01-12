@@ -134,6 +134,76 @@ class Environment {
     }
 
     /**
+     * Add a cell to the environment
+     * @param {Cell} cell - Cell to add
+     */
+    addCell(cell) {
+        this.cells.set(cell.id, cell);
+        this.stats.cellCount = this.cells.size;
+    }
+
+    /**
+     * Remove a cell from the environment
+     * @param {string} cellId - Cell ID to remove
+     */
+    removeCell(cellId) {
+        this.cells.delete(cellId);
+        this.stats.cellCount = this.cells.size;
+    }
+
+    /**
+     * Get all cells as array
+     */
+    getAllCells() {
+        return Array.from(this.cells.values());
+    }
+
+    /**
+     * Update all cells
+     */
+    updateCells() {
+        for (const cell of this.cells.values()) {
+            if (cell.isAlive) {
+                cell.update(this);
+            }
+        }
+
+        // Remove dead cells
+        for (const [id, cell] of this.cells) {
+            if (!cell.isAlive) {
+                this.cells.delete(id);
+            }
+        }
+
+        this.stats.cellCount = this.cells.size;
+    }
+
+    /**
+     * Detect and register new polymers from nearby molecules
+     */
+    updatePolymers() {
+        // Only check occasionally for performance
+        if (!this._polymerCheckTick) this._polymerCheckTick = 0;
+        this._polymerCheckTick++;
+        if (this._polymerCheckTick % 30 !== 0) return;
+
+        // Get molecules that can polymerize (either stable or canPolymerize)
+        const freeMolecules = this.getAllMolecules().filter(m =>
+            !m.proteinId && (m.isStable() || (m.canPolymerize && m.canPolymerize()))
+        );
+
+        if (freeMolecules.length < 2) return;
+
+        // Find potential polymer chains
+        const newPolymers = findPotentialPolymers(freeMolecules, 120);
+
+        // Register new polymers
+        for (const polymer of newPolymers) {
+            this.addProtein(polymer);
+        }
+    }
+
+    /**
      * Update spatial grid position for an entity
      * @param {Atom} atom - Atom to update
      */
@@ -476,6 +546,12 @@ class Environment {
 
         // Update molecule registry
         this.updateMolecules();
+
+        // Try to form polymers from nearby stable molecules
+        this.updatePolymers();
+
+        // Update cells
+        this.updateCells();
     }
 
     /**
