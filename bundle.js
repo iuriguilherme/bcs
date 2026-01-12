@@ -5553,6 +5553,9 @@ class App {
         // Set up UI
         this._setupUI();
 
+        // Initialize palette for level 0
+        this._updatePaletteForLevel(0);
+
         // Initial render
         this.viewer.render();
 
@@ -5595,12 +5598,19 @@ class App {
             const btn = e.target.closest('.level-btn');
             if (btn) {
                 const level = parseInt(btn.dataset.level);
+                console.log('Setting level to:', level);
                 this.viewer.setLevel(level);
 
                 // Update button states
                 document.querySelectorAll('.level-btn').forEach((b, i) => {
                     b.classList.toggle('active', i === level);
                 });
+
+                // Update palette for this level
+                this._updatePaletteForLevel(level);
+
+                // Force re-render to show the new level
+                this.viewer.render();
             }
         });
 
@@ -5674,6 +5684,157 @@ class App {
                 // Clear blueprint selection
                 this.controls.selectedBlueprint = null;
             });
+        });
+    }
+
+    /**
+     * Update the entity palette based on current level
+     */
+    _updatePaletteForLevel(level) {
+        console.log('_updatePaletteForLevel called with level:', level);
+        const palette = document.getElementById('entityPalette');
+        const paletteTitle = document.getElementById('paletteTitle');
+        if (!palette) {
+            console.log('ERROR: palette element not found');
+            return;
+        }
+        if (!paletteTitle) {
+            console.log('ERROR: paletteTitle element not found');
+        }
+
+        // Level 0: Atoms
+        if (level === 0) {
+            console.log('Rendering atoms palette');
+            paletteTitle.textContent = 'Place Atoms';
+            this._renderAtomPalette(palette);
+        }
+        // Level 1: Molecules from catalogue
+        else if (level === 1) {
+            console.log('Rendering molecules palette');
+            paletteTitle.textContent = 'Place Molecules';
+            this._renderMoleculePalette(palette);
+        }
+        // Level 2: Polymers
+        else if (level === 2) {
+            console.log('Rendering polymers palette');
+            paletteTitle.textContent = 'Place Polymers';
+            this._renderPolymerPalette(palette);
+        }
+        // Level 3+: Cells
+        else {
+            console.log('Rendering cells palette');
+            paletteTitle.textContent = 'Place Cells';
+            this._renderCellPalette(palette);
+        }
+    }
+
+    /**
+     * Render atom palette
+     */
+    _renderAtomPalette(palette) {
+        const elements = ['H', 'C', 'N', 'O', 'P', 'S', 'Na', 'Cl'];
+
+        palette.innerHTML = elements.map(symbol => {
+            const element = getElement(symbol);
+            return `
+                <button class="palette-btn atom-btn ${symbol === 'C' ? 'selected' : ''}" 
+                        data-symbol="${symbol}"
+                        style="color: ${element.color}; border-color: ${element.color}40;">
+                    <span class="symbol">${symbol}</span>
+                    <span class="number">${element.number}</span>
+                </button>
+            `;
+        }).join('');
+
+        palette.querySelectorAll('.atom-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const symbol = btn.dataset.symbol;
+                this.controls.setSelectedElement(symbol);
+                this.controls.selectedBlueprint = null;
+                palette.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+            });
+        });
+    }
+
+    /**
+     * Render molecule palette from catalogue
+     */
+    _renderMoleculePalette(palette) {
+        try {
+            console.log('_renderMoleculePalette called, catalogue exists:', !!this.catalogue);
+            if (!this.catalogue) {
+                palette.innerHTML = '<p class="empty-state">Catalogue not initialized</p>';
+                return;
+            }
+            const blueprints = this.catalogue.getAllBlueprints();
+            console.log('Rendering molecule palette, blueprints:', blueprints.length);
+
+            if (blueprints.length === 0) {
+                palette.innerHTML = '<p class="empty-state">No molecules discovered yet. Create stable molecules at Level 1!</p>';
+                return;
+            }
+        } catch (e) {
+            console.error('Error in _renderMoleculePalette:', e);
+            palette.innerHTML = '<p class="empty-state">Error loading molecules</p>';
+            return;
+        }
+
+        palette.innerHTML = blueprints.map(bp => `
+            <button class="palette-btn molecule-btn" data-id="${bp.id}">
+                <span class="formula">${bp.formula}</span>
+                <span class="info">${bp.atomCount} atoms</span>
+            </button>
+        `).join('');
+
+        palette.querySelectorAll('.molecule-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const bp = this.catalogue.getBlueprint(btn.dataset.id);
+                this.controls.selectedBlueprint = bp;
+                this.controls.setTool('place');
+                palette.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+            });
+        });
+    }
+
+    /**
+     * Render polymer palette
+     */
+    _renderPolymerPalette(palette) {
+        const polymers = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
+
+        if (polymers.length === 0) {
+            palette.innerHTML = '<p class="empty-state">No polymers yet. Polymers form when molecules chain together.</p>';
+            return;
+        }
+
+        palette.innerHTML = polymers.map(poly => {
+            const label = poly.getLabel ? poly.getLabel() : 'Polymer';
+            const colors = poly.getColor ? poly.getColor() : { primary: '#8b5cf6' };
+            return `
+                <button class="palette-btn polymer-btn" data-id="${poly.id}" style="border-color: ${colors.primary};">
+                    <span class="type" style="color: ${colors.primary};">${label}</span>
+                    <span class="info">${poly.molecules.length} mols</span>
+                </button>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Render cell palette
+     */
+    _renderCellPalette(palette) {
+        palette.innerHTML = `
+            <button class="palette-btn cell-btn selected" data-type="cell">
+                <span class="symbol">&#129516;</span>
+                <span class="info">New Cell</span>
+            </button>
+            <p class="palette-hint">Click canvas to place a cell with random neural network</p>
+        `;
+
+        palette.querySelector('.cell-btn')?.addEventListener('click', () => {
+            this.controls.setTool('place');
         });
     }
 

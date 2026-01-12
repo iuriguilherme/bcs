@@ -1,5 +1,7 @@
 /* CSS Reset & Variables */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
@@ -12,34 +14,34 @@
     --bg-tertiary: #1a1a25;
     --bg-glass: rgba(255, 255, 255, 0.03);
     --bg-glass-hover: rgba(255, 255, 255, 0.06);
-    
+
     --text-primary: #e8e8f0;
     --text-secondary: #9090a0;
     --text-muted: #606070;
-    
+
     --accent-primary: #6366f1;
     --accent-secondary: #8b5cf6;
     --accent-glow: rgba(99, 102, 241, 0.3);
-    
+
     --success: #10b981;
     --warning: #f59e0b;
     --danger: #ef4444;
-    
+
     --border-subtle: rgba(255, 255, 255, 0.06);
     --border-glow: rgba(99, 102, 241, 0.4);
-    
+
     /* Spacing */
     --space-xs: 4px;
     --space-sm: 8px;
     --space-md: 16px;
     --space-lg: 24px;
     --space-xl: 32px;
-    
+
     /* Sizing */
     --header-height: 60px;
     --panel-width: 280px;
     --status-bar-height: 32px;
-    
+
     /* Effects */
     --blur-sm: blur(8px);
     --blur-md: blur(16px);
@@ -49,7 +51,8 @@
 }
 
 /* Base Styles */
-html, body {
+html,
+body {
     height: 100%;
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: var(--bg-primary);
@@ -450,15 +453,115 @@ html, body {
 
 /* Animations */
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
 }
 
 @keyframes glow {
-    0%, 100% { box-shadow: 0 0 5px var(--accent-glow); }
-    50% { box-shadow: 0 0 20px var(--accent-glow); }
+
+    0%,
+    100% {
+        box-shadow: 0 0 5px var(--accent-glow);
+    }
+
+    50% {
+        box-shadow: 0 0 20px var(--accent-glow);
+    }
 }
 
 .pulsing {
     animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Entity Palette (level-aware) */
+.palette-section {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-md);
+}
+
+.palette-title {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: var(--space-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.entity-palette {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-xs);
+}
+
+.palette-btn {
+    padding: var(--space-sm);
+    border: 2px solid var(--border-subtle);
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.8rem;
+    transition: var(--transition-fast);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: var(--text-primary);
+    min-height: 50px;
+}
+
+.palette-btn:hover {
+    transform: scale(1.02);
+    border-color: var(--accent-primary);
+}
+
+.palette-btn.selected {
+    border-color: var(--accent-primary);
+    box-shadow: var(--shadow-glow);
+}
+
+.palette-btn .symbol {
+    font-size: 1rem;
+}
+
+.palette-btn .number,
+.palette-btn .info {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+.palette-btn .formula {
+    font-size: 0.75rem;
+}
+
+.palette-btn .type {
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.molecule-btn,
+.polymer-btn {
+    grid-column: span 2;
+}
+
+.cell-btn {
+    grid-column: span 4;
+}
+
+.palette-hint {
+    grid-column: span 4;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-align: center;
+    padding: var(--space-sm);
 }
