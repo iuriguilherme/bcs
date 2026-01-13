@@ -274,6 +274,9 @@ class App {
                 this.controls.selectedBlueprint = null;
                 palette.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('selected'));
                 btn.classList.add('selected');
+
+                // Auto-select Place tool when selecting an atom
+                this.controls.setTool('place');
             });
         });
     }
@@ -288,11 +291,46 @@ class App {
                 palette.innerHTML = '<p class="empty-state">Catalogue not initialized</p>';
                 return;
             }
-            const blueprints = this.catalogue.getAllMolecules();
-            console.log('Rendering molecule palette, blueprints:', blueprints.length);
+            // Only show stable molecules with 2+ atoms, 1+ bonds, and all valences satisfied
+            const allBlueprints = this.catalogue.getAllMolecules();
+
+            // Helper: calculate if blueprint is truly stable from its data
+            const isBlueprintStable = (bp) => {
+                if (!bp.atomData || bp.atomData.length < 2) return false;
+                if (!bp.bondData || bp.bondData.length < 1) return false;
+
+                // Calculate valence usage for each atom
+                const atomValences = {};
+                for (const atom of bp.atomData) {
+                    const element = getElement(atom.symbol);
+                    if (!element) return false;
+                    atomValences[atom.index] = { max: element.valence, used: 0 };
+                }
+
+                // Count bonds for each atom
+                for (const bond of bp.bondData) {
+                    const order = bond.order || 1;
+                    if (atomValences[bond.atom1Index]) {
+                        atomValences[bond.atom1Index].used += order;
+                    }
+                    if (atomValences[bond.atom2Index]) {
+                        atomValences[bond.atom2Index].used += order;
+                    }
+                }
+
+                // Check all atoms have filled valence
+                for (const idx in atomValences) {
+                    const v = atomValences[idx];
+                    if (v.used !== v.max) return false;
+                }
+                return true;
+            };
+
+            const blueprints = allBlueprints.filter(bp => isBlueprintStable(bp));
+            console.log('Rendering molecule palette, blueprints:', blueprints.length, 'of', allBlueprints.length, 'total');
 
             if (blueprints.length === 0) {
-                palette.innerHTML = '<p class="empty-state">No molecules discovered yet. Create stable molecules at Level 1!</p>';
+                palette.innerHTML = '<p class="empty-state">No stable molecules discovered yet. Create stable molecules at Level 1!</p>';
                 return;
             }
 
@@ -498,6 +536,22 @@ class App {
                 this.catalogue.registerMolecule(this.viewer.selectedMolecule, name);
                 this.catalogueUI.render();
             }
+        }
+    }
+
+    /**
+     * Delete an intention by ID
+     * @param {string} intentionId - The intention ID to delete
+     */
+    deleteIntention(intentionId) {
+        this.environment.removeIntention(intentionId);
+        this.viewer.selectedIntention = null;
+        this.viewer.render();
+
+        // Clear inspector
+        const content = document.getElementById('inspectorContent');
+        if (content) {
+            content.innerHTML = '<p class="empty-state">Intention deleted.</p>';
         }
     }
 

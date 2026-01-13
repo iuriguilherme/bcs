@@ -55,12 +55,19 @@ class Polymer {
         // Link molecules to this polymer
         for (const mol of molecules) {
             mol.proteinId = this.id;  // Using proteinId for backward compatibility
+            mol.polymerId = this.id;
         }
 
         // Polymer properties
         this.activeSites = [];  // Functional regions
         this.folded = false;
         this.foldPattern = null;  // 2D shape after folding
+
+        // Stability and bonding
+        this.isSealed = false;        // When true, internal atoms can't bond externally
+        this.bondedPolymers = [];     // Polymer-polymer connections
+        this.chainLevel = 1;          // How many polymers in this chain
+        this.cellRole = null;         // Role in cell: 'membrane', 'structure', 'genetics', etc.
 
         // Selection state
         this.selected = false;
@@ -128,6 +135,116 @@ class Polymer {
         }
 
         return PolymerType.GENERIC;
+    }
+
+    /**
+     * Seal the polymer - internal atoms can no longer bond externally
+     * This prevents the polymer from breaking apart or merging improperly
+     */
+    seal() {
+        this.isSealed = true;
+
+        // Mark all internal atoms as sealed
+        for (const mol of this.molecules) {
+            for (const atom of mol.atoms) {
+                atom.isSealed = true;
+            }
+        }
+
+        // Set cell role based on type
+        this._assignCellRole();
+
+        console.log(`Polymer ${this.name || this.type} sealed`);
+    }
+
+    /**
+     * Assign cell role based on polymer type
+     */
+    _assignCellRole() {
+        switch (this.type) {
+            case PolymerType.LIPID:
+                this.cellRole = 'membrane';
+                break;
+            case PolymerType.PROTEIN:
+                this.cellRole = 'structure';
+                break;
+            case PolymerType.NUCLEIC_ACID:
+                this.cellRole = 'genetics';
+                break;
+            case PolymerType.CARBOHYDRATE:
+                this.cellRole = 'energy';
+                break;
+            default:
+                this.cellRole = null;
+        }
+    }
+
+    /**
+     * Check if this polymer can bond with another polymer
+     * Same-type polymers can chain, complementary types can combine for cells
+     */
+    canBondWithPolymer(other) {
+        if (!other || other === this) return false;
+        if (!this.isSealed || !other.isSealed) return false;
+
+        // Same type polymers can chain
+        if (this.type === other.type) return true;
+
+        // Complementary types for cell formation
+        return this.isComplementary(other);
+    }
+
+    /**
+     * Check if another polymer type is complementary for cell formation
+     */
+    isComplementary(other) {
+        const complementaryPairs = [
+            [PolymerType.LIPID, PolymerType.PROTEIN],
+            [PolymerType.PROTEIN, PolymerType.NUCLEIC_ACID],
+            [PolymerType.LIPID, PolymerType.NUCLEIC_ACID]
+        ];
+
+        for (const [a, b] of complementaryPairs) {
+            if ((this.type === a && other.type === b) ||
+                (this.type === b && other.type === a)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Bond this polymer with another polymer
+     */
+    bondWithPolymer(other) {
+        if (!this.canBondWithPolymer(other)) return false;
+
+        if (!this.bondedPolymers.includes(other)) {
+            this.bondedPolymers.push(other);
+            other.bondedPolymers.push(this);
+
+            // Update chain level
+            this.chainLevel += other.chainLevel;
+            other.chainLevel = this.chainLevel;
+
+            console.log(`Polymer chain formed: ${this.name || this.type} + ${other.name || other.type} (chain level: ${this.chainLevel})`);
+        }
+        return true;
+    }
+
+    /**
+     * Check if polymer chain is ready to form a cell
+     * Requires membrane, structure, and genetics
+     */
+    canFormCell() {
+        if (this.chainLevel < 3) return false;
+
+        const roles = new Set([this.cellRole]);
+        for (const bonded of this.bondedPolymers) {
+            roles.add(bonded.cellRole);
+        }
+
+        return roles.has('membrane') && roles.has('structure') && roles.has('genetics');
     }
 
     /**

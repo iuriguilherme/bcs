@@ -245,52 +245,27 @@ class Controls {
             const cell = new Cell(worldPos.x, worldPos.y);
             this.environment.addCell(cell);
         }
-        // At polymer level (2), place polymers or molecules
+        // At polymer level (2), create polymer intention (attract molecules)
         else if (this.viewer.level === 2) {
             if (this.selectedPolymerTemplate) {
-                // Place polymer from template
-                const polymer = this.selectedPolymerTemplate.instantiate(worldPos.x, worldPos.y, this.catalogue);
-                if (polymer) {
-                    // Add all molecules and atoms to environment
-                    for (const mol of polymer.molecules) {
-                        for (const atom of mol.atoms) {
-                            this.environment.addAtom(atom);
-                        }
-                        for (const bond of mol.bonds) {
-                            this.environment.addBond(bond);
-                        }
-                        this.environment.addMolecule(mol);
-                    }
-                    this.environment.addProtein(polymer);
-                    console.log(`Placed polymer: ${this.selectedPolymerTemplate.name}`);
-                }
+                // Create polymer intention zone
+                const intention = new Intention('polymer', this.selectedPolymerTemplate, worldPos.x, worldPos.y);
+                this.environment.addIntention(intention);
+                console.log(`Placed polymer intention: ${this.selectedPolymerTemplate.name}`);
             } else if (this.selectedBlueprint) {
-                // Fall back to molecule placement
-                const molecule = this.selectedBlueprint.instantiate(worldPos.x, worldPos.y);
-                if (molecule) {
-                    for (const atom of molecule.atoms) {
-                        this.environment.addAtom(atom);
-                    }
-                    for (const bond of molecule.bonds) {
-                        this.environment.addBond(bond);
-                    }
-                    this.environment.addMolecule(molecule);
-                }
+                // Fall back to molecule intention
+                const intention = new Intention('molecule', this.selectedBlueprint, worldPos.x, worldPos.y);
+                this.environment.addIntention(intention);
+                console.log(`Placed molecule intention: ${this.selectedBlueprint.name || this.selectedBlueprint.formula}`);
             }
         }
-        // At molecule level (1), place molecules from blueprints
+        // At molecule level (1), create molecule intention (attract atoms)
         else if (this.viewer.level === 1) {
             if (this.selectedBlueprint) {
-                const molecule = this.selectedBlueprint.instantiate(worldPos.x, worldPos.y);
-                if (molecule) {
-                    for (const atom of molecule.atoms) {
-                        this.environment.addAtom(atom);
-                    }
-                    for (const bond of molecule.bonds) {
-                        this.environment.addBond(bond);
-                    }
-                    this.environment.addMolecule(molecule);
-                }
+                // Create molecule intention zone
+                const intention = new Intention('molecule', this.selectedBlueprint, worldPos.x, worldPos.y);
+                this.environment.addIntention(intention);
+                console.log(`Placed molecule intention: ${this.selectedBlueprint.name || this.selectedBlueprint.formula}`);
             }
             // Don't place atoms at molecule level - require blueprint selection
         }
@@ -323,6 +298,9 @@ class Controls {
                 this.viewer.selectedCell = result.entity;
             } else if (result.type === 'polymer') {
                 result.entity.selected = true;
+            } else if (result.type === 'intention') {
+                result.entity.selected = true;
+                this.viewer.selectedIntention = result.entity;
             }
 
             this._updateInspector(result);
@@ -349,6 +327,23 @@ class Controls {
      * Handle delete action
      */
     _handleDelete(screenX, screenY) {
+        const worldPos = this.viewer.screenToWorld(screenX, screenY);
+        const scale = this.viewer.camera.zoom;
+        const offset = this.viewer.getOffset();
+
+        // First check for intentions (highest priority for deletion)
+        const intentions = this.environment.getAllIntentions ? this.environment.getAllIntentions() : [];
+        for (const intention of intentions) {
+            if (intention.containsPoint(screenX, screenY, scale, offset)) {
+                // Remove the intention - gathered components are automatically freed
+                this.environment.removeIntention(intention.id);
+                console.log(`Deleted intention: ${intention.blueprint?.name || intention.type}`);
+                this.viewer.render();
+                return;
+            }
+        }
+
+        // Then check for regular entities
         const result = this.viewer.getEntityAt(screenX, screenY);
         if (!result) return;
 
@@ -501,6 +496,26 @@ class Controls {
                     <p>Sequence: ${poly.sequence.substring(0, 30)}${poly.sequence.length > 30 ? '...' : ''}</p>
                     <p>Mass: ${poly.mass.toFixed(3)} u</p>
                     <p>Stable: ${poly.isStable() ? 'Yes &#10003;' : 'No'}</p>
+                </div>
+            `;
+        } else if (result.type === 'intention') {
+            const intention = result.entity;
+            const bpName = intention.blueprint?.name || intention.blueprint?.formula || 'Unknown';
+            const requirements = intention.getRequirements();
+            const reqCount = requirements?.count || '?';
+            const reqType = requirements?.type || 'components';
+            content.innerHTML = `
+                <div class="inspector-item">
+                    <h3>Intention: ${bpName}</h3>
+                    <p>Type: ${intention.type}</p>
+                    <p>Target: ${bpName}</p>
+                    <p>Progress: ${Math.round(intention.progress * 100)}%</p>
+                    <p>Gathered: ${intention.gatheredComponents.size} / ${reqCount} ${reqType}</p>
+                    <p>Radius: ${intention.radius} units</p>
+                    <p>Force: ${intention.attractionForce}</p>
+                    <p>Position: (${intention.position.x.toFixed(1)}, ${intention.position.y.toFixed(1)})</p>
+                    <p>Fulfilled: ${intention.fulfilled ? 'Yes &#10003;' : 'No'}</p>
+                    <button class="tool-btn" onclick="window.app.deleteIntention('${intention.id}')">Delete Intention</button>
                 </div>
             `;
         }

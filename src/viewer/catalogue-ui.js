@@ -52,14 +52,49 @@ class CatalogueUI {
     render(filter = '') {
         if (!this.listContainer) return;
 
-        const blueprints = filter
+        // Only show stable molecules with 2+ atoms, 1+ bonds, and all valences satisfied
+        const allBlueprints = filter
             ? this.catalogue.search(filter)
             : this.catalogue.getAllMolecules();
+
+        // Helper: calculate if blueprint is truly stable from its data
+        const isBlueprintStable = (bp) => {
+            if (!bp.atomData || bp.atomData.length < 2) return false;
+            if (!bp.bondData || bp.bondData.length < 1) return false;
+
+            // Calculate valence usage for each atom
+            const atomValences = {};
+            for (const atom of bp.atomData) {
+                const element = getElement(atom.symbol);
+                if (!element) return false;
+                atomValences[atom.index] = { max: element.valence, used: 0 };
+            }
+
+            // Count bonds for each atom
+            for (const bond of bp.bondData) {
+                const order = bond.order || 1;
+                if (atomValences[bond.atom1Index]) {
+                    atomValences[bond.atom1Index].used += order;
+                }
+                if (atomValences[bond.atom2Index]) {
+                    atomValences[bond.atom2Index].used += order;
+                }
+            }
+
+            // Check all atoms have filled valence
+            for (const idx in atomValences) {
+                const v = atomValences[idx];
+                if (v.used !== v.max) return false;
+            }
+            return true;
+        };
+
+        const blueprints = allBlueprints.filter(bp => isBlueprintStable(bp));
 
         if (blueprints.length === 0) {
             this.listContainer.innerHTML = `
                 <p class="empty-state">
-                    ${filter ? 'No matches found.' : 'No blueprints yet. Create stable molecules to add them!'}
+                    ${filter ? 'No matches found.' : 'No stable molecules yet. Create stable molecules to add them!'}
                 </p>
             `;
             return;
@@ -127,6 +162,15 @@ class CatalogueUI {
         if (blueprint) {
             this.controls.setSelectedBlueprint(blueprint);
             this.controls.setTool('place');
+
+            // Switch to molecule level if at atom level
+            if (this.controls.viewer && this.controls.viewer.level < 1) {
+                this.controls.viewer.setLevel(1);
+                // Update level buttons
+                document.querySelectorAll('.level-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.level === '1');
+                });
+            }
 
             // Update UI
             document.querySelectorAll('.catalogue-item').forEach(item => {

@@ -17,9 +17,10 @@ class Environment {
         this.atoms = new Map();      // id -> Atom
         this.bonds = new Map();      // id -> Bond
         this.molecules = new Map();  // id -> Molecule
-        this.proteins = new Map();   // id -> Protein
-        this.cells = new Map();      // id -> Cell (future)
+        this.proteins = new Map();   // id -> Protein (polymers)
+        this.cells = new Map();      // id -> Cell
         this.organisms = new Map();  // id -> Organism (future)
+        this.intentions = new Map(); // id -> Intention (blueprint attraction zones)
 
         // Spatial partitioning for performance
         this.gridSize = 100;
@@ -35,7 +36,8 @@ class Environment {
             moleculeCount: 0,
             proteinCount: 0,
             cellCount: 0,
-            organismCount: 0
+            organismCount: 0,
+            intentionCount: 0
         };
     }
 
@@ -156,6 +158,52 @@ class Environment {
      */
     getAllCells() {
         return Array.from(this.cells.values());
+    }
+
+    /**
+     * Add an intention to the environment
+     * @param {Intention} intention - Intention zone to add
+     */
+    addIntention(intention) {
+        this.intentions.set(intention.id, intention);
+        this.stats.intentionCount = this.intentions.size;
+    }
+
+    /**
+     * Remove an intention from the environment
+     * @param {string} intentionId - Intention ID to remove
+     */
+    removeIntention(intentionId) {
+        this.intentions.delete(intentionId);
+        this.stats.intentionCount = this.intentions.size;
+    }
+
+    /**
+     * Get all intentions as array
+     */
+    getAllIntentions() {
+        return Array.from(this.intentions.values());
+    }
+
+    /**
+     * Update all intentions - attract components and check completion
+     * @param {number} dt - Delta time
+     */
+    updateIntentions(dt) {
+        const fulfilledIds = [];
+
+        for (const intention of this.intentions.values()) {
+            intention.update(this, dt);
+
+            if (intention.fulfilled) {
+                fulfilledIds.push(intention.id);
+            }
+        }
+
+        // Remove fulfilled intentions
+        for (const id of fulfilledIds) {
+            this.removeIntention(id);
+        }
     }
 
     /**
@@ -524,6 +572,9 @@ class Environment {
         // Apply forces
         this.applyBoundaries();
         this.applyAtomicForces();
+
+        // Update intention zones (attract components toward blueprints)
+        this.updateIntentions(dt);
 
         // Apply bond spring forces
         for (const bond of this.bonds.values()) {

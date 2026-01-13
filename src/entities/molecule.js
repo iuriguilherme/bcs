@@ -135,8 +135,16 @@ class Molecule {
 
     /**
      * Check if molecule is stable (all valences satisfied)
+     * A molecule needs at least 2 atoms and at least 1 bond to be considered stable
      */
     isStable() {
+        // Need at least 2 atoms to be a molecule
+        if (this.atoms.length < 2) return false;
+
+        // Need at least 1 bond
+        if (this.bonds.length < 1) return false;
+
+        // All atoms must have their valences satisfied
         for (const atom of this.atoms) {
             if (atom.availableValence > 0) {
                 return false;

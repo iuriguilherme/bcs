@@ -91,6 +91,10 @@ class Catalogue {
                     this.knownFingerprints.add(data.fingerprint);
                 }
                 console.log(`Loaded ${this.molecules.size} molecule blueprints`);
+
+                // Clean up duplicates and invalid entries
+                this._cleanupCatalogue();
+
                 resolve();
             };
 
@@ -99,6 +103,101 @@ class Catalogue {
                 resolve();
             };
         });
+    }
+
+    /**
+     * Clean up the catalogue - remove duplicates and invalid entries
+     */
+    async _cleanupCatalogue() {
+        const seenFormulas = new Map(); // formula -> fingerprint
+        const toRemove = [];
+
+        for (const [fingerprint, blueprint] of this.molecules) {
+            // Check if this is a valid stable molecule
+            const isValid = this._isBlueprintValid(blueprint);
+
+            if (!isValid) {
+                toRemove.push(fingerprint);
+                console.log(`Removing invalid blueprint: ${blueprint.formula}`);
+                continue;
+            }
+
+            // Check for duplicates (same formula, different fingerprint)
+            if (seenFormulas.has(blueprint.formula)) {
+                // Keep the newer one (higher createdAt)
+                const existingFp = seenFormulas.get(blueprint.formula);
+                const existing = this.molecules.get(existingFp);
+                if (existing && blueprint.createdAt > existing.createdAt) {
+                    toRemove.push(existingFp);
+                    seenFormulas.set(blueprint.formula, fingerprint);
+                } else {
+                    toRemove.push(fingerprint);
+                }
+                console.log(`Removing duplicate blueprint: ${blueprint.formula}`);
+            } else {
+                seenFormulas.set(blueprint.formula, fingerprint);
+            }
+        }
+
+        // Remove invalid/duplicate entries
+        for (const fp of toRemove) {
+            this.molecules.delete(fp);
+            this.knownFingerprints.delete(fp);
+            this._deleteMoleculeFromDB(fp);
+        }
+
+        if (toRemove.length > 0) {
+            console.log(`Cleaned up ${toRemove.length} invalid/duplicate blueprints`);
+        }
+    }
+
+    /**
+     * Check if a blueprint is valid (stable molecule with proper structure)
+     */
+    _isBlueprintValid(bp) {
+        if (!bp.atomData || bp.atomData.length < 2) return false;
+        if (!bp.bondData || bp.bondData.length < 1) return false;
+
+        // Calculate valence usage for each atom
+        const atomValences = {};
+        for (const atom of bp.atomData) {
+            const element = getElement(atom.symbol);
+            if (!element) return false;
+            atomValences[atom.index] = { max: element.valence, used: 0 };
+        }
+
+        // Count bonds for each atom
+        for (const bond of bp.bondData) {
+            const order = bond.order || 1;
+            if (atomValences[bond.atom1Index]) {
+                atomValences[bond.atom1Index].used += order;
+            }
+            if (atomValences[bond.atom2Index]) {
+                atomValences[bond.atom2Index].used += order;
+            }
+        }
+
+        // Check all atoms have filled valence
+        for (const idx in atomValences) {
+            const v = atomValences[idx];
+            if (v.used !== v.max) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Delete a molecule from IndexedDB
+     */
+    async _deleteMoleculeFromDB(fingerprint) {
+        if (!this.db) return;
+
+        try {
+            const transaction = this.db.transaction('molecules', 'readwrite');
+            const store = transaction.objectStore('molecules');
+            store.delete(fingerprint);
+        } catch (e) {
+            console.error('Failed to delete molecule from DB:', e);
+        }
     }
 
     /**

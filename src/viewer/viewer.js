@@ -204,6 +204,9 @@ class Viewer {
                 break;
         }
 
+        // Render intention zones (blueprint attraction zones)
+        this._renderIntentions();
+
         // Draw environment bounds
         this._renderBounds();
 
@@ -217,6 +220,34 @@ class Viewer {
         // Trigger callback
         if (this.onRender) {
             this.onRender();
+        }
+    }
+
+    /**
+     * Render intention zones
+     */
+    _renderIntentions() {
+        const scale = this.camera.zoom;
+        const offset = this.getOffset();
+
+        const intentions = this.environment.getAllIntentions ? this.environment.getAllIntentions() : [];
+        for (const intention of intentions) {
+            // Only show intentions relevant to current level
+            // Molecule intentions: levels 0-1 (atom and molecule levels)
+            // Polymer intentions: levels 1-2 (molecule and polymer levels)
+            // Cell intentions: levels 2-3 (polymer and cell levels)
+            let shouldRender = false;
+            if (intention.type === 'molecule' && this.level <= 1) {
+                shouldRender = true;
+            } else if (intention.type === 'polymer' && this.level >= 1 && this.level <= 2) {
+                shouldRender = true;
+            } else if (intention.type === 'cell' && this.level >= 2 && this.level <= 3) {
+                shouldRender = true;
+            }
+
+            if (shouldRender) {
+                intention.render(this.ctx, scale, offset);
+            }
         }
     }
 
@@ -418,6 +449,14 @@ class Viewer {
     getEntityAt(screenX, screenY) {
         const scale = this.camera.zoom;
         const offset = this.getOffset();
+
+        // Check intentions first (highest priority for selection)
+        const intentions = this.environment.getAllIntentions ? this.environment.getAllIntentions() : [];
+        for (const intention of intentions) {
+            if (intention.containsPoint(screenX, screenY, scale, offset)) {
+                return { type: 'intention', entity: intention };
+            }
+        }
 
         // At cell level or higher, prioritize cells
         if (this.level >= 3) {

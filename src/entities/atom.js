@@ -63,6 +63,9 @@ class Atom {
         if (this.availableValence < order) return false;
         if (other.availableValence < order) return false;
 
+        // Sealed atoms (in stable polymers) cannot form new bonds
+        if (this.isSealed || other.isSealed) return false;
+
         // Check if already bonded
         if (this.isBondedTo(other)) return false;
 
