@@ -519,11 +519,16 @@ function findPotentialPolymers(molecules, maxDistance = 100) {
 
         while (found) {
             found = false;
+
+            // Defensive check for getCenter method
+            if (!current || typeof current.getCenter !== 'function') break;
+
             const currentCenter = current.getCenter();
 
             for (const other of molecules) {
                 if (assigned.has(other.id) || other.proteinId) continue;
-                if (!other.isStable()) continue;
+                if (!other.isStable || !other.isStable()) continue;
+                if (typeof other.getCenter !== 'function') continue;
 
                 const otherCenter = other.getCenter();
                 const dist = Utils.distance(

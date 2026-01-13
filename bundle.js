@@ -2010,11 +2010,16 @@ function findPotentialPolymers(molecules, maxDistance = 100) {
 
         while (found) {
             found = false;
+
+            // Defensive check for getCenter method
+            if (!current || typeof current.getCenter !== 'function') break;
+
             const currentCenter = current.getCenter();
 
             for (const other of molecules) {
                 if (assigned.has(other.id) || other.proteinId) continue;
-                if (!other.isStable()) continue;
+                if (!other.isStable || !other.isStable()) continue;
+                if (typeof other.getCenter !== 'function') continue;
 
                 const otherCenter = other.getCenter();
                 const dist = Utils.distance(
@@ -3048,19 +3053,23 @@ class Environment {
         this._polymerCheckTick++;
         if (this._polymerCheckTick % 30 !== 0) return;
 
-        // Get molecules that can polymerize (either stable or canPolymerize)
-        const freeMolecules = this.getAllMolecules().filter(m =>
-            !m.proteinId && (m.isStable() || (m.canPolymerize && m.canPolymerize()))
-        );
+        try {
+            // Get molecules that can polymerize (either stable or canPolymerize)
+            const freeMolecules = this.getAllMolecules().filter(m =>
+                !m.proteinId && (m.isStable() || (m.canPolymerize && m.canPolymerize()))
+            );
 
-        if (freeMolecules.length < 2) return;
+            if (freeMolecules.length < 2) return;
 
-        // Find potential polymer chains
-        const newPolymers = findPotentialPolymers(freeMolecules, 120);
+            // Find potential polymer chains
+            const newPolymers = findPotentialPolymers(freeMolecules, 120);
 
-        // Register new polymers
-        for (const polymer of newPolymers) {
-            this.addProtein(polymer);
+            // Register new polymers
+            for (const polymer of newPolymers) {
+                this.addProtein(polymer);
+            }
+        } catch (e) {
+            console.error('Error in updatePolymers:', e);
         }
     }
 
@@ -5017,25 +5026,29 @@ class Controls {
             const cell = new Cell(worldPos.x, worldPos.y);
             this.environment.addCell(cell);
         }
-        else if (this.selectedBlueprint) {
-            // Place blueprint
-            const molecule = this.selectedBlueprint.instantiate(worldPos.x, worldPos.y);
-            if (molecule) {
-                for (const atom of molecule.atoms) {
-                    this.environment.addAtom(atom);
+        // At molecule/polymer levels (1-2), place blueprints only
+        else if (this.viewer.level >= 1) {
+            if (this.selectedBlueprint) {
+                const molecule = this.selectedBlueprint.instantiate(worldPos.x, worldPos.y);
+                if (molecule) {
+                    for (const atom of molecule.atoms) {
+                        this.environment.addAtom(atom);
+                    }
+                    for (const bond of molecule.bonds) {
+                        this.environment.addBond(bond);
+                    }
+                    this.environment.addMolecule(molecule);
                 }
-                for (const bond of molecule.bonds) {
-                    this.environment.addBond(bond);
-                }
-                this.environment.addMolecule(molecule);
             }
-        } else {
-            // Place single atom
+            // Don't place atoms at higher levels - require blueprint selection
+        }
+        // At atom level (0), place single atoms
+        else {
             const atom = new Atom(this.selectedElement, worldPos.x, worldPos.y);
             this.environment.addAtom(atom);
         }
 
-        // Immediate render so atom appears even when paused
+        // Immediate render so entity appears even when paused
         this.viewer.render();
     }
 
@@ -5767,35 +5780,46 @@ class App {
                 palette.innerHTML = '<p class="empty-state">Catalogue not initialized</p>';
                 return;
             }
-            const blueprints = this.catalogue.getAllBlueprints();
+            const blueprints = this.catalogue.getAllMolecules();
             console.log('Rendering molecule palette, blueprints:', blueprints.length);
 
             if (blueprints.length === 0) {
                 palette.innerHTML = '<p class="empty-state">No molecules discovered yet. Create stable molecules at Level 1!</p>';
                 return;
             }
+
+            // Helper to escape fingerprint for HTML attributes
+            const escapeAttr = (str) => str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            const unescapeAttr = (str) => str.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+
+            palette.innerHTML = blueprints.map(bp => `
+                <button class="palette-btn molecule-btn" data-fingerprint="${escapeAttr(bp.fingerprint)}">
+                    <span class="formula">${bp.formula}</span>
+                    <span class="info">${bp.atomData.length} atoms</span>
+                </button>
+            `).join('');
+
+            palette.querySelectorAll('.molecule-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const rawFingerprint = btn.dataset.fingerprint;
+                    const fingerprint = unescapeAttr(rawFingerprint);
+                    console.log('Molecule button clicked, fingerprint:', fingerprint);
+                    const bp = this.catalogue.getMolecule(fingerprint);
+                    console.log('Blueprint found:', bp ? bp.formula : 'NULL');
+                    if (bp) {
+                        this.controls.selectedBlueprint = bp;
+                        this.controls.setTool('place');
+                        palette.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('selected'));
+                        btn.classList.add('selected');
+                    } else {
+                        console.error('Blueprint not found for fingerprint:', fingerprint);
+                    }
+                });
+            });
         } catch (e) {
             console.error('Error in _renderMoleculePalette:', e);
             palette.innerHTML = '<p class="empty-state">Error loading molecules</p>';
-            return;
         }
-
-        palette.innerHTML = blueprints.map(bp => `
-            <button class="palette-btn molecule-btn" data-id="${bp.id}">
-                <span class="formula">${bp.formula}</span>
-                <span class="info">${bp.atomCount} atoms</span>
-            </button>
-        `).join('');
-
-        palette.querySelectorAll('.molecule-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const bp = this.catalogue.getBlueprint(btn.dataset.id);
-                this.controls.selectedBlueprint = bp;
-                this.controls.setTool('place');
-                palette.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-            });
-        });
     }
 
     /**

@@ -244,25 +244,29 @@ class Controls {
             const cell = new Cell(worldPos.x, worldPos.y);
             this.environment.addCell(cell);
         }
-        else if (this.selectedBlueprint) {
-            // Place blueprint
-            const molecule = this.selectedBlueprint.instantiate(worldPos.x, worldPos.y);
-            if (molecule) {
-                for (const atom of molecule.atoms) {
-                    this.environment.addAtom(atom);
+        // At molecule/polymer levels (1-2), place blueprints only
+        else if (this.viewer.level >= 1) {
+            if (this.selectedBlueprint) {
+                const molecule = this.selectedBlueprint.instantiate(worldPos.x, worldPos.y);
+                if (molecule) {
+                    for (const atom of molecule.atoms) {
+                        this.environment.addAtom(atom);
+                    }
+                    for (const bond of molecule.bonds) {
+                        this.environment.addBond(bond);
+                    }
+                    this.environment.addMolecule(molecule);
                 }
-                for (const bond of molecule.bonds) {
-                    this.environment.addBond(bond);
-                }
-                this.environment.addMolecule(molecule);
             }
-        } else {
-            // Place single atom
+            // Don't place atoms at higher levels - require blueprint selection
+        }
+        // At atom level (0), place single atoms
+        else {
             const atom = new Atom(this.selectedElement, worldPos.x, worldPos.y);
             this.environment.addAtom(atom);
         }
 
-        // Immediate render so atom appears even when paused
+        // Immediate render so entity appears even when paused
         this.viewer.render();
     }
 

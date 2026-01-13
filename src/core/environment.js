@@ -187,19 +187,23 @@ class Environment {
         this._polymerCheckTick++;
         if (this._polymerCheckTick % 30 !== 0) return;
 
-        // Get molecules that can polymerize (either stable or canPolymerize)
-        const freeMolecules = this.getAllMolecules().filter(m =>
-            !m.proteinId && (m.isStable() || (m.canPolymerize && m.canPolymerize()))
-        );
+        try {
+            // Get molecules that can polymerize (either stable or canPolymerize)
+            const freeMolecules = this.getAllMolecules().filter(m =>
+                !m.proteinId && (m.isStable() || (m.canPolymerize && m.canPolymerize()))
+            );
 
-        if (freeMolecules.length < 2) return;
+            if (freeMolecules.length < 2) return;
 
-        // Find potential polymer chains
-        const newPolymers = findPotentialPolymers(freeMolecules, 120);
+            // Find potential polymer chains
+            const newPolymers = findPotentialPolymers(freeMolecules, 120);
 
-        // Register new polymers
-        for (const polymer of newPolymers) {
-            this.addProtein(polymer);
+            // Register new polymers
+            for (const polymer of newPolymers) {
+                this.addProtein(polymer);
+            }
+        } catch (e) {
+            console.error('Error in updatePolymers:', e);
         }
     }
 

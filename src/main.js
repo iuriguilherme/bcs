@@ -280,35 +280,46 @@ class App {
                 palette.innerHTML = '<p class="empty-state">Catalogue not initialized</p>';
                 return;
             }
-            const blueprints = this.catalogue.getAllBlueprints();
+            const blueprints = this.catalogue.getAllMolecules();
             console.log('Rendering molecule palette, blueprints:', blueprints.length);
 
             if (blueprints.length === 0) {
                 palette.innerHTML = '<p class="empty-state">No molecules discovered yet. Create stable molecules at Level 1!</p>';
                 return;
             }
+
+            // Helper to escape fingerprint for HTML attributes
+            const escapeAttr = (str) => str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            const unescapeAttr = (str) => str.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+
+            palette.innerHTML = blueprints.map(bp => `
+                <button class="palette-btn molecule-btn" data-fingerprint="${escapeAttr(bp.fingerprint)}">
+                    <span class="formula">${bp.formula}</span>
+                    <span class="info">${bp.atomData.length} atoms</span>
+                </button>
+            `).join('');
+
+            palette.querySelectorAll('.molecule-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const rawFingerprint = btn.dataset.fingerprint;
+                    const fingerprint = unescapeAttr(rawFingerprint);
+                    console.log('Molecule button clicked, fingerprint:', fingerprint);
+                    const bp = this.catalogue.getMolecule(fingerprint);
+                    console.log('Blueprint found:', bp ? bp.formula : 'NULL');
+                    if (bp) {
+                        this.controls.selectedBlueprint = bp;
+                        this.controls.setTool('place');
+                        palette.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('selected'));
+                        btn.classList.add('selected');
+                    } else {
+                        console.error('Blueprint not found for fingerprint:', fingerprint);
+                    }
+                });
+            });
         } catch (e) {
             console.error('Error in _renderMoleculePalette:', e);
             palette.innerHTML = '<p class="empty-state">Error loading molecules</p>';
-            return;
         }
-
-        palette.innerHTML = blueprints.map(bp => `
-            <button class="palette-btn molecule-btn" data-id="${bp.id}">
-                <span class="formula">${bp.formula}</span>
-                <span class="info">${bp.atomCount} atoms</span>
-            </button>
-        `).join('');
-
-        palette.querySelectorAll('.molecule-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const bp = this.catalogue.getBlueprint(btn.dataset.id);
-                this.controls.selectedBlueprint = bp;
-                this.controls.setTool('place');
-                palette.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-            });
-        });
     }
 
     /**
