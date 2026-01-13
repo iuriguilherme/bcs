@@ -6,6 +6,7 @@
 class Catalogue {
     constructor() {
         this.molecules = new Map();  // fingerprint -> MoleculeBlueprint
+        this.polymers = new Map();   // fingerprint -> PolymerBlueprint
         this.cells = new Map();      // id -> CellBlueprint
         this.organisms = new Map();  // id -> OrganismBlueprint
 
@@ -20,6 +21,22 @@ class Catalogue {
 
         // Event callbacks
         this.onBlueprintAdded = null;
+
+        // Load pre-defined polymer templates
+        this._loadPolymerTemplates();
+    }
+
+    /**
+     * Load pre-defined polymer templates
+     */
+    _loadPolymerTemplates() {
+        if (typeof getAllPolymerTemplates === 'function') {
+            const templates = getAllPolymerTemplates();
+            for (const template of templates) {
+                this.polymers.set(template.fingerprint, template);
+            }
+            console.log(`Loaded ${templates.length} polymer templates`);
+        }
     }
 
     /**
@@ -156,6 +173,105 @@ class Catalogue {
         return Array.from(this.molecules.values());
     }
 
+    // ============ Polymer Methods ============
+
+    /**
+     * Register a discovered polymer blueprint
+     * @param {Polymer} polymer - The polymer to register
+     * @param {string} name - Optional custom name
+     * @returns {PolymerBlueprint|null}
+     */
+    registerPolymer(polymer, name = null) {
+        // Check if polymer is useful
+        const usefulness = isPolymerUseful(polymer);
+
+        // Create a template from the polymer
+        const template = {
+            id: polymer.id,
+            name: name || polymer.name || usefulness.template || `Polymer-${polymer.molecules.length}`,
+            type: polymer.type,
+            description: usefulness.useful ? `Useful for ${usefulness.role}` : 'Unknown function',
+            minMolecules: polymer.molecules.length,
+            requiredElements: [...new Set(polymer.getAllAtoms().map(a => a.symbol))],
+            elementRatios: {},
+            essential: usefulness.essential,
+            cellRole: usefulness.role
+        };
+
+        const blueprint = new PolymerBlueprint(template, polymer.molecules);
+        blueprint.discovered = true;
+        blueprint.discoveredAt = Date.now();
+
+        // Check if already registered
+        if (this.polymers.has(blueprint.fingerprint)) {
+            return null;
+        }
+
+        this.polymers.set(blueprint.fingerprint, blueprint);
+        console.log(`Registered polymer: ${blueprint.name} (${blueprint.type})`);
+
+        if (this.onBlueprintAdded) {
+            this.onBlueprintAdded('polymer', blueprint);
+        }
+
+        return blueprint;
+    }
+
+    /**
+     * Check if polymer fingerprint is already registered
+     */
+    hasPolymer(fingerprint) {
+        return this.polymers.has(fingerprint);
+    }
+
+    /**
+     * Get polymer blueprint by fingerprint
+     */
+    getPolymer(fingerprint) {
+        return this.polymers.get(fingerprint) || null;
+    }
+
+    /**
+     * Get all polymer blueprints
+     */
+    getAllPolymers() {
+        return Array.from(this.polymers.values());
+    }
+
+    /**
+     * Get only essential polymer templates (needed for cells)
+     */
+    getEssentialPolymers() {
+        return this.getAllPolymers().filter(p => p.essential);
+    }
+
+    /**
+     * Get polymers by type
+     */
+    getPolymersByType(type) {
+        return this.getAllPolymers().filter(p => p.type === type);
+    }
+
+    /**
+     * Get polymers by cell role
+     */
+    getPolymersByRole(role) {
+        return this.getAllPolymers().filter(p => p.cellRole === role);
+    }
+
+    /**
+     * Instantiate a polymer at a position
+     * @param {string} fingerprint - Blueprint fingerprint
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @returns {Polymer|null}
+     */
+    instantiatePolymer(fingerprint, x, y) {
+        const blueprint = this.getPolymer(fingerprint);
+        if (!blueprint) return null;
+        return blueprint.instantiate(x, y, this);
+    }
+
     /**
      * Search blueprints by name/formula
      * @param {string} query - Search query
@@ -257,9 +373,13 @@ class Catalogue {
      */
     async clear() {
         this.molecules.clear();
+        this.polymers.clear();
         this.cells.clear();
         this.organisms.clear();
         this.knownFingerprints.clear();
+
+        // Reload polymer templates
+        this._loadPolymerTemplates();
 
         if (this.db) {
             const transaction = this.db.transaction(

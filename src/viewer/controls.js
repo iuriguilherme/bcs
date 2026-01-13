@@ -32,6 +32,7 @@ class Controls {
 
         // Selected blueprint for placement
         this.selectedBlueprint = null;
+        this.selectedPolymerTemplate = null;
 
         // Key states
         this.keys = new Set();
@@ -244,8 +245,41 @@ class Controls {
             const cell = new Cell(worldPos.x, worldPos.y);
             this.environment.addCell(cell);
         }
-        // At molecule/polymer levels (1-2), place blueprints only
-        else if (this.viewer.level >= 1) {
+        // At polymer level (2), place polymers or molecules
+        else if (this.viewer.level === 2) {
+            if (this.selectedPolymerTemplate) {
+                // Place polymer from template
+                const polymer = this.selectedPolymerTemplate.instantiate(worldPos.x, worldPos.y, this.catalogue);
+                if (polymer) {
+                    // Add all molecules and atoms to environment
+                    for (const mol of polymer.molecules) {
+                        for (const atom of mol.atoms) {
+                            this.environment.addAtom(atom);
+                        }
+                        for (const bond of mol.bonds) {
+                            this.environment.addBond(bond);
+                        }
+                        this.environment.addMolecule(mol);
+                    }
+                    this.environment.addProtein(polymer);
+                    console.log(`Placed polymer: ${this.selectedPolymerTemplate.name}`);
+                }
+            } else if (this.selectedBlueprint) {
+                // Fall back to molecule placement
+                const molecule = this.selectedBlueprint.instantiate(worldPos.x, worldPos.y);
+                if (molecule) {
+                    for (const atom of molecule.atoms) {
+                        this.environment.addAtom(atom);
+                    }
+                    for (const bond of molecule.bonds) {
+                        this.environment.addBond(bond);
+                    }
+                    this.environment.addMolecule(molecule);
+                }
+            }
+        }
+        // At molecule level (1), place molecules from blueprints
+        else if (this.viewer.level === 1) {
             if (this.selectedBlueprint) {
                 const molecule = this.selectedBlueprint.instantiate(worldPos.x, worldPos.y);
                 if (molecule) {
@@ -258,7 +292,7 @@ class Controls {
                     this.environment.addMolecule(molecule);
                 }
             }
-            // Don't place atoms at higher levels - require blueprint selection
+            // Don't place atoms at molecule level - require blueprint selection
         }
         // At atom level (0), place single atoms
         else {

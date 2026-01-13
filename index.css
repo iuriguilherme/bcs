@@ -565,3 +565,33 @@ body {
     text-align: center;
     padding: var(--space-sm);
 }
+
+.palette-subtitle {
+    grid-column: span 4;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: var(--space-sm);
+    margin-bottom: var(--space-xs);
+    padding-left: var(--space-xs);
+    border-left: 2px solid var(--accent-primary);
+}
+
+.polymer-template-btn,
+.polymer-existing-btn {
+    grid-column: span 2;
+}
+
+.polymer-template-btn .type,
+.polymer-existing-btn .type {
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.polymer-template-btn .info,
+.polymer-existing-btn .info {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+}

@@ -66,6 +66,13 @@ class Molecule {
     }
 
     /**
+     * Get center position (alias for centerOfMass for compatibility)
+     */
+    getCenter() {
+        return this.centerOfMass;
+    }
+
+    /**
      * Update derived properties
      */
     updateProperties() {

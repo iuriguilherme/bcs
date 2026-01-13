@@ -326,23 +326,91 @@ class App {
      * Render polymer palette
      */
     _renderPolymerPalette(palette) {
-        const polymers = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
+        try {
+            // Get polymer templates from catalogue
+            const polymerTemplates = this.catalogue ? this.catalogue.getAllPolymers() : [];
+            // Get existing polymers from environment
+            const existingPolymers = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
 
-        if (polymers.length === 0) {
-            palette.innerHTML = '<p class="empty-state">No polymers yet. Polymers form when molecules chain together.</p>';
-            return;
+            if (polymerTemplates.length === 0 && existingPolymers.length === 0) {
+                palette.innerHTML = '<p class="empty-state">No polymer templates available.</p>';
+                return;
+            }
+
+            // Helper to escape fingerprint for HTML attributes
+            const escapeAttr = (str) => str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+            let html = '';
+
+            // Show essential polymer templates first
+            const essentialTemplates = polymerTemplates.filter(p => p.essential);
+            const otherTemplates = polymerTemplates.filter(p => !p.essential);
+
+            if (essentialTemplates.length > 0) {
+                html += '<p class="palette-subtitle">Essential for Cells</p>';
+                html += essentialTemplates.map(template => {
+                    const colors = PolymerColors[template.type] || PolymerColors.generic;
+                    return `
+                        <button class="palette-btn polymer-template-btn" data-fingerprint="${escapeAttr(template.fingerprint)}" style="border-color: ${colors.primary};">
+                            <span class="type" style="color: ${colors.primary};">${template.name}</span>
+                            <span class="info">${template.type} &bull; ${template.minMolecules} mols</span>
+                        </button>
+                    `;
+                }).join('');
+            }
+
+            if (otherTemplates.length > 0) {
+                html += '<p class="palette-subtitle">Other Polymers</p>';
+                html += otherTemplates.map(template => {
+                    const colors = PolymerColors[template.type] || PolymerColors.generic;
+                    return `
+                        <button class="palette-btn polymer-template-btn" data-fingerprint="${escapeAttr(template.fingerprint)}" style="border-color: ${colors.primary};">
+                            <span class="type" style="color: ${colors.primary};">${template.name}</span>
+                            <span class="info">${template.type} &bull; ${template.minMolecules} mols</span>
+                        </button>
+                    `;
+                }).join('');
+            }
+
+            // Show existing polymers in environment
+            if (existingPolymers.length > 0) {
+                html += '<p class="palette-subtitle">In Environment</p>';
+                html += existingPolymers.map(poly => {
+                    const label = poly.getLabel ? poly.getLabel() : 'Polymer';
+                    const colors = poly.getColor ? poly.getColor() : { primary: '#8b5cf6' };
+                    return `
+                        <button class="palette-btn polymer-existing-btn" data-id="${poly.id}" style="border-color: ${colors.primary};">
+                            <span class="type" style="color: ${colors.primary};">${label}</span>
+                            <span class="info">${poly.molecules.length} mols</span>
+                        </button>
+                    `;
+                }).join('');
+            }
+
+            palette.innerHTML = html;
+
+            // Add click handlers for templates
+            const unescapeAttr = (str) => str.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+
+            palette.querySelectorAll('.polymer-template-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const fingerprint = unescapeAttr(btn.dataset.fingerprint);
+                    const template = this.catalogue.getPolymer(fingerprint);
+                    console.log('Polymer template selected:', template?.name);
+                    if (template) {
+                        this.controls.selectedPolymerTemplate = template;
+                        this.controls.selectedBlueprint = null;  // Clear molecule selection
+                        this.controls.setTool('place');
+                        palette.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('selected'));
+                        btn.classList.add('selected');
+                    }
+                });
+            });
+
+        } catch (e) {
+            console.error('Error in _renderPolymerPalette:', e);
+            palette.innerHTML = '<p class="empty-state">Error loading polymers</p>';
         }
-
-        palette.innerHTML = polymers.map(poly => {
-            const label = poly.getLabel ? poly.getLabel() : 'Polymer';
-            const colors = poly.getColor ? poly.getColor() : { primary: '#8b5cf6' };
-            return `
-                <button class="palette-btn polymer-btn" data-id="${poly.id}" style="border-color: ${colors.primary};">
-                    <span class="type" style="color: ${colors.primary};">${label}</span>
-                    <span class="info">${poly.molecules.length} mols</span>
-                </button>
-            `;
-        }).join('');
     }
 
     /**
@@ -370,7 +438,7 @@ class App {
 
         document.getElementById('atomCount').textContent = `Atoms: ${stats.atomCount}`;
         document.getElementById('moleculeCount').textContent = `Mol: ${stats.moleculeCount}`;
-        document.getElementById('proteinCount').textContent = `Prot: ${stats.proteinCount || 0}`;
+        document.getElementById('proteinCount').textContent = `Poly: ${stats.proteinCount || 0}`;
         document.getElementById('cellCount').textContent = `Cells: ${stats.cellCount}`;
         document.getElementById('tickCounter').textContent = `Tick: ${stats.tick}`;
         document.getElementById('fpsCounter').textContent = `FPS: ${stats.fps}`;

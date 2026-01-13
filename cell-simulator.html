@@ -570,6 +570,36 @@ body {
     font-size: 0.75rem;
     text-align: center;
     padding: var(--space-sm);
+}
+
+.palette-subtitle {
+    grid-column: span 4;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: var(--space-sm);
+    margin-bottom: var(--space-xs);
+    padding-left: var(--space-xs);
+    border-left: 2px solid var(--accent-primary);
+}
+
+.polymer-template-btn,
+.polymer-existing-btn {
+    grid-column: span 2;
+}
+
+.polymer-template-btn .type,
+.polymer-existing-btn .type {
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.polymer-template-btn .info,
+.polymer-existing-btn .info {
+    font-size: 0.6rem;
+    color: var(--text-muted);
 }    </style>
 </head>
 <body>
@@ -1764,6 +1794,13 @@ class Molecule {
      */
     get mass() {
         return this.atoms.reduce((sum, atom) => sum + atom.mass, 0);
+    }
+
+    /**
+     * Get center position (alias for centerOfMass for compatibility)
+     */
+    getCenter() {
+        return this.centerOfMass;
     }
 
     /**
@@ -4328,6 +4365,393 @@ class Simulation {
 window.Simulation = Simulation;
 
 /**
+ * Polymer Blueprints
+ * Pre-defined templates for cell-essential polymers
+ * and the PolymerBlueprint class for storing/instantiating polymers
+ */
+
+// Essential polymer templates for cell formation
+const CELL_ESSENTIAL_POLYMERS = {
+    // Membrane Components (Lipids)
+    PHOSPHOLIPID: {
+        id: 'phospholipid',
+        name: 'Phospholipid',
+        type: 'lipid',
+        description: 'Forms the cell membrane bilayer',
+        minMolecules: 3,
+        requiredElements: ['C', 'H', 'O', 'P'],
+        elementRatios: { C: 0.4, H: 0.5, O: 0.08, P: 0.02 },
+        essential: true,
+        cellRole: 'membrane'
+    },
+    FATTY_ACID: {
+        id: 'fatty_acid',
+        name: 'Fatty Acid',
+        type: 'lipid',
+        description: 'Building block for lipids and energy storage',
+        minMolecules: 2,
+        requiredElements: ['C', 'H', 'O'],
+        elementRatios: { C: 0.5, H: 0.45, O: 0.05 },
+        essential: false,
+        cellRole: 'membrane'
+    },
+
+    // Structural Components (Proteins)
+    STRUCTURAL_PROTEIN: {
+        id: 'structural_protein',
+        name: 'Structural Protein',
+        type: 'protein',
+        description: 'Provides cell structure and support',
+        minMolecules: 4,
+        requiredElements: ['C', 'H', 'O', 'N'],
+        elementRatios: { C: 0.35, H: 0.35, O: 0.15, N: 0.15 },
+        essential: true,
+        cellRole: 'structure'
+    },
+    ENZYME: {
+        id: 'enzyme',
+        name: 'Enzyme',
+        type: 'protein',
+        description: 'Catalyzes chemical reactions',
+        minMolecules: 3,
+        requiredElements: ['C', 'H', 'O', 'N'],
+        elementRatios: { C: 0.35, H: 0.35, O: 0.15, N: 0.15 },
+        essential: false,
+        cellRole: 'metabolism'
+    },
+    TRANSPORT_PROTEIN: {
+        id: 'transport_protein',
+        name: 'Transport Protein',
+        type: 'protein',
+        description: 'Moves molecules across membrane',
+        minMolecules: 3,
+        requiredElements: ['C', 'H', 'O', 'N'],
+        elementRatios: { C: 0.35, H: 0.35, O: 0.15, N: 0.15 },
+        essential: false,
+        cellRole: 'transport'
+    },
+
+    // Genetic Material (Nucleic Acids)
+    DNA_STRAND: {
+        id: 'dna_strand',
+        name: 'DNA Strand',
+        type: 'nucleic_acid',
+        description: 'Stores genetic information',
+        minMolecules: 4,
+        requiredElements: ['C', 'H', 'O', 'N', 'P'],
+        elementRatios: { C: 0.30, H: 0.30, O: 0.20, N: 0.15, P: 0.05 },
+        essential: true,
+        cellRole: 'genetics'
+    },
+    RNA_STRAND: {
+        id: 'rna_strand',
+        name: 'RNA Strand',
+        type: 'nucleic_acid',
+        description: 'Carries genetic messages for protein synthesis',
+        minMolecules: 3,
+        requiredElements: ['C', 'H', 'O', 'N', 'P'],
+        elementRatios: { C: 0.30, H: 0.30, O: 0.22, N: 0.13, P: 0.05 },
+        essential: false,
+        cellRole: 'genetics'
+    },
+
+    // Energy Storage (Carbohydrates)
+    GLYCOGEN: {
+        id: 'glycogen',
+        name: 'Glycogen',
+        type: 'carbohydrate',
+        description: 'Energy storage molecule',
+        minMolecules: 3,
+        requiredElements: ['C', 'H', 'O'],
+        elementRatios: { C: 0.40, H: 0.53, O: 0.07 },
+        essential: false,
+        cellRole: 'energy'
+    },
+    CELLULOSE: {
+        id: 'cellulose',
+        name: 'Cellulose',
+        type: 'carbohydrate',
+        description: 'Structural carbohydrate (cell wall)',
+        minMolecules: 4,
+        requiredElements: ['C', 'H', 'O'],
+        elementRatios: { C: 0.44, H: 0.49, O: 0.07 },
+        essential: false,
+        cellRole: 'structure'
+    }
+};
+
+// Minimum requirements for a viable cell
+const CELL_REQUIREMENTS = {
+    membrane: { count: 1, polymers: ['PHOSPHOLIPID', 'FATTY_ACID'] },
+    structure: { count: 1, polymers: ['STRUCTURAL_PROTEIN', 'CELLULOSE'] },
+    genetics: { count: 1, polymers: ['DNA_STRAND', 'RNA_STRAND'] },
+    metabolism: { count: 0, polymers: ['ENZYME'] },  // Optional but helpful
+    energy: { count: 0, polymers: ['GLYCOGEN'] },    // Optional
+    transport: { count: 0, polymers: ['TRANSPORT_PROTEIN'] }  // Optional
+};
+
+/**
+ * PolymerBlueprint - Template for creating polymers
+ */
+class PolymerBlueprint {
+    constructor(template, molecules = null) {
+        this.id = template.id;
+        this.name = template.name;
+        this.type = template.type;
+        this.description = template.description;
+        this.minMolecules = template.minMolecules;
+        this.requiredElements = template.requiredElements;
+        this.elementRatios = template.elementRatios;
+        this.essential = template.essential;
+        this.cellRole = template.cellRole;
+
+        // If based on actual molecules, store their data
+        this.moleculeData = molecules ? molecules.map(m => ({
+            formula: m.formula,
+            fingerprint: m.fingerprint,
+            atomData: m.atoms.map(a => ({
+                symbol: a.symbol,
+                relativeX: a.position.x - m.getCenter().x,
+                relativeY: a.position.y - m.getCenter().y
+            }))
+        })) : null;
+
+        // Generate fingerprint for this blueprint
+        this.fingerprint = this._generateFingerprint();
+
+        // Track discovery
+        this.discovered = false;
+        this.discoveredAt = null;
+    }
+
+    /**
+     * Generate unique fingerprint for this blueprint
+     */
+    _generateFingerprint() {
+        const parts = [
+            this.type,
+            this.requiredElements.sort().join(''),
+            this.minMolecules
+        ];
+        return JSON.stringify({
+            type: this.type,
+            elements: this.requiredElements.sort(),
+            minMol: this.minMolecules
+        });
+    }
+
+    /**
+     * Check if a polymer matches this blueprint
+     */
+    matches(polymer) {
+        if (!polymer || !polymer.molecules || polymer.molecules.length < this.minMolecules) {
+            return false;
+        }
+
+        // Check type
+        if (polymer.type !== this.type) {
+            return false;
+        }
+
+        // Check required elements are present
+        const polymerElements = new Set();
+        for (const mol of polymer.molecules) {
+            if (mol.atoms) {
+                for (const atom of mol.atoms) {
+                    polymerElements.add(atom.symbol);
+                }
+            }
+        }
+
+        for (const element of this.requiredElements) {
+            if (!polymerElements.has(element)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Create a polymer instance at the given position
+     */
+    instantiate(x, y, catalogue) {
+        console.log(`Instantiating polymer: ${this.name} at (${x}, ${y})`);
+
+        // Get molecules needed for this polymer
+        const molecules = [];
+        const spacing = 80;
+
+        // If we have molecule data from a discovered polymer, use it
+        if (this.moleculeData && this.moleculeData.length >= this.minMolecules) {
+            for (let i = 0; i < this.minMolecules; i++) {
+                const molData = this.moleculeData[i % this.moleculeData.length];
+                const offsetX = (i - this.minMolecules / 2) * spacing;
+
+                // Try to instantiate from catalogue
+                if (catalogue && catalogue.getMolecule(molData.fingerprint)) {
+                    const mol = catalogue.instantiateMolecule(molData.fingerprint, x + offsetX, y);
+                    if (mol) molecules.push(mol);
+                }
+            }
+        }
+
+        // If we couldn't get real molecules, create simple molecules based on required elements
+        if (molecules.length < this.minMolecules) {
+            console.log(`Creating ${this.minMolecules - molecules.length} placeholder molecules`);
+
+            for (let i = molecules.length; i < this.minMolecules; i++) {
+                const offsetX = (i - this.minMolecules / 2) * spacing;
+
+                // Create atoms for this molecule
+                const atomSpacing = 20;
+                const elementsToAdd = this.requiredElements.slice(0, 4); // Max 4 elements
+                const atoms = [];
+
+                for (let j = 0; j < elementsToAdd.length; j++) {
+                    const element = elementsToAdd[j];
+                    const atomX = x + offsetX + (j - elementsToAdd.length / 2) * atomSpacing;
+                    const atomY = y + (Math.random() - 0.5) * 10;
+                    const atom = new Atom(element, atomX, atomY);
+                    atoms.push(atom);
+                }
+
+                // Create bonds between adjacent atoms
+                for (let j = 0; j < atoms.length - 1; j++) {
+                    const atom1 = atoms[j];
+                    const atom2 = atoms[j + 1];
+                    if (atom1.availableValence > 0 && atom2.availableValence > 0) {
+                        new Bond(atom1, atom2);  // Bond constructor links atoms
+                    }
+                }
+
+                // Create molecule with the atoms array
+                const molecule = new Molecule(atoms);
+                molecules.push(molecule);
+            }
+        }
+
+        console.log(`Created polymer with ${molecules.length} molecules`);
+
+        // Create polymer from molecules
+        const polymer = new Polymer(molecules, this.type, this.name);
+        return polymer;
+    }
+
+    /**
+     * Serialize for storage
+     */
+    serialize() {
+        return {
+            id: this.id,
+            name: this.name,
+            type: this.type,
+            description: this.description,
+            minMolecules: this.minMolecules,
+            requiredElements: this.requiredElements,
+            elementRatios: this.elementRatios,
+            essential: this.essential,
+            cellRole: this.cellRole,
+            moleculeData: this.moleculeData,
+            fingerprint: this.fingerprint,
+            discovered: this.discovered,
+            discoveredAt: this.discoveredAt
+        };
+    }
+
+    /**
+     * Deserialize from storage
+     */
+    static deserialize(data) {
+        const blueprint = new PolymerBlueprint(data);
+        blueprint.moleculeData = data.moleculeData;
+        blueprint.fingerprint = data.fingerprint;
+        blueprint.discovered = data.discovered;
+        blueprint.discoveredAt = data.discoveredAt;
+        return blueprint;
+    }
+}
+
+/**
+ * Check if a polymer is useful for cell formation
+ */
+function isPolymerUseful(polymer) {
+    for (const templateKey in CELL_ESSENTIAL_POLYMERS) {
+        const template = CELL_ESSENTIAL_POLYMERS[templateKey];
+        const blueprint = new PolymerBlueprint(template);
+        if (blueprint.matches(polymer)) {
+            return {
+                useful: true,
+                template: templateKey,
+                role: template.cellRole,
+                essential: template.essential
+            };
+        }
+    }
+    return { useful: false, template: null, role: null, essential: false };
+}
+
+/**
+ * Get all essential polymer templates
+ */
+function getEssentialPolymerTemplates() {
+    return Object.entries(CELL_ESSENTIAL_POLYMERS)
+        .filter(([_, t]) => t.essential)
+        .map(([key, template]) => new PolymerBlueprint(template));
+}
+
+/**
+ * Get all polymer templates
+ */
+function getAllPolymerTemplates() {
+    return Object.entries(CELL_ESSENTIAL_POLYMERS)
+        .map(([key, template]) => new PolymerBlueprint(template));
+}
+
+/**
+ * Check if polymers meet cell requirements
+ */
+function checkCellViability(polymers) {
+    const roleCounts = {
+        membrane: 0,
+        structure: 0,
+        genetics: 0,
+        metabolism: 0,
+        energy: 0,
+        transport: 0
+    };
+
+    for (const polymer of polymers) {
+        const result = isPolymerUseful(polymer);
+        if (result.useful && result.role) {
+            roleCounts[result.role]++;
+        }
+    }
+
+    const missing = [];
+    for (const [role, req] of Object.entries(CELL_REQUIREMENTS)) {
+        if (roleCounts[role] < req.count) {
+            missing.push({ role, needed: req.count - roleCounts[role], options: req.polymers });
+        }
+    }
+
+    return {
+        viable: missing.filter(m => CELL_REQUIREMENTS[m.role].count > 0).length === 0,
+        roleCounts,
+        missing
+    };
+}
+
+// Make available globally
+window.CELL_ESSENTIAL_POLYMERS = CELL_ESSENTIAL_POLYMERS;
+window.CELL_REQUIREMENTS = CELL_REQUIREMENTS;
+window.PolymerBlueprint = PolymerBlueprint;
+window.isPolymerUseful = isPolymerUseful;
+window.getEssentialPolymerTemplates = getEssentialPolymerTemplates;
+window.getAllPolymerTemplates = getAllPolymerTemplates;
+window.checkCellViability = checkCellViability;
+
+/**
  * Blueprint Classes
  * Templates for spawning entities from the catalogue
  */
@@ -4657,6 +5081,7 @@ window.OrganismBlueprint = OrganismBlueprint;
 class Catalogue {
     constructor() {
         this.molecules = new Map();  // fingerprint -> MoleculeBlueprint
+        this.polymers = new Map();   // fingerprint -> PolymerBlueprint
         this.cells = new Map();      // id -> CellBlueprint
         this.organisms = new Map();  // id -> OrganismBlueprint
 
@@ -4671,6 +5096,22 @@ class Catalogue {
 
         // Event callbacks
         this.onBlueprintAdded = null;
+
+        // Load pre-defined polymer templates
+        this._loadPolymerTemplates();
+    }
+
+    /**
+     * Load pre-defined polymer templates
+     */
+    _loadPolymerTemplates() {
+        if (typeof getAllPolymerTemplates === 'function') {
+            const templates = getAllPolymerTemplates();
+            for (const template of templates) {
+                this.polymers.set(template.fingerprint, template);
+            }
+            console.log(`Loaded ${templates.length} polymer templates`);
+        }
     }
 
     /**
@@ -4807,6 +5248,105 @@ class Catalogue {
         return Array.from(this.molecules.values());
     }
 
+    // ============ Polymer Methods ============
+
+    /**
+     * Register a discovered polymer blueprint
+     * @param {Polymer} polymer - The polymer to register
+     * @param {string} name - Optional custom name
+     * @returns {PolymerBlueprint|null}
+     */
+    registerPolymer(polymer, name = null) {
+        // Check if polymer is useful
+        const usefulness = isPolymerUseful(polymer);
+
+        // Create a template from the polymer
+        const template = {
+            id: polymer.id,
+            name: name || polymer.name || usefulness.template || `Polymer-${polymer.molecules.length}`,
+            type: polymer.type,
+            description: usefulness.useful ? `Useful for ${usefulness.role}` : 'Unknown function',
+            minMolecules: polymer.molecules.length,
+            requiredElements: [...new Set(polymer.getAllAtoms().map(a => a.symbol))],
+            elementRatios: {},
+            essential: usefulness.essential,
+            cellRole: usefulness.role
+        };
+
+        const blueprint = new PolymerBlueprint(template, polymer.molecules);
+        blueprint.discovered = true;
+        blueprint.discoveredAt = Date.now();
+
+        // Check if already registered
+        if (this.polymers.has(blueprint.fingerprint)) {
+            return null;
+        }
+
+        this.polymers.set(blueprint.fingerprint, blueprint);
+        console.log(`Registered polymer: ${blueprint.name} (${blueprint.type})`);
+
+        if (this.onBlueprintAdded) {
+            this.onBlueprintAdded('polymer', blueprint);
+        }
+
+        return blueprint;
+    }
+
+    /**
+     * Check if polymer fingerprint is already registered
+     */
+    hasPolymer(fingerprint) {
+        return this.polymers.has(fingerprint);
+    }
+
+    /**
+     * Get polymer blueprint by fingerprint
+     */
+    getPolymer(fingerprint) {
+        return this.polymers.get(fingerprint) || null;
+    }
+
+    /**
+     * Get all polymer blueprints
+     */
+    getAllPolymers() {
+        return Array.from(this.polymers.values());
+    }
+
+    /**
+     * Get only essential polymer templates (needed for cells)
+     */
+    getEssentialPolymers() {
+        return this.getAllPolymers().filter(p => p.essential);
+    }
+
+    /**
+     * Get polymers by type
+     */
+    getPolymersByType(type) {
+        return this.getAllPolymers().filter(p => p.type === type);
+    }
+
+    /**
+     * Get polymers by cell role
+     */
+    getPolymersByRole(role) {
+        return this.getAllPolymers().filter(p => p.cellRole === role);
+    }
+
+    /**
+     * Instantiate a polymer at a position
+     * @param {string} fingerprint - Blueprint fingerprint
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @returns {Polymer|null}
+     */
+    instantiatePolymer(fingerprint, x, y) {
+        const blueprint = this.getPolymer(fingerprint);
+        if (!blueprint) return null;
+        return blueprint.instantiate(x, y, this);
+    }
+
     /**
      * Search blueprints by name/formula
      * @param {string} query - Search query
@@ -4908,9 +5448,13 @@ class Catalogue {
      */
     async clear() {
         this.molecules.clear();
+        this.polymers.clear();
         this.cells.clear();
         this.organisms.clear();
         this.knownFingerprints.clear();
+
+        // Reload polymer templates
+        this._loadPolymerTemplates();
 
         if (this.db) {
             const transaction = this.db.transaction(
@@ -5455,6 +5999,7 @@ class Controls {
 
         // Selected blueprint for placement
         this.selectedBlueprint = null;
+        this.selectedPolymerTemplate = null;
 
         // Key states
         this.keys = new Set();
@@ -5667,8 +6212,41 @@ class Controls {
             const cell = new Cell(worldPos.x, worldPos.y);
             this.environment.addCell(cell);
         }
-        // At molecule/polymer levels (1-2), place blueprints only
-        else if (this.viewer.level >= 1) {
+        // At polymer level (2), place polymers or molecules
+        else if (this.viewer.level === 2) {
+            if (this.selectedPolymerTemplate) {
+                // Place polymer from template
+                const polymer = this.selectedPolymerTemplate.instantiate(worldPos.x, worldPos.y, this.catalogue);
+                if (polymer) {
+                    // Add all molecules and atoms to environment
+                    for (const mol of polymer.molecules) {
+                        for (const atom of mol.atoms) {
+                            this.environment.addAtom(atom);
+                        }
+                        for (const bond of mol.bonds) {
+                            this.environment.addBond(bond);
+                        }
+                        this.environment.addMolecule(mol);
+                    }
+                    this.environment.addProtein(polymer);
+                    console.log(`Placed polymer: ${this.selectedPolymerTemplate.name}`);
+                }
+            } else if (this.selectedBlueprint) {
+                // Fall back to molecule placement
+                const molecule = this.selectedBlueprint.instantiate(worldPos.x, worldPos.y);
+                if (molecule) {
+                    for (const atom of molecule.atoms) {
+                        this.environment.addAtom(atom);
+                    }
+                    for (const bond of molecule.bonds) {
+                        this.environment.addBond(bond);
+                    }
+                    this.environment.addMolecule(molecule);
+                }
+            }
+        }
+        // At molecule level (1), place molecules from blueprints
+        else if (this.viewer.level === 1) {
             if (this.selectedBlueprint) {
                 const molecule = this.selectedBlueprint.instantiate(worldPos.x, worldPos.y);
                 if (molecule) {
@@ -5681,7 +6259,7 @@ class Controls {
                     this.environment.addMolecule(molecule);
                 }
             }
-            // Don't place atoms at higher levels - require blueprint selection
+            // Don't place atoms at molecule level - require blueprint selection
         }
         // At atom level (0), place single atoms
         else {
@@ -6467,23 +7045,91 @@ class App {
      * Render polymer palette
      */
     _renderPolymerPalette(palette) {
-        const polymers = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
+        try {
+            // Get polymer templates from catalogue
+            const polymerTemplates = this.catalogue ? this.catalogue.getAllPolymers() : [];
+            // Get existing polymers from environment
+            const existingPolymers = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
 
-        if (polymers.length === 0) {
-            palette.innerHTML = '<p class="empty-state">No polymers yet. Polymers form when molecules chain together.</p>';
-            return;
+            if (polymerTemplates.length === 0 && existingPolymers.length === 0) {
+                palette.innerHTML = '<p class="empty-state">No polymer templates available.</p>';
+                return;
+            }
+
+            // Helper to escape fingerprint for HTML attributes
+            const escapeAttr = (str) => str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+            let html = '';
+
+            // Show essential polymer templates first
+            const essentialTemplates = polymerTemplates.filter(p => p.essential);
+            const otherTemplates = polymerTemplates.filter(p => !p.essential);
+
+            if (essentialTemplates.length > 0) {
+                html += '<p class="palette-subtitle">Essential for Cells</p>';
+                html += essentialTemplates.map(template => {
+                    const colors = PolymerColors[template.type] || PolymerColors.generic;
+                    return `
+                        <button class="palette-btn polymer-template-btn" data-fingerprint="${escapeAttr(template.fingerprint)}" style="border-color: ${colors.primary};">
+                            <span class="type" style="color: ${colors.primary};">${template.name}</span>
+                            <span class="info">${template.type} &bull; ${template.minMolecules} mols</span>
+                        </button>
+                    `;
+                }).join('');
+            }
+
+            if (otherTemplates.length > 0) {
+                html += '<p class="palette-subtitle">Other Polymers</p>';
+                html += otherTemplates.map(template => {
+                    const colors = PolymerColors[template.type] || PolymerColors.generic;
+                    return `
+                        <button class="palette-btn polymer-template-btn" data-fingerprint="${escapeAttr(template.fingerprint)}" style="border-color: ${colors.primary};">
+                            <span class="type" style="color: ${colors.primary};">${template.name}</span>
+                            <span class="info">${template.type} &bull; ${template.minMolecules} mols</span>
+                        </button>
+                    `;
+                }).join('');
+            }
+
+            // Show existing polymers in environment
+            if (existingPolymers.length > 0) {
+                html += '<p class="palette-subtitle">In Environment</p>';
+                html += existingPolymers.map(poly => {
+                    const label = poly.getLabel ? poly.getLabel() : 'Polymer';
+                    const colors = poly.getColor ? poly.getColor() : { primary: '#8b5cf6' };
+                    return `
+                        <button class="palette-btn polymer-existing-btn" data-id="${poly.id}" style="border-color: ${colors.primary};">
+                            <span class="type" style="color: ${colors.primary};">${label}</span>
+                            <span class="info">${poly.molecules.length} mols</span>
+                        </button>
+                    `;
+                }).join('');
+            }
+
+            palette.innerHTML = html;
+
+            // Add click handlers for templates
+            const unescapeAttr = (str) => str.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+
+            palette.querySelectorAll('.polymer-template-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const fingerprint = unescapeAttr(btn.dataset.fingerprint);
+                    const template = this.catalogue.getPolymer(fingerprint);
+                    console.log('Polymer template selected:', template?.name);
+                    if (template) {
+                        this.controls.selectedPolymerTemplate = template;
+                        this.controls.selectedBlueprint = null;  // Clear molecule selection
+                        this.controls.setTool('place');
+                        palette.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('selected'));
+                        btn.classList.add('selected');
+                    }
+                });
+            });
+
+        } catch (e) {
+            console.error('Error in _renderPolymerPalette:', e);
+            palette.innerHTML = '<p class="empty-state">Error loading polymers</p>';
         }
-
-        palette.innerHTML = polymers.map(poly => {
-            const label = poly.getLabel ? poly.getLabel() : 'Polymer';
-            const colors = poly.getColor ? poly.getColor() : { primary: '#8b5cf6' };
-            return `
-                <button class="palette-btn polymer-btn" data-id="${poly.id}" style="border-color: ${colors.primary};">
-                    <span class="type" style="color: ${colors.primary};">${label}</span>
-                    <span class="info">${poly.molecules.length} mols</span>
-                </button>
-            `;
-        }).join('');
     }
 
     /**
@@ -6511,7 +7157,7 @@ class App {
 
         document.getElementById('atomCount').textContent = `Atoms: ${stats.atomCount}`;
         document.getElementById('moleculeCount').textContent = `Mol: ${stats.moleculeCount}`;
-        document.getElementById('proteinCount').textContent = `Prot: ${stats.proteinCount || 0}`;
+        document.getElementById('proteinCount').textContent = `Poly: ${stats.proteinCount || 0}`;
         document.getElementById('cellCount').textContent = `Cells: ${stats.cellCount}`;
         document.getElementById('tickCounter').textContent = `Tick: ${stats.tick}`;
         document.getElementById('fpsCounter').textContent = `FPS: ${stats.fps}`;
