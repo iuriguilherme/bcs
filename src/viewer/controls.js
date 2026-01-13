@@ -151,7 +151,7 @@ class Controls {
             const dx = x - this.mouse.dragStartX;
             const dy = y - this.mouse.dragStartY;
 
-            this.viewer.pan(-dx, -dy);
+            this.viewer.pan(dx, dy);
 
             this.mouse.dragStartX = x;
             this.mouse.dragStartY = y;
@@ -485,7 +485,7 @@ class Controls {
                     <p>Energy: ${cell.energy.toFixed(1)} / ${cell.maxEnergy}</p>
                     <p>Age: ${cell.age} ticks</p>
                     <p>Position: (${cell.position.x.toFixed(1)}, ${cell.position.y.toFixed(1)})</p>
-                    <p>Brain: ${cell.brain.layers.join(' → ')}</p>
+                    <p>Brain: ${cell.brain.layers.join(' &rarr; ')}</p>
                     <p>Weights: ${cell.brain.getWeightCount()}</p>
                     <p>Alive: ${cell.isAlive ? 'Yes &#10003;' : 'No'}</p>
                 </div>

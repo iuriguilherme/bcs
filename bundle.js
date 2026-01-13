@@ -5447,7 +5447,7 @@ class Controls {
             const dx = x - this.mouse.dragStartX;
             const dy = y - this.mouse.dragStartY;
 
-            this.viewer.pan(-dx, -dy);
+            this.viewer.pan(dx, dy);
 
             this.mouse.dragStartX = x;
             this.mouse.dragStartY = y;
@@ -5781,7 +5781,7 @@ class Controls {
                     <p>Energy: ${cell.energy.toFixed(1)} / ${cell.maxEnergy}</p>
                     <p>Age: ${cell.age} ticks</p>
                     <p>Position: (${cell.position.x.toFixed(1)}, ${cell.position.y.toFixed(1)})</p>
-                    <p>Brain: ${cell.brain.layers.join(' â†’ ')}</p>
+                    <p>Brain: ${cell.brain.layers.join(' &rarr; ')}</p>
                     <p>Weights: ${cell.brain.getWeightCount()}</p>
                     <p>Alive: ${cell.isAlive ? 'Yes &#10003;' : 'No'}</p>
                 </div>
@@ -6170,6 +6170,9 @@ class App {
                 // Update palette for this level
                 this._updatePaletteForLevel(level);
 
+                // Switch to select mode when changing levels
+                this.controls.setTool('select');
+
                 // Force re-render to show the new level
                 this.viewer.render();
             }
@@ -6205,6 +6208,11 @@ class App {
                 document.querySelectorAll('.tab-content').forEach(content => {
                     content.classList.toggle('active', content.id === tab + 'Tab');
                 });
+
+                // Switch to select mode when clicking inspector tab
+                if (tab === 'inspector') {
+                    this.controls.setTool('select');
+                }
             });
         });
     }

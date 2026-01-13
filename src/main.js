@@ -122,6 +122,9 @@ class App {
                 // Update palette for this level
                 this._updatePaletteForLevel(level);
 
+                // Switch to select mode when changing levels
+                this.controls.setTool('select');
+
                 // Force re-render to show the new level
                 this.viewer.render();
             }
@@ -157,6 +160,11 @@ class App {
                 document.querySelectorAll('.tab-content').forEach(content => {
                     content.classList.toggle('active', content.id === tab + 'Tab');
                 });
+
+                // Switch to select mode when clicking inspector tab
+                if (tab === 'inspector') {
+                    this.controls.setTool('select');
+                }
             });
         });
     }
