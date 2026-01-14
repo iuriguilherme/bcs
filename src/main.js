@@ -176,8 +176,8 @@ class App {
         const palette = document.getElementById('atomPalette');
         if (!palette) return;
 
-        // Essential elements for Phase 1
-        const elements = ['H', 'C', 'N', 'O', 'P', 'S', 'Na', 'Cl'];
+        // Essential elements - synced with catalogue-ui.js
+        const elements = ['H', 'C', 'N', 'O', 'P', 'S', 'Cl', 'Na', 'K', 'Ca', 'Fe'];
 
         palette.innerHTML = elements.map(symbol => {
             const element = getElement(symbol);
@@ -253,7 +253,8 @@ class App {
      * Render atom palette
      */
     _renderAtomPalette(palette) {
-        const elements = ['H', 'C', 'N', 'O', 'P', 'S', 'Na', 'Cl'];
+        // Synced with catalogue-ui.js commonAtoms
+        const elements = ['H', 'C', 'N', 'O', 'P', 'S', 'Cl', 'Na', 'K', 'Ca', 'Fe'];
 
         palette.innerHTML = elements.map(symbol => {
             const element = getElement(symbol);
@@ -340,8 +341,8 @@ class App {
 
             palette.innerHTML = blueprints.map(bp => `
                 <button class="palette-btn molecule-btn" data-fingerprint="${escapeAttr(bp.fingerprint)}">
-                    <span class="formula">${bp.formula}</span>
-                    <span class="info">${bp.atomData.length} atoms</span>
+                    <span class="formula">${bp.name || bp.formula}</span>
+                    <span class="info">${bp.formula} &bull; ${bp.atomData.length} atoms</span>
                 </button>
             `).join('');
 

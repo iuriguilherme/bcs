@@ -52,11 +52,6 @@ class CatalogueUI {
     render(filter = '') {
         if (!this.listContainer) return;
 
-        // Only show stable molecules with 2+ atoms, 1+ bonds, and all valences satisfied
-        const allBlueprints = filter
-            ? this.catalogue.search(filter)
-            : this.catalogue.getAllMolecules();
-
         // Helper: calculate if blueprint is truly stable from its data
         const isBlueprintStable = (bp) => {
             if (!bp.atomData || bp.atomData.length < 2) return false;
@@ -89,39 +84,106 @@ class CatalogueUI {
             return true;
         };
 
-        const blueprints = allBlueprints.filter(bp => isBlueprintStable(bp));
+        let html = '';
+        const filterLower = filter.toLowerCase();
 
-        if (blueprints.length === 0) {
-            this.listContainer.innerHTML = `
-                <p class="empty-state">
-                    ${filter ? 'No matches found.' : 'No stable molecules yet. Create stable molecules to add them!'}
-                </p>
-            `;
-            return;
+        // Section 1: Atoms
+        const commonAtoms = ['H', 'C', 'N', 'O', 'P', 'S', 'Cl', 'Na', 'K', 'Ca', 'Fe'];
+        const matchingAtoms = filter
+            ? commonAtoms.filter(s => s.toLowerCase().includes(filterLower) || getElement(s)?.name.toLowerCase().includes(filterLower))
+            : commonAtoms;
+
+        if (matchingAtoms.length > 0) {
+            html += '<div class="catalogue-section"><h4>Atoms</h4><div class="catalogue-grid">';
+            for (const symbol of matchingAtoms) {
+                const element = getElement(symbol);
+                if (element) {
+                    html += `
+                        <button class="catalogue-atom-btn" data-symbol="${symbol}" data-level="0">
+                            <span class="atom-symbol">${symbol}</span>
+                            <span class="atom-name">${element.name}</span>
+                        </button>
+                    `;
+                }
+            }
+            html += '</div></div>';
         }
 
-        // Sort by creation date (newest first)
+        // Section 2: Molecules
+        const allBlueprints = filter
+            ? this.catalogue.search(filter)
+            : this.catalogue.getAllMolecules();
+        const blueprints = allBlueprints.filter(bp => isBlueprintStable(bp));
         blueprints.sort((a, b) => b.createdAt - a.createdAt);
 
-        this.listContainer.innerHTML = blueprints.map(bp => this._renderItem(bp)).join('');
+        if (blueprints.length > 0) {
+            html += '<div class="catalogue-section"><h4>Molecules</h4>';
+            html += blueprints.map(bp => this._renderItem(bp)).join('');
+            html += '</div>';
+        }
 
-        // Bind click handlers
+        // Section 3: Polymer Templates
+        const polymerTemplates = window.getAllPolymerTemplates ? window.getAllPolymerTemplates() : [];
+        const matchingPolymers = filter
+            ? polymerTemplates.filter(p => p.name.toLowerCase().includes(filterLower) || p.type.toLowerCase().includes(filterLower))
+            : polymerTemplates;
+
+        if (matchingPolymers.length > 0) {
+            html += '<div class="catalogue-section"><h4>Polymer Templates</h4><div class="catalogue-grid">';
+            for (const template of matchingPolymers) {
+                const colorMap = { lipid: '#ef4444', protein: '#3b82f6', nucleic_acid: '#22c55e', carbohydrate: '#f59e0b' };
+                const color = colorMap[template.type] || '#8b5cf6';
+                html += `
+                    <button class="catalogue-polymer-btn" data-polymer-id="${template.id}" data-level="2" style="border-color: ${color};">
+                        <span class="polymer-name">${template.name}</span>
+                        <span class="polymer-type">${template.type}</span>
+                    </button>
+                `;
+            }
+            html += '</div></div>';
+        }
+
+        if (!html) {
+            html = '<p class="empty-state">No matches found.</p>';
+        }
+
+        this.listContainer.innerHTML = html;
+
+        // Bind atom click handlers
+        this.listContainer.querySelectorAll('.catalogue-atom-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const symbol = btn.dataset.symbol;
+                const level = parseInt(btn.dataset.level);
+                this.controls.setSelectedElement(symbol);
+                this.controls.setTool('place');
+                if (window.app) window.app.setLevel(level);
+            });
+        });
+
+        // Bind molecule click handlers
         this.listContainer.querySelectorAll('.catalogue-item').forEach(item => {
             const fingerprint = item.dataset.fingerprint;
-
             item.addEventListener('click', () => {
                 this._selectBlueprint(fingerprint);
+                if (window.app) window.app.setLevel(1); // Molecule level
             });
+        });
 
-            item.addEventListener('dblclick', () => {
-                // Place immediately at center
-                const bp = this.catalogue.getMolecule(fingerprint);
-                if (bp) {
-                    this.controls.setSelectedBlueprint(bp);
+        // Bind polymer click handlers
+        this.listContainer.querySelectorAll('.catalogue-polymer-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const polymerId = btn.dataset.polymerId;
+                const level = parseInt(btn.dataset.level);
+                const template = polymerTemplates.find(p => p.id === polymerId);
+                if (template) {
+                    this.controls.selectedPolymerTemplate = template;
+                    this.controls.setTool('place');
+                    if (window.app) window.app.setLevel(level);
                 }
             });
         });
     }
+
 
     /**
      * Render a single catalogue item
@@ -275,6 +337,82 @@ style.textContent = `
         font-size: 0.875rem;
         color: var(--text-secondary);
         margin-bottom: 4px;
+    }
+    
+    .catalogue-section {
+        margin-bottom: 16px;
+    }
+    
+    .catalogue-section h4 {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+    
+    .catalogue-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+    }
+    
+    .catalogue-atom-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 6px 4px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-subtle);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    
+    .catalogue-atom-btn:hover {
+        background: rgba(99, 102, 241, 0.2);
+        border-color: var(--accent-primary);
+    }
+    
+    .catalogue-atom-btn .atom-symbol {
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: var(--text-primary);
+    }
+    
+    .catalogue-atom-btn .atom-name {
+        font-size: 0.65rem;
+        color: var(--text-secondary);
+    }
+    
+    .catalogue-polymer-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 6px 4px;
+        background: var(--bg-tertiary);
+        border: 2px solid;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    
+    .catalogue-polymer-btn:hover {
+        background: rgba(139, 92, 246, 0.2);
+    }
+    
+    .catalogue-polymer-btn .polymer-name {
+        font-weight: 600;
+        font-size: 0.7rem;
+        color: var(--text-primary);
+        text-align: center;
+    }
+    
+    .catalogue-polymer-btn .polymer-type {
+        font-size: 0.6rem;
+        color: var(--text-secondary);
     }
 `;
 document.head.appendChild(style);

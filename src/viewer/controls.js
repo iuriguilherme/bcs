@@ -52,7 +52,16 @@ class Controls {
         canvas.addEventListener('mousemove', this._onMouseMove.bind(this));
         canvas.addEventListener('mouseup', this._onMouseUp.bind(this));
         canvas.addEventListener('wheel', this._onWheel.bind(this));
-        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            // Right-click cancels placement mode and returns to select
+            if (this.tool === 'place' || this.selectedBlueprint || this.selectedPolymerTemplate) {
+                this.selectedBlueprint = null;
+                this.selectedPolymerTemplate = null;
+                this.selectedElement = 'C'; // Reset to default element
+                this.setTool('select');
+            }
+        });
 
         // Keyboard events
         document.addEventListener('keydown', this._onKeyDown.bind(this));
@@ -448,6 +457,14 @@ class Controls {
 
         if (result.type === 'atom') {
             const atom = result.entity;
+            // Get polymer ID through molecule
+            let polymerIdStr = '';
+            if (atom.moleculeId && this.environment) {
+                const mol = this.environment.molecules.get(atom.moleculeId);
+                if (mol && mol.polymerId) {
+                    polymerIdStr = `<p>Polymer ID: ${mol.polymerId.substring(0, 8)}...</p>`;
+                }
+            }
             content.innerHTML = `
                 <div class="inspector-item">
                     <h3>${atom.element.name} (${atom.symbol})</h3>
@@ -457,10 +474,17 @@ class Controls {
                     <p>Bonds: ${atom.bonds.length}</p>
                     <p>Position: (${atom.position.x.toFixed(1)}, ${atom.position.y.toFixed(1)})</p>
                     ${atom.moleculeId ? `<p>Molecule ID: ${atom.moleculeId.substring(0, 8)}...</p>` : ''}
+                    ${polymerIdStr}
                 </div>
             `;
         } else if (result.type === 'molecule') {
             const mol = result.entity;
+            const isInCatalogue = window.app?.catalogue?.hasMolecule?.(mol.fingerprint);
+            const catalogueBtn = mol.isStable()
+                ? (isInCatalogue
+                    ? '<p style="color: #4ade80;">&#10003; In Catalogue</p>'
+                    : '<button class="tool-btn" onclick="window.app.registerMolecule()">Add to Catalogue</button>')
+                : '';
             content.innerHTML = `
                 <div class="inspector-item">
                     <h3>${mol.name || mol.formula}</h3>
@@ -469,7 +493,8 @@ class Controls {
                     <p>Atoms: ${mol.atoms.length}</p>
                     <p>Bonds: ${mol.bonds.length}</p>
                     <p>Stable: ${mol.isStable() ? 'Yes &#10003;' : 'No'}</p>
-                    ${mol.isStable() ? '<button class="tool-btn" onclick="window.app.registerMolecule()">Add to Catalogue</button>' : ''}
+                    ${mol.polymerId ? `<p>Polymer ID: ${mol.polymerId.substring(0, 8)}...</p>` : ''}
+                    ${catalogueBtn}
                 </div>
             `;
         } else if (result.type === 'cell') {
@@ -491,11 +516,13 @@ class Controls {
             content.innerHTML = `
                 <div class="inspector-item">
                     <h3>${poly.name || typeLabel}</h3>
+                    <p>ID: ${poly.id.substring(0, 8)}...</p>
                     <p>Type: ${typeLabel}</p>
                     <p>Molecules: ${poly.molecules.length}</p>
                     <p>Sequence: ${poly.sequence.substring(0, 30)}${poly.sequence.length > 30 ? '...' : ''}</p>
                     <p>Mass: ${poly.mass.toFixed(3)} u</p>
                     <p>Stable: ${poly.isStable() ? 'Yes &#10003;' : 'No'}</p>
+                    ${poly.cellRole ? `<p>Cell Role: ${poly.cellRole}</p>` : ''}
                 </div>
             `;
         } else if (result.type === 'intention') {
@@ -504,16 +531,32 @@ class Controls {
             const requirements = intention.getRequirements();
             const reqCount = requirements?.count || '?';
             const reqType = requirements?.type || 'components';
+
+            // Build requirements details based on type
+            let reqDetails = '';
+            if (requirements?.type === 'atoms') {
+                const elements = requirements.elements?.join(', ') || 'Various';
+                reqDetails = `<p><strong>Needs:</strong> ${reqCount} atoms</p><p>Elements: ${elements}</p>`;
+            } else if (requirements?.type === 'molecules') {
+                const elements = requirements.requiredElements?.join(', ') || 'Various';
+                reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p>With elements: ${elements}</p>`;
+            } else if (requirements?.type === 'polymers') {
+                const roles = requirements.roles?.join(', ') || 'Various';
+                reqDetails = `<p><strong>Needs polymers with roles:</strong></p><p>${roles}</p>`;
+            }
+
             content.innerHTML = `
                 <div class="inspector-item">
                     <h3>Intention: ${bpName}</h3>
                     <p>Type: ${intention.type}</p>
                     <p>Target: ${bpName}</p>
+                    <hr style="border-color: #444; margin: 8px 0;">
+                    ${reqDetails}
+                    <hr style="border-color: #444; margin: 8px 0;">
                     <p>Progress: ${Math.round(intention.progress * 100)}%</p>
-                    <p>Gathered: ${intention.gatheredComponents.size} / ${reqCount} ${reqType}</p>
+                    <p>Gathered: ${intention.gatheredComponents.size} / ${reqCount}</p>
                     <p>Radius: ${intention.radius} units</p>
-                    <p>Force: ${intention.attractionForce}</p>
-                    <p>Position: (${intention.position.x.toFixed(1)}, ${intention.position.y.toFixed(1)})</p>
+                    <p>Position: (${intention.position.x.toFixed(0)}, ${intention.position.y.toFixed(0)})</p>
                     <p>Fulfilled: ${intention.fulfilled ? 'Yes &#10003;' : 'No'}</p>
                     <button class="tool-btn" onclick="window.app.deleteIntention('${intention.id}')">Delete Intention</button>
                 </div>

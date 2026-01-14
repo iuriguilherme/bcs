@@ -56,9 +56,18 @@ class Intention {
     getRequirements() {
         if (this.type === 'molecule') {
             // For molecules, we need specific atoms
+            // Extract elements from atomData if available
+            let elements = this.blueprint.requiredElements;
+            if (!elements && this.blueprint.atomData) {
+                const elementSet = new Set();
+                for (const atom of this.blueprint.atomData) {
+                    elementSet.add(atom.symbol);
+                }
+                elements = Array.from(elementSet);
+            }
             return {
                 type: 'atoms',
-                elements: this.blueprint.requiredElements || ['C', 'H', 'O'],
+                elements: elements || ['C'],
                 count: this.blueprint.atomData?.length || 4
             };
         } else if (this.type === 'polymer') {
@@ -305,8 +314,16 @@ class Intention {
             }
         }
 
-        // Create molecule
-        const molecule = new Molecule(atoms);
+        // Only create molecule from atoms that actually have bonds
+        const bondedAtoms = atoms.filter(a => a.bonds.length > 0);
+
+        if (bondedAtoms.length < 2) {
+            console.log('Intention: Not enough bonded atoms to form molecule');
+            return; // Don't fulfill - try again next tick
+        }
+
+        // Create molecule from bonded atoms only
+        const molecule = new Molecule(bondedAtoms);
         environment.addMolecule(molecule);
 
         this.createdEntity = molecule;
@@ -319,11 +336,29 @@ class Intention {
      * Form a polymer from gathered molecules
      */
     _formPolymer(environment, molecules) {
+        // Validate molecules can polymerize - they need available valence (open bonds)
+        const polymerizableMolecules = molecules.filter(mol => {
+            // Check if any atom in the molecule has available valence
+            for (const atom of mol.atoms) {
+                if (atom.availableValence > 0) {
+                    return true; // This molecule can bind
+                }
+            }
+            console.log(`Molecule ${mol.formula} cannot polymerize - no available valence`);
+            return false;
+        });
+
+        if (polymerizableMolecules.length < 2) {
+            console.log('Cannot form polymer: need at least 2 molecules with available valence');
+            return; // Don't form polymer
+        }
+
         // Mark molecules as part of polymer
-        molecules.forEach(mol => mol.polymerId = Utils.generateId());
+        const polymerId = Utils.generateId();
+        polymerizableMolecules.forEach(mol => mol.polymerId = polymerId);
 
         // Create polymer
-        const polymer = new Polymer(molecules, this.blueprint.type, this.blueprint.name);
+        const polymer = new Polymer(polymerizableMolecules, this.blueprint.type, this.blueprint.name);
         polymer.seal(); // Seal the polymer so internal atoms can't bond externally
         environment.addProtein(polymer);
 

@@ -14,8 +14,12 @@ class Molecule {
         this.name = null;  // Set when catalogued
         this.formula = null;
 
-        // Link atoms to this molecule
-        this.atoms.forEach(atom => atom.moleculeId = this.id);
+        // Link atoms to this molecule (only atoms with bonds are truly part of molecule)
+        this.atoms.forEach(atom => {
+            if (atom.bonds.length > 0) {
+                atom.moleculeId = this.id;
+            }
+        });
 
         // Calculate properties
         this.updateProperties();
@@ -23,6 +27,18 @@ class Molecule {
         // State
         this.selected = false;
         this.highlighted = false;
+
+        // Polymer membership
+        this.polymerId = null;
+
+        // Abstraction state - stable molecules can be abstracted for performance
+        this.abstracted = false;
+        this.blueprintRef = null; // Reference to blueprint for reconstruction
+
+        // Decay timer for unstable molecules (in simulation ticks)
+        // Unstable molecules decay after 500-1500 ticks, releasing atoms
+        this.decayTimer = null;
+        this.decayRate = 0; // How fast decay progresses per tick
     }
 
     /**
@@ -155,21 +171,21 @@ class Molecule {
 
     /**
      * Check if molecule can participate in polymer formation
-     * Molecules with 3+ atoms that are at least 50% stable can polymerize
+     * Molecules must have free valence (open bonds) to chain with other molecules.
+     * Fully stable (inert) molecules like H2 cannot polymerize.
      */
     canPolymerize() {
-        if (this.atoms.length < 3) return false;
+        // Must have at least 2 atoms to be a molecule
+        if (this.atoms.length < 2) return false;
 
-        // Calculate stability ratio
-        let totalValence = 0;
-        let usedValence = 0;
-        for (const atom of this.atoms) {
-            totalValence += atom.maxValence || 4;
-            usedValence += (atom.maxValence || 4) - (atom.availableValence || 0);
-        }
+        // Must NOT be fully stable - need free valence to form polymer bonds
+        // Stable molecules have no available valence and cannot chain
+        if (this.isStable()) return false;
 
-        const stabilityRatio = usedValence / totalValence;
-        return stabilityRatio >= 0.5; // At least 50% of bonds are satisfied
+        // Must have at least some bonds already (not just loose atoms)
+        if (this.bonds.length < 1) return false;
+
+        return true;
     }
 
     /**
@@ -195,8 +211,47 @@ class Molecule {
     /**
      * Update all atoms in the molecule
      * @param {number} dt - Delta time
+     * @returns {object|null} - Returns decay info if atom was released, null otherwise
      */
     update(dt) {
+        // If molecule is stable and abstracted, skip individual atom physics
+        if (this.abstracted && this.isStable()) {
+            // Just update center position based on velocity if moving
+            return null;
+        }
+
+        // Handle decay for unstable molecules
+        if (!this.isStable()) {
+            // Initialize decay timer if not set
+            if (this.decayTimer === null) {
+                // Decay time: 500-1500 ticks depending on stability
+                const stabilityRatio = this._calculateStabilityRatio();
+                this.decayTimer = 500 + Math.floor(stabilityRatio * 1000);
+                this.decayRate = 1;
+            }
+
+            // Progress decay
+            this.decayTimer -= this.decayRate;
+
+            // Check if it's time to release an atom
+            if (this.decayTimer <= 0) {
+                const releasedAtom = this._releaseWeakestAtom();
+                if (releasedAtom) {
+                    // Reset timer for next potential decay
+                    this.decayTimer = 200 + Math.floor(Math.random() * 300);
+                    return { type: 'decay', atom: releasedAtom };
+                }
+            }
+        } else {
+            // Stable molecule - reset decay timer and consider abstraction
+            this.decayTimer = null;
+
+            // Auto-abstract stable molecules in polymers for performance
+            if (this.polymerId && !this.abstracted) {
+                this.abstracted = true;
+            }
+        }
+
         // Apply bond spring forces
         for (const bond of this.bonds) {
             bond.applySpringForce(0.8);
@@ -206,6 +261,97 @@ class Molecule {
         for (const atom of this.atoms) {
             atom.update(dt);
         }
+
+        return null;
+    }
+
+    /**
+     * Calculate how stable the molecule is (0 = very unstable, 1 = almost stable)
+     */
+    _calculateStabilityRatio() {
+        let filledValences = 0;
+        let totalValences = 0;
+        for (const atom of this.atoms) {
+            totalValences += atom.maxBonds;
+            filledValences += atom.bondCount;
+        }
+        return totalValences > 0 ? filledValences / totalValences : 0;
+    }
+
+    /**
+     * Release the atom with the weakest bond (most unsatisfied valence)
+     * @returns {Atom|null} - The released atom, or null if none released
+     */
+    _releaseWeakestAtom() {
+        // Find atom with most unsatisfied valence
+        let weakestAtom = null;
+        let lowestSatisfaction = 1;
+
+        for (const atom of this.atoms) {
+            if (atom.bonds.length === 0) continue; // Skip already free atoms
+            const satisfaction = atom.bondCount / atom.maxBonds;
+            if (satisfaction < lowestSatisfaction) {
+                lowestSatisfaction = satisfaction;
+                weakestAtom = atom;
+            }
+        }
+
+        if (weakestAtom && weakestAtom.bonds.length > 0) {
+            // Break the weakest bond
+            const bondToBreak = weakestAtom.bonds[0];
+            bondToBreak.break();
+
+            // Give atom some velocity away from molecule center
+            const center = this.centerOfMass;
+            const direction = weakestAtom.position.sub(center).normalize();
+            weakestAtom.velocity = direction.mul(2);
+
+            // Clear molecule reference
+            weakestAtom.moleculeId = null;
+
+            return weakestAtom;
+        }
+
+        return null;
+    }
+
+    /**
+     * Restore molecule shape from blueprint reference
+     * Repositions atoms to match the original blueprint layout
+     * Used for replication and visual consistency of abstracted molecules
+     */
+    restoreShape() {
+        if (!this.blueprintRef || !this.blueprintRef.atomData) return false;
+
+        const center = this.centerOfMass;
+        const atomData = this.blueprintRef.atomData;
+
+        // Only restore if we have matching atom count
+        if (atomData.length !== this.atoms.length) return false;
+
+        // Reposition atoms to match blueprint relative positions
+        for (let i = 0; i < this.atoms.length; i++) {
+            const atom = this.atoms[i];
+            const data = atomData[i];
+            if (atom && data) {
+                atom.position.x = center.x + data.relX;
+                atom.position.y = center.y + data.relY;
+                atom.velocity = new Vector2(0, 0); // Reset velocity
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Create a copy of this molecule using its blueprint
+     * @param {number} x - X position for copy
+     * @param {number} y - Y position for copy
+     * @returns {Molecule|null} - New molecule instance or null if no blueprint
+     */
+    replicate(x, y) {
+        if (!this.blueprintRef) return null;
+        return this.blueprintRef.instantiate(x, y);
     }
 
     /**

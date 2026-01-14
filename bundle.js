@@ -1086,6 +1086,18 @@ class Molecule {
         // State
         this.selected = false;
         this.highlighted = false;
+
+        // Polymer membership
+        this.polymerId = null;
+
+        // Abstraction state - stable molecules can be abstracted for performance
+        this.abstracted = false;
+        this.blueprintRef = null; // Reference to blueprint for reconstruction
+
+        // Decay timer for unstable molecules (in simulation ticks)
+        // Unstable molecules decay after 500-1500 ticks, releasing atoms
+        this.decayTimer = null;
+        this.decayRate = 0; // How fast decay progresses per tick
     }
 
     /**
@@ -1258,8 +1270,47 @@ class Molecule {
     /**
      * Update all atoms in the molecule
      * @param {number} dt - Delta time
+     * @returns {object|null} - Returns decay info if atom was released, null otherwise
      */
     update(dt) {
+        // If molecule is stable and abstracted, skip individual atom physics
+        if (this.abstracted && this.isStable()) {
+            // Just update center position based on velocity if moving
+            return null;
+        }
+
+        // Handle decay for unstable molecules
+        if (!this.isStable()) {
+            // Initialize decay timer if not set
+            if (this.decayTimer === null) {
+                // Decay time: 500-1500 ticks depending on stability
+                const stabilityRatio = this._calculateStabilityRatio();
+                this.decayTimer = 500 + Math.floor(stabilityRatio * 1000);
+                this.decayRate = 1;
+            }
+
+            // Progress decay
+            this.decayTimer -= this.decayRate;
+
+            // Check if it's time to release an atom
+            if (this.decayTimer <= 0) {
+                const releasedAtom = this._releaseWeakestAtom();
+                if (releasedAtom) {
+                    // Reset timer for next potential decay
+                    this.decayTimer = 200 + Math.floor(Math.random() * 300);
+                    return { type: 'decay', atom: releasedAtom };
+                }
+            }
+        } else {
+            // Stable molecule - reset decay timer and consider abstraction
+            this.decayTimer = null;
+
+            // Auto-abstract stable molecules in polymers for performance
+            if (this.polymerId && !this.abstracted) {
+                this.abstracted = true;
+            }
+        }
+
         // Apply bond spring forces
         for (const bond of this.bonds) {
             bond.applySpringForce(0.8);
@@ -1269,6 +1320,97 @@ class Molecule {
         for (const atom of this.atoms) {
             atom.update(dt);
         }
+
+        return null;
+    }
+
+    /**
+     * Calculate how stable the molecule is (0 = very unstable, 1 = almost stable)
+     */
+    _calculateStabilityRatio() {
+        let filledValences = 0;
+        let totalValences = 0;
+        for (const atom of this.atoms) {
+            totalValences += atom.maxBonds;
+            filledValences += atom.bondCount;
+        }
+        return totalValences > 0 ? filledValences / totalValences : 0;
+    }
+
+    /**
+     * Release the atom with the weakest bond (most unsatisfied valence)
+     * @returns {Atom|null} - The released atom, or null if none released
+     */
+    _releaseWeakestAtom() {
+        // Find atom with most unsatisfied valence
+        let weakestAtom = null;
+        let lowestSatisfaction = 1;
+
+        for (const atom of this.atoms) {
+            if (atom.bonds.length === 0) continue; // Skip already free atoms
+            const satisfaction = atom.bondCount / atom.maxBonds;
+            if (satisfaction < lowestSatisfaction) {
+                lowestSatisfaction = satisfaction;
+                weakestAtom = atom;
+            }
+        }
+
+        if (weakestAtom && weakestAtom.bonds.length > 0) {
+            // Break the weakest bond
+            const bondToBreak = weakestAtom.bonds[0];
+            bondToBreak.break();
+
+            // Give atom some velocity away from molecule center
+            const center = this.centerOfMass;
+            const direction = weakestAtom.position.sub(center).normalize();
+            weakestAtom.velocity = direction.mul(2);
+
+            // Clear molecule reference
+            weakestAtom.moleculeId = null;
+
+            return weakestAtom;
+        }
+
+        return null;
+    }
+
+    /**
+     * Restore molecule shape from blueprint reference
+     * Repositions atoms to match the original blueprint layout
+     * Used for replication and visual consistency of abstracted molecules
+     */
+    restoreShape() {
+        if (!this.blueprintRef || !this.blueprintRef.atomData) return false;
+
+        const center = this.centerOfMass;
+        const atomData = this.blueprintRef.atomData;
+
+        // Only restore if we have matching atom count
+        if (atomData.length !== this.atoms.length) return false;
+
+        // Reposition atoms to match blueprint relative positions
+        for (let i = 0; i < this.atoms.length; i++) {
+            const atom = this.atoms[i];
+            const data = atomData[i];
+            if (atom && data) {
+                atom.position.x = center.x + data.relX;
+                atom.position.y = center.y + data.relY;
+                atom.velocity = new Vector2(0, 0); // Reset velocity
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Create a copy of this molecule using its blueprint
+     * @param {number} x - X position for copy
+     * @param {number} y - Y position for copy
+     * @returns {Molecule|null} - New molecule instance or null if no blueprint
+     */
+    replicate(x, y) {
+        if (!this.blueprintRef) return null;
+        return this.blueprintRef.instantiate(x, y);
     }
 
     /**
@@ -2252,9 +2394,18 @@ class Intention {
     getRequirements() {
         if (this.type === 'molecule') {
             // For molecules, we need specific atoms
+            // Extract elements from atomData if available
+            let elements = this.blueprint.requiredElements;
+            if (!elements && this.blueprint.atomData) {
+                const elementSet = new Set();
+                for (const atom of this.blueprint.atomData) {
+                    elementSet.add(atom.symbol);
+                }
+                elements = Array.from(elementSet);
+            }
             return {
                 type: 'atoms',
-                elements: this.blueprint.requiredElements || ['C', 'H', 'O'],
+                elements: elements || ['C'],
                 count: this.blueprint.atomData?.length || 4
             };
         } else if (this.type === 'polymer') {
@@ -2515,11 +2666,29 @@ class Intention {
      * Form a polymer from gathered molecules
      */
     _formPolymer(environment, molecules) {
+        // Validate molecules can polymerize - they need available valence (open bonds)
+        const polymerizableMolecules = molecules.filter(mol => {
+            // Check if any atom in the molecule has available valence
+            for (const atom of mol.atoms) {
+                if (atom.availableValence > 0) {
+                    return true; // This molecule can bind
+                }
+            }
+            console.log(`Molecule ${mol.formula} cannot polymerize - no available valence`);
+            return false;
+        });
+
+        if (polymerizableMolecules.length < 2) {
+            console.log('Cannot form polymer: need at least 2 molecules with available valence');
+            return; // Don't form polymer
+        }
+
         // Mark molecules as part of polymer
-        molecules.forEach(mol => mol.polymerId = Utils.generateId());
+        const polymerId = Utils.generateId();
+        polymerizableMolecules.forEach(mol => mol.polymerId = polymerId);
 
         // Create polymer
-        const polymer = new Polymer(molecules, this.blueprint.type, this.blueprint.name);
+        const polymer = new Polymer(polymerizableMolecules, this.blueprint.type, this.blueprint.name);
         polymer.seal(); // Seal the polymer so internal atoms can't bond externally
         environment.addProtein(polymer);
 
@@ -4103,7 +4272,12 @@ class Environment {
         // Try to form new bonds
         this.tryFormBonds();
 
-        // Update molecule registry
+        // Update molecules (handles decay for unstable molecules)
+        for (const molecule of this.molecules.values()) {
+            molecule.update(dt);
+        }
+
+        // Update molecule registry (detects new molecules, cleans broken ones)
         this.updateMolecules();
 
         // Try to form polymers from nearby stable molecules
@@ -4850,7 +5024,7 @@ class MoleculeBlueprint extends Blueprint {
      * @returns {Molecule} New molecule instance
      */
     instantiate(x, y) {
-        // Create atoms at relative positions
+        // Create atoms at relative positions (preserves molecule shape)
         const atoms = this.atomData.map(data =>
             new Atom(data.symbol, x + data.relX, y + data.relY)
         );
@@ -4862,9 +5036,11 @@ class MoleculeBlueprint extends Blueprint {
             new Bond(atom1, atom2, bondData.order);
         }
 
-        // Create molecule
+        // Create molecule with blueprint reference for reconstruction
         const molecule = new Molecule(atoms);
         molecule.name = this.name;
+        molecule.blueprintRef = this; // Link to blueprint for shape reconstruction
+        molecule.abstracted = true;   // Start as abstracted since shape is from blueprint
 
         return molecule;
     }
@@ -5841,6 +6017,12 @@ class Viewer {
         const scale = this.camera.zoom;
         const offset = this.getOffset();
 
+        // Render polymer chain connections first (behind everything)
+        const polymers = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
+        for (const polymer of polymers) {
+            this._renderPolymerConnections(polymer, scale, offset);
+        }
+
         // Render bonds first
         for (const bond of this.environment.getAllBonds()) {
             bond.render(this.ctx, scale, offset);
@@ -5858,6 +6040,12 @@ class Viewer {
     _renderMoleculeLevel() {
         const scale = this.camera.zoom;
         const offset = this.getOffset();
+
+        // Render polymer chain connections first (behind molecules)
+        const polymers = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
+        for (const polymer of polymers) {
+            this._renderPolymerConnections(polymer, scale, offset);
+        }
 
         // Render molecules as simplified blobs
         for (const molecule of this.environment.getAllMolecules()) {
@@ -5898,6 +6086,41 @@ class Viewer {
                 atom.render(this.ctx, scale, offset);
             }
         }
+    }
+
+    /**
+     * Render polymer chain connections between molecules
+     * @param {Polymer} polymer - The polymer to render connections for
+     * @param {number} scale - Zoom scale
+     * @param {object} offset - Camera offset
+     */
+    _renderPolymerConnections(polymer, scale, offset) {
+        if (!polymer.molecules || polymer.molecules.length < 2) return;
+
+        this.ctx.save();
+        this.ctx.strokeStyle = polymer.selected ? '#f59e0b' : '#f97316'; // Orange color for polymer bonds
+        this.ctx.lineWidth = 3;
+        this.ctx.setLineDash([8, 4]);
+
+        this.ctx.beginPath();
+        for (let i = 0; i < polymer.molecules.length - 1; i++) {
+            const mol1 = polymer.molecules[i];
+            const mol2 = polymer.molecules[i + 1];
+
+            const center1 = mol1.getCenter ? mol1.getCenter() : mol1.centerOfMass;
+            const center2 = mol2.getCenter ? mol2.getCenter() : mol2.centerOfMass;
+
+            const x1 = (center1.x + offset.x) * scale;
+            const y1 = (center1.y + offset.y) * scale;
+            const x2 = (center2.x + offset.x) * scale;
+            const y2 = (center2.y + offset.y) * scale;
+
+            this.ctx.moveTo(x1, y1);
+            this.ctx.lineTo(x2, y2);
+        }
+        this.ctx.stroke();
+        this.ctx.setLineDash([]);
+        this.ctx.restore();
     }
 
     /**
@@ -6168,7 +6391,16 @@ class Controls {
         canvas.addEventListener('mousemove', this._onMouseMove.bind(this));
         canvas.addEventListener('mouseup', this._onMouseUp.bind(this));
         canvas.addEventListener('wheel', this._onWheel.bind(this));
-        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            // Right-click cancels placement mode and returns to select
+            if (this.tool === 'place' || this.selectedBlueprint || this.selectedPolymerTemplate) {
+                this.selectedBlueprint = null;
+                this.selectedPolymerTemplate = null;
+                this.selectedElement = 'C'; // Reset to default element
+                this.setTool('select');
+            }
+        });
 
         // Keyboard events
         document.addEventListener('keydown', this._onKeyDown.bind(this));
@@ -6564,6 +6796,14 @@ class Controls {
 
         if (result.type === 'atom') {
             const atom = result.entity;
+            // Get polymer ID through molecule
+            let polymerIdStr = '';
+            if (atom.moleculeId && this.environment) {
+                const mol = this.environment.molecules.get(atom.moleculeId);
+                if (mol && mol.polymerId) {
+                    polymerIdStr = `<p>Polymer ID: ${mol.polymerId.substring(0, 8)}...</p>`;
+                }
+            }
             content.innerHTML = `
                 <div class="inspector-item">
                     <h3>${atom.element.name} (${atom.symbol})</h3>
@@ -6573,10 +6813,17 @@ class Controls {
                     <p>Bonds: ${atom.bonds.length}</p>
                     <p>Position: (${atom.position.x.toFixed(1)}, ${atom.position.y.toFixed(1)})</p>
                     ${atom.moleculeId ? `<p>Molecule ID: ${atom.moleculeId.substring(0, 8)}...</p>` : ''}
+                    ${polymerIdStr}
                 </div>
             `;
         } else if (result.type === 'molecule') {
             const mol = result.entity;
+            const isInCatalogue = window.app?.catalogue?.hasMolecule?.(mol.fingerprint);
+            const catalogueBtn = mol.isStable()
+                ? (isInCatalogue
+                    ? '<p style="color: #4ade80;">&#10003; In Catalogue</p>'
+                    : '<button class="tool-btn" onclick="window.app.registerMolecule()">Add to Catalogue</button>')
+                : '';
             content.innerHTML = `
                 <div class="inspector-item">
                     <h3>${mol.name || mol.formula}</h3>
@@ -6585,7 +6832,8 @@ class Controls {
                     <p>Atoms: ${mol.atoms.length}</p>
                     <p>Bonds: ${mol.bonds.length}</p>
                     <p>Stable: ${mol.isStable() ? 'Yes &#10003;' : 'No'}</p>
-                    ${mol.isStable() ? '<button class="tool-btn" onclick="window.app.registerMolecule()">Add to Catalogue</button>' : ''}
+                    ${mol.polymerId ? `<p>Polymer ID: ${mol.polymerId.substring(0, 8)}...</p>` : ''}
+                    ${catalogueBtn}
                 </div>
             `;
         } else if (result.type === 'cell') {
@@ -6607,11 +6855,13 @@ class Controls {
             content.innerHTML = `
                 <div class="inspector-item">
                     <h3>${poly.name || typeLabel}</h3>
+                    <p>ID: ${poly.id.substring(0, 8)}...</p>
                     <p>Type: ${typeLabel}</p>
                     <p>Molecules: ${poly.molecules.length}</p>
                     <p>Sequence: ${poly.sequence.substring(0, 30)}${poly.sequence.length > 30 ? '...' : ''}</p>
                     <p>Mass: ${poly.mass.toFixed(3)} u</p>
                     <p>Stable: ${poly.isStable() ? 'Yes &#10003;' : 'No'}</p>
+                    ${poly.cellRole ? `<p>Cell Role: ${poly.cellRole}</p>` : ''}
                 </div>
             `;
         } else if (result.type === 'intention') {
@@ -6620,16 +6870,32 @@ class Controls {
             const requirements = intention.getRequirements();
             const reqCount = requirements?.count || '?';
             const reqType = requirements?.type || 'components';
+
+            // Build requirements details based on type
+            let reqDetails = '';
+            if (requirements?.type === 'atoms') {
+                const elements = requirements.elements?.join(', ') || 'Various';
+                reqDetails = `<p><strong>Needs:</strong> ${reqCount} atoms</p><p>Elements: ${elements}</p>`;
+            } else if (requirements?.type === 'molecules') {
+                const elements = requirements.requiredElements?.join(', ') || 'Various';
+                reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p>With elements: ${elements}</p>`;
+            } else if (requirements?.type === 'polymers') {
+                const roles = requirements.roles?.join(', ') || 'Various';
+                reqDetails = `<p><strong>Needs polymers with roles:</strong></p><p>${roles}</p>`;
+            }
+
             content.innerHTML = `
                 <div class="inspector-item">
                     <h3>Intention: ${bpName}</h3>
                     <p>Type: ${intention.type}</p>
                     <p>Target: ${bpName}</p>
+                    <hr style="border-color: #444; margin: 8px 0;">
+                    ${reqDetails}
+                    <hr style="border-color: #444; margin: 8px 0;">
                     <p>Progress: ${Math.round(intention.progress * 100)}%</p>
-                    <p>Gathered: ${intention.gatheredComponents.size} / ${reqCount} ${reqType}</p>
+                    <p>Gathered: ${intention.gatheredComponents.size} / ${reqCount}</p>
                     <p>Radius: ${intention.radius} units</p>
-                    <p>Force: ${intention.attractionForce}</p>
-                    <p>Position: (${intention.position.x.toFixed(1)}, ${intention.position.y.toFixed(1)})</p>
+                    <p>Position: (${intention.position.x.toFixed(0)}, ${intention.position.y.toFixed(0)})</p>
                     <p>Fulfilled: ${intention.fulfilled ? 'Yes &#10003;' : 'No'}</p>
                     <button class="tool-btn" onclick="window.app.deleteIntention('${intention.id}')">Delete Intention</button>
                 </div>
@@ -6695,11 +6961,6 @@ class CatalogueUI {
     render(filter = '') {
         if (!this.listContainer) return;
 
-        // Only show stable molecules with 2+ atoms, 1+ bonds, and all valences satisfied
-        const allBlueprints = filter
-            ? this.catalogue.search(filter)
-            : this.catalogue.getAllMolecules();
-
         // Helper: calculate if blueprint is truly stable from its data
         const isBlueprintStable = (bp) => {
             if (!bp.atomData || bp.atomData.length < 2) return false;
@@ -6732,39 +6993,106 @@ class CatalogueUI {
             return true;
         };
 
-        const blueprints = allBlueprints.filter(bp => isBlueprintStable(bp));
+        let html = '';
+        const filterLower = filter.toLowerCase();
 
-        if (blueprints.length === 0) {
-            this.listContainer.innerHTML = `
-                <p class="empty-state">
-                    ${filter ? 'No matches found.' : 'No stable molecules yet. Create stable molecules to add them!'}
-                </p>
-            `;
-            return;
+        // Section 1: Atoms
+        const commonAtoms = ['H', 'C', 'N', 'O', 'P', 'S', 'Cl', 'Na', 'K', 'Ca', 'Fe'];
+        const matchingAtoms = filter
+            ? commonAtoms.filter(s => s.toLowerCase().includes(filterLower) || getElement(s)?.name.toLowerCase().includes(filterLower))
+            : commonAtoms;
+
+        if (matchingAtoms.length > 0) {
+            html += '<div class="catalogue-section"><h4>Atoms</h4><div class="catalogue-grid">';
+            for (const symbol of matchingAtoms) {
+                const element = getElement(symbol);
+                if (element) {
+                    html += `
+                        <button class="catalogue-atom-btn" data-symbol="${symbol}" data-level="0">
+                            <span class="atom-symbol">${symbol}</span>
+                            <span class="atom-name">${element.name}</span>
+                        </button>
+                    `;
+                }
+            }
+            html += '</div></div>';
         }
 
-        // Sort by creation date (newest first)
+        // Section 2: Molecules
+        const allBlueprints = filter
+            ? this.catalogue.search(filter)
+            : this.catalogue.getAllMolecules();
+        const blueprints = allBlueprints.filter(bp => isBlueprintStable(bp));
         blueprints.sort((a, b) => b.createdAt - a.createdAt);
 
-        this.listContainer.innerHTML = blueprints.map(bp => this._renderItem(bp)).join('');
+        if (blueprints.length > 0) {
+            html += '<div class="catalogue-section"><h4>Molecules</h4>';
+            html += blueprints.map(bp => this._renderItem(bp)).join('');
+            html += '</div>';
+        }
 
-        // Bind click handlers
+        // Section 3: Polymer Templates
+        const polymerTemplates = window.getAllPolymerTemplates ? window.getAllPolymerTemplates() : [];
+        const matchingPolymers = filter
+            ? polymerTemplates.filter(p => p.name.toLowerCase().includes(filterLower) || p.type.toLowerCase().includes(filterLower))
+            : polymerTemplates;
+
+        if (matchingPolymers.length > 0) {
+            html += '<div class="catalogue-section"><h4>Polymer Templates</h4><div class="catalogue-grid">';
+            for (const template of matchingPolymers) {
+                const colorMap = { lipid: '#ef4444', protein: '#3b82f6', nucleic_acid: '#22c55e', carbohydrate: '#f59e0b' };
+                const color = colorMap[template.type] || '#8b5cf6';
+                html += `
+                    <button class="catalogue-polymer-btn" data-polymer-id="${template.id}" data-level="2" style="border-color: ${color};">
+                        <span class="polymer-name">${template.name}</span>
+                        <span class="polymer-type">${template.type}</span>
+                    </button>
+                `;
+            }
+            html += '</div></div>';
+        }
+
+        if (!html) {
+            html = '<p class="empty-state">No matches found.</p>';
+        }
+
+        this.listContainer.innerHTML = html;
+
+        // Bind atom click handlers
+        this.listContainer.querySelectorAll('.catalogue-atom-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const symbol = btn.dataset.symbol;
+                const level = parseInt(btn.dataset.level);
+                this.controls.setSelectedElement(symbol);
+                this.controls.setTool('place');
+                if (window.app) window.app.setLevel(level);
+            });
+        });
+
+        // Bind molecule click handlers
         this.listContainer.querySelectorAll('.catalogue-item').forEach(item => {
             const fingerprint = item.dataset.fingerprint;
-
             item.addEventListener('click', () => {
                 this._selectBlueprint(fingerprint);
+                if (window.app) window.app.setLevel(1); // Molecule level
             });
+        });
 
-            item.addEventListener('dblclick', () => {
-                // Place immediately at center
-                const bp = this.catalogue.getMolecule(fingerprint);
-                if (bp) {
-                    this.controls.setSelectedBlueprint(bp);
+        // Bind polymer click handlers
+        this.listContainer.querySelectorAll('.catalogue-polymer-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const polymerId = btn.dataset.polymerId;
+                const level = parseInt(btn.dataset.level);
+                const template = polymerTemplates.find(p => p.id === polymerId);
+                if (template) {
+                    this.controls.selectedPolymerTemplate = template;
+                    this.controls.setTool('place');
+                    if (window.app) window.app.setLevel(level);
                 }
             });
         });
     }
+
 
     /**
      * Render a single catalogue item
@@ -6918,6 +7246,82 @@ style.textContent = `
         font-size: 0.875rem;
         color: var(--text-secondary);
         margin-bottom: 4px;
+    }
+    
+    .catalogue-section {
+        margin-bottom: 16px;
+    }
+    
+    .catalogue-section h4 {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+    
+    .catalogue-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+    }
+    
+    .catalogue-atom-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 6px 4px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-subtle);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    
+    .catalogue-atom-btn:hover {
+        background: rgba(99, 102, 241, 0.2);
+        border-color: var(--accent-primary);
+    }
+    
+    .catalogue-atom-btn .atom-symbol {
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: var(--text-primary);
+    }
+    
+    .catalogue-atom-btn .atom-name {
+        font-size: 0.65rem;
+        color: var(--text-secondary);
+    }
+    
+    .catalogue-polymer-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 6px 4px;
+        background: var(--bg-tertiary);
+        border: 2px solid;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    
+    .catalogue-polymer-btn:hover {
+        background: rgba(139, 92, 246, 0.2);
+    }
+    
+    .catalogue-polymer-btn .polymer-name {
+        font-weight: 600;
+        font-size: 0.7rem;
+        color: var(--text-primary);
+        text-align: center;
+    }
+    
+    .catalogue-polymer-btn .polymer-type {
+        font-size: 0.6rem;
+        color: var(--text-secondary);
     }
 `;
 document.head.appendChild(style);
@@ -7267,8 +7671,8 @@ class App {
 
             palette.innerHTML = blueprints.map(bp => `
                 <button class="palette-btn molecule-btn" data-fingerprint="${escapeAttr(bp.fingerprint)}">
-                    <span class="formula">${bp.formula}</span>
-                    <span class="info">${bp.atomData.length} atoms</span>
+                    <span class="formula">${bp.name || bp.formula}</span>
+                    <span class="info">${bp.formula} &bull; ${bp.atomData.length} atoms</span>
                 </button>
             `).join('');
 

@@ -236,9 +236,10 @@ class Environment {
         if (this._polymerCheckTick % 30 !== 0) return;
 
         try {
-            // Get molecules that can polymerize (either stable or canPolymerize)
+            // Get molecules that can polymerize (must have free valence to chain)
+            // Stable/inert molecules (like H2) are excluded - they have no free bonds
             const freeMolecules = this.getAllMolecules().filter(m =>
-                !m.proteinId && (m.isStable() || (m.canPolymerize && m.canPolymerize()))
+                !m.proteinId && m.canPolymerize && m.canPolymerize()
             );
 
             if (freeMolecules.length < 2) return;
@@ -599,7 +600,12 @@ class Environment {
         // Try to form new bonds
         this.tryFormBonds();
 
-        // Update molecule registry
+        // Update molecules (handles decay for unstable molecules)
+        for (const molecule of this.molecules.values()) {
+            molecule.update(dt);
+        }
+
+        // Update molecule registry (detects new molecules, cleans broken ones)
         this.updateMolecules();
 
         // Try to form polymers from nearby stable molecules

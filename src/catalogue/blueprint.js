@@ -86,7 +86,7 @@ class MoleculeBlueprint extends Blueprint {
      * @returns {Molecule} New molecule instance
      */
     instantiate(x, y) {
-        // Create atoms at relative positions
+        // Create atoms at relative positions (preserves molecule shape)
         const atoms = this.atomData.map(data =>
             new Atom(data.symbol, x + data.relX, y + data.relY)
         );
@@ -98,9 +98,11 @@ class MoleculeBlueprint extends Blueprint {
             new Bond(atom1, atom2, bondData.order);
         }
 
-        // Create molecule
+        // Create molecule with blueprint reference for reconstruction
         const molecule = new Molecule(atoms);
         molecule.name = this.name;
+        molecule.blueprintRef = this; // Link to blueprint for shape reconstruction
+        molecule.abstracted = true;   // Start as abstracted since shape is from blueprint
 
         return molecule;
     }

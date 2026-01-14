@@ -258,6 +258,12 @@ class Viewer {
         const scale = this.camera.zoom;
         const offset = this.getOffset();
 
+        // Render polymer chain connections first (behind everything)
+        const polymers = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
+        for (const polymer of polymers) {
+            this._renderPolymerConnections(polymer, scale, offset);
+        }
+
         // Render bonds first
         for (const bond of this.environment.getAllBonds()) {
             bond.render(this.ctx, scale, offset);
@@ -275,6 +281,12 @@ class Viewer {
     _renderMoleculeLevel() {
         const scale = this.camera.zoom;
         const offset = this.getOffset();
+
+        // Render polymer chain connections first (behind molecules)
+        const polymers = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
+        for (const polymer of polymers) {
+            this._renderPolymerConnections(polymer, scale, offset);
+        }
 
         // Render molecules as simplified blobs
         for (const molecule of this.environment.getAllMolecules()) {
@@ -315,6 +327,41 @@ class Viewer {
                 atom.render(this.ctx, scale, offset);
             }
         }
+    }
+
+    /**
+     * Render polymer chain connections between molecules
+     * @param {Polymer} polymer - The polymer to render connections for
+     * @param {number} scale - Zoom scale
+     * @param {object} offset - Camera offset
+     */
+    _renderPolymerConnections(polymer, scale, offset) {
+        if (!polymer.molecules || polymer.molecules.length < 2) return;
+
+        this.ctx.save();
+        this.ctx.strokeStyle = polymer.selected ? '#f59e0b' : '#f97316'; // Orange color for polymer bonds
+        this.ctx.lineWidth = 3;
+        this.ctx.setLineDash([8, 4]);
+
+        this.ctx.beginPath();
+        for (let i = 0; i < polymer.molecules.length - 1; i++) {
+            const mol1 = polymer.molecules[i];
+            const mol2 = polymer.molecules[i + 1];
+
+            const center1 = mol1.getCenter ? mol1.getCenter() : mol1.centerOfMass;
+            const center2 = mol2.getCenter ? mol2.getCenter() : mol2.centerOfMass;
+
+            const x1 = (center1.x + offset.x) * scale;
+            const y1 = (center1.y + offset.y) * scale;
+            const x2 = (center2.x + offset.x) * scale;
+            const y2 = (center2.y + offset.y) * scale;
+
+            this.ctx.moveTo(x1, y1);
+            this.ctx.lineTo(x2, y2);
+        }
+        this.ctx.stroke();
+        this.ctx.setLineDash([]);
+        this.ctx.restore();
     }
 
     /**

@@ -259,9 +259,14 @@ class PolymerBlueprint {
                     }
                 }
 
-                // Create molecule with the atoms array
-                const molecule = new Molecule(atoms);
-                molecules.push(molecule);
+                // Only create molecule from atoms that have bonds
+                const bondedAtoms = atoms.filter(a => a.bonds.length > 0);
+                if (bondedAtoms.length >= 2) {
+                    const molecule = new Molecule(bondedAtoms);
+                    molecules.push(molecule);
+                } else {
+                    console.warn(`Polymer instantiation: skipping molecule with ${bondedAtoms.length} bonded atoms`);
+                }
             }
         }
 
