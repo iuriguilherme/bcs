@@ -146,3 +146,12 @@ There is no automated build process - the bundle must be manually updated.
 ## License
 
 MIT License - See LICENSE file for details.
+
+### Third-Party Licenses
+
+**Font Awesome Free** (https://fontawesome.com)  
+Icons used throughout the UI are from Font Awesome Free.  
+See [`assets/LICENSE.txt`](assets/LICENSE.txt) for full license details, or:
+- Icons: [CC BY 4.0 License](https://creativecommons.org/licenses/by/4.0/)
+- Fonts: [SIL OFL 1.1 License](https://scripts.sil.org/OFL)
+- Code: [MIT License](https://opensource.org/licenses/MIT)

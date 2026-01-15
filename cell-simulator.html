@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cell Simulator - Multi-Level Life Simulation</title>
+    <link rel="stylesheet" href="assets/css/all.min.css">
     <style>
         /* CSS Reset & Variables */
         *,
@@ -372,6 +373,7 @@
 
         .search-box {
             margin-bottom: var(--space-md);
+            position: relative;
         }
 
         .search-box input {
@@ -613,17 +615,18 @@
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
-                    <button class="level-btn active" data-level="0" title="Atoms">1</button>
-                    <button class="level-btn" data-level="1" title="Molecules">2</button>
-                    <button class="level-btn" data-level="2" title="Polymers">3</button>
-                    <button class="level-btn" data-level="3" title="Cells">4</button>
-                    <button class="level-btn" data-level="4" title="Organisms">5</button>
-                    <button class="level-btn" data-level="5" title="Populations">6</button>
+                    <button class="level-btn active" data-level="0" title="Atoms"><i class="fas fa-atom"></i> 1</button>
+                    <button class="level-btn" data-level="1" title="Molecules"><i class="fas fa-dna"></i> 2</button>
+                    <button class="level-btn" data-level="2" title="Polymers"><i class="fas fa-link"></i> 3</button>
+                    <button class="level-btn" data-level="3" title="Cells"><i class="fas fa-circle"></i> 4</button>
+                    <button class="level-btn" data-level="4" title="Organisms"><i class="fas fa-bug"></i> 5</button>
+                    <button class="level-btn" data-level="5" title="Populations"><i class="fas fa-users"></i> 6</button>
                 </div>
             </div>
             <div class="sim-controls">
-                <button id="playPauseBtn" class="control-btn" title="Play/Pause">Play</button>
-                <button id="stepBtn" class="control-btn" title="Step">Step</button>
+                <button id="playPauseBtn" class="control-btn" title="Play/Pause"><i class="fas fa-play"></i>
+                    Play</button>
+                <button id="stepBtn" class="control-btn" title="Step"><i class="fas fa-forward-step"></i> Step</button>
                 <input type="range" id="speedSlider" min="1" max="100" value="50" title="Simulation Speed">
             </div>
         </header>
@@ -632,9 +635,12 @@
                 <h2 class="panel-title">Tools</h2>
                 <div class="tool-section">
                     <h3>Actions</h3>
-                    <button class="tool-btn" id="selectTool" data-tool="select">Select</button>
-                    <button class="tool-btn active" id="placeTool" data-tool="place">Place</button>
-                    <button class="tool-btn" id="deleteTool" data-tool="delete">Delete</button>
+                    <button class="tool-btn" id="selectTool" data-tool="select"><i class="fas fa-hand-pointer"></i>
+                        Select</button>
+                    <button class="tool-btn active" id="placeTool" data-tool="place"><i class="fas fa-plus"></i>
+                        Place</button>
+                    <button class="tool-btn" id="deleteTool" data-tool="delete"><i class="fas fa-trash"></i>
+                        Delete</button>
                 </div>
                 <div class="palette-section">
                     <h3 class="palette-title" id="paletteTitle">Place Atoms</h3>
@@ -646,12 +652,15 @@
             </div>
             <aside class="panel right-panel">
                 <div class="panel-tabs">
-                    <button class="tab-btn active" data-tab="catalogue">Catalogue</button>
-                    <button class="tab-btn" data-tab="inspector">Inspector</button>
+                    <button class="tab-btn active" data-tab="catalogue"><i class="fas fa-book"></i> Catalogue</button>
+                    <button class="tab-btn" data-tab="inspector"><i class="fas fa-eye"></i> Inspector</button>
                 </div>
                 <div class="tab-content active" id="catalogueTab">
                     <div class="search-box">
-                        <input type="text" id="catalogueSearch" placeholder="Search blueprints...">
+                        <i class="fas fa-magnifying-glass"
+                            style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;"></i>
+                        <input type="text" id="catalogueSearch" placeholder="Search blueprints..."
+                            style="padding-left: 36px;">
                     </div>
                     <div class="catalogue-list" id="catalogueList">
                         <p class="empty-state">No blueprints yet. Create stable molecules to add them!</p>
@@ -8270,7 +8279,9 @@
                 const playPauseBtn = document.getElementById('playPauseBtn');
                 playPauseBtn?.addEventListener('click', () => {
                     this.simulation.toggle();
-                    playPauseBtn.textContent = this.simulation.running ? 'Pause' : 'Play';
+                    playPauseBtn.innerHTML = this.simulation.running
+                        ? '<i class="fas fa-pause"></i> Pause'
+                        : '<i class="fas fa-play"></i> Play';
                 });
 
                 // Step button
