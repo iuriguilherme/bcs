@@ -124,6 +124,133 @@ updateMolecules() {
 3. **One molecule per group**: No complex extend/merge logic needed
 4. **Single responsibility**: `updateMolecules()` handles ALL molecule state
 
+### Bug #4: MoleculeId Inconsistency (2026-01)
+
+**Problem**: Atoms within the same molecule had different or missing `moleculeId` values. The Inspector would show some atoms with a moleculeId and others without, even though they were visually bonded together.
+
+**Root Cause**: Multiple code paths could set/clear `moleculeId`:
+- Molecule constructor
+- `updateMolecules()` extend/merge logic
+- `_releaseWeakestAtom()` clearing individual atoms
+- Bond breaking/forming
+
+**Failed Approaches**:
+1. Just fixing Molecule constructor - didn't work because `updateMolecules` could override
+2. Relying on bond filtering - missed edge cases where atoms had bonds but wrong moleculeId
+
+**Fix Applied**: Added validation step at end of `updateMolecules()`:
+```javascript
+// VALIDATION: Ensure ALL atoms in each molecule have correct moleculeId
+for (const molecule of this.molecules.values()) {
+    for (const atom of molecule.atoms) {
+        if (atom.moleculeId !== molecule.id) {
+            atom.moleculeId = molecule.id;
+        }
+    }
+}
+
+// Clear orphaned moleculeIds (atoms claiming non-existent molecules)
+for (const atom of this.atoms.values()) {
+    if (atom.moleculeId && !this.molecules.has(atom.moleculeId)) {
+        atom.moleculeId = null;
+    }
+}
+```
+
+### Bug #5: Bond Count Mismatch (atom.bonds vs environment.bonds)
+
+**Problem**: Inspector showed "Bonds: 0" for atoms that clearly had visual bonds. Visual bonds rendered correctly but `atom.bonds.length` was 0.
+
+**Root Cause**: Two separate bond storage systems existed:
+- `atom.bonds` - Array on each Atom object
+- `environment.bonds` - Global Map used for rendering
+
+`Environment.addBond()` only added to the global map. While the `Bond` constructor calls `atom.addBond()`, deserialization and other code paths could skip this.
+
+**Fix Applied**: Added `syncBonds()` method called at start of `Environment.update()`:
+```javascript
+syncBonds() {
+    // Clear all atom bond arrays
+    for (const atom of this.atoms.values()) {
+        atom.bonds = [];
+    }
+    // Rebuild from environment.bonds (source of truth)
+    for (const bond of this.bonds.values()) {
+        if (bond.atom1 && bond.atom2) {
+            bond.atom1.bonds.push(bond);
+            bond.atom2.bonds.push(bond);
+        }
+    }
+}
+```
+
+**Key Insight**: `environment.bonds` is the source of truth. `atom.bonds` is a convenience cache that must stay synchronized.
+
+### Bug #6: Intention System Failures (2026-01)
+
+**Problem**: Multiple issues with molecule blueprint intentions:
+1. Atoms didn't move toward intentions (only worked inside radius)
+2. Intentions disappeared after ~10,000 ticks (timeout)
+3. Unrelated molecules forming in zone triggered false fulfillment
+4. Progress counters were unreliable
+
+**Root Cause Analysis**:
+1. **Attraction limited to radius**: `_attractComponents()` only applied force for `dist < this.radius`
+2. **Timeout removal**: `if (this.age > this.maxAge) { this.fulfilled = true }` in `update()`
+3. **No formula validation**: `_formMolecule()` set `fulfilled=true` regardless of resulting formula
+4. **Wrong atom counting**: Mixed free vs bonded atoms in progress calculation
+
+**Fixes Applied**:
+
+1. **Long-range attraction** in `_attractComponents()`:
+```javascript
+if (dist < this.radius) {
+    // Strong attraction inside radius
+    forceMagnitude = this.attractionForce * (1 - dist / this.radius);
+} else {
+    // Weaker attraction outside radius (inverse-square falloff)
+    const outsideFactor = this.radius / dist;
+    forceMagnitude = this.attractionForce * 0.5 * (outsideFactor * outsideFactor);
+}
+forceMagnitude = Math.max(forceMagnitude, 0.1); // Minimum force
+```
+
+2. **Removed timeout** - intentions persist until actually fulfilled or manually deleted
+
+3. **Formula validation** in `_formMolecule()`:
+```javascript
+if (this.blueprint.formula && molecule.formula === this.blueprint.formula) {
+    this.createdEntity = molecule;
+    this.fulfilled = true;
+} else {
+    // Wrong molecule formed - don't fulfill, keep trying
+}
+```
+
+### Bug #7: Invalid Polymer Formation
+
+**Problem**: Simple molecules like H2, H2O, NH3 were forming polymers when placed near each other.
+
+**Root Cause**: `findPotentialPolymers()` had no validation for which molecules could polymerize together. Any stable molecules within distance formed chains.
+
+**Fix Applied**: Added validation blocklist and minimum size in `findPotentialPolymers()`:
+```javascript
+// Simple molecules that should NEVER form polymers
+const nonPolymerFormulas = new Set([
+    'H2', 'O2', 'N2', 'CO', 'CO2', 'H2O', 'NH3', 'CH4',
+    'HO', 'HN', 'CN', 'NO', 'H2N', 'H3N', 'HCN', 'H2S',
+    'O3', 'N2O', 'NO2', 'SO2', 'H2CO', 'CH3', 'C2H2'
+]);
+
+// Skip simple molecules
+if (mol.formula && nonPolymerFormulas.has(mol.formula)) continue;
+
+// Molecules must have at least 5 atoms to polymerize
+if (mol.atoms.length < 5) continue;
+```
+
+**Chemistry Rule**: Only complex molecules (amino acids, nucleotides, etc.) can form polymers. Simple stable molecules cannot.
+
 ---
 
 ## 🧪 Chemistry Rules to Preserve
@@ -229,11 +356,29 @@ Polymers are classified by elemental composition:
 
 Before considering a change complete, verify:
 
+### Basic Molecule Tests
 1. [ ] Place H atoms → they bond to form H2
 2. [ ] H2 molecules do NOT form polymers (they're stable)
 3. [ ] Place Fe atoms near each other → they remain as individual atoms (no bonds form between Fe-Fe)
 4. [ ] Inspector shows correct bond count for selected molecules
 5. [ ] Transition to Level 2 shows only valid molecules (with bonds)
+
+### MoleculeId Consistency Tests
+6. [ ] Select each atom in a molecule → ALL show same Molecule ID in Inspector
+7. [ ] Switch between Level 1 and 2 → molecules remain intact, no duplicates
+8. [ ] Free atoms (not bonded) show NO Molecule ID
+
+### Intention System Tests
+9. [ ] Place CH4 intention, add atoms outside zone → atoms move toward center
+10. [ ] Place unrelated molecule (e.g., H2O) inside CH4 intention → intention does NOT fulfill
+11. [ ] Intention persists longer than 30+ seconds without disappearing
+12. [ ] Progress counter updates correctly as matching atoms enter zone
+
+### Polymer Formation Tests
+13. [ ] Place H2 + H2 close together → do NOT form polymer
+14. [ ] Place H2O molecules close together → do NOT form polymer
+15. [ ] Only molecules with 5+ atoms can potentially polymerize
+
 
 ---
 
