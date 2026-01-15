@@ -3082,6 +3082,10 @@
                 this.fulfilled = false;
                 this.createdEntity = null;
 
+                // Track molecules that existed BEFORE this intention was placed
+                // These should be ignored when checking for fulfillment
+                this.excludedMolecules = new Set();
+
                 // Timing
                 this.age = 0;
                 this.maxAge = 10000; // Timeout after 10000 ticks if not fulfilled
@@ -3278,15 +3282,18 @@
                 if (requirements.type === 'atoms' && requirements.count) {
                     const requiredElements = new Set(requirements.elements || []);
 
-                    // Check if there's already a matching molecule in the zone
+                    // Check if there's a NEW matching molecule in the zone (not pre-existing)
                     if (this.blueprint.formula) {
                         for (const mol of environment.molecules.values()) {
                             if (mol.polymerId) continue;
+                            // Skip pre-existing molecules
+                            if (this.excludedMolecules.has(mol.id)) continue;
+
                             const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
                             const dist = center.distanceTo(this.position);
                             if (dist < this.radius * 0.6 && mol.formula === this.blueprint.formula) {
                                 this.progress = 1.0;
-                                debugLog(`[Intention ${this.blueprint.formula}] MATCHING MOLECULE FOUND! Progress = 100%`);
+                                debugLog(`[Intention ${this.blueprint.formula}] NEW MATCHING MOLECULE FOUND! Progress = 100%`);
                                 return;
                             }
                         }
@@ -3330,16 +3337,20 @@
                 if (requirements.type === 'atoms' && requirements.count) {
                     const requiredElements = new Set(requirements.elements || []);
 
-                    // First check for existing molecules that match our blueprint formula
+                    // First check for NEW molecules that match our blueprint formula
+                    // (exclude pre-existing molecules that were there when intention was placed)
                     for (const mol of environment.molecules.values()) {
                         if (mol.polymerId) continue;
+                        // Skip molecules that existed before this intention was placed
+                        if (this.excludedMolecules.has(mol.id)) continue;
+
                         const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
                         const dist = center.distanceTo(this.position);
                         if (dist < this.radius * 0.6) {
                             if (this.blueprint.formula && mol.formula === this.blueprint.formula) {
                                 this.createdEntity = mol;
                                 this.fulfilled = true;
-                                debugLog(`[FULFILLED] Intention ${this.blueprint.formula}: Found matching molecule`);
+                                debugLog(`[FULFILLED] Intention ${this.blueprint.formula}: Found NEW matching molecule`);
                                 return;
                             }
                         }
@@ -3645,7 +3656,7 @@
             }
 
             /**
-             * Check if point is inside intention zone
+             * Check if point is inside intention zone (full radius)
              */
             containsPoint(x, y, scale = 1, offset = { x: 0, y: 0 }) {
                 const screenX = (this.position.x + offset.x) * scale;
@@ -3655,6 +3666,20 @@
                 const dx = x - screenX;
                 const dy = y - screenY;
                 return (dx * dx + dy * dy) <= (screenRadius * screenRadius);
+            }
+
+            /**
+             * Check if point is inside just the center icon (for selection)
+             * Uses a small hitbox around the M/P label
+             */
+            containsCenterPoint(x, y, scale = 1, offset = { x: 0, y: 0 }) {
+                const screenX = (this.position.x + offset.x) * scale;
+                const screenY = (this.position.y + offset.y) * scale;
+                const iconRadius = 25 * scale; // Small clickable area for center icon
+
+                const dx = x - screenX;
+                const dy = y - screenY;
+                return (dx * dx + dy * dy) <= (iconRadius * iconRadius);
             }
         }
 
@@ -4633,6 +4658,22 @@
              * @param {Intention} intention - Intention zone to add
              */
             addIntention(intention) {
+                // Record any existing molecules that match the blueprint
+                // These will be excluded from fulfillment checks (we want NEW molecules)
+                if (intention.blueprint && intention.blueprint.formula) {
+                    for (const mol of this.molecules.values()) {
+                        if (mol.formula === intention.blueprint.formula) {
+                            const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
+                            if (center && intention.position) {
+                                const dist = center.distanceTo(intention.position);
+                                if (dist < intention.radius) {
+                                    intention.excludedMolecules.add(mol.id);
+                                }
+                            }
+                        }
+                    }
+                }
+
                 this.intentions.set(intention.id, intention);
                 this.stats.intentionCount = this.intentions.size;
             }
@@ -7117,14 +7158,6 @@
                 const scale = this.camera.zoom;
                 const offset = this.getOffset();
 
-                // Check intentions first (highest priority for selection)
-                const intentions = this.environment.getAllIntentions ? this.environment.getAllIntentions() : [];
-                for (const intention of intentions) {
-                    if (intention.containsPoint(screenX, screenY, scale, offset)) {
-                        return { type: 'intention', entity: intention };
-                    }
-                }
-
                 // At cell level or higher, prioritize cells
                 if (this.level >= 3) {
                     const cells = this.environment.getAllCells ? this.environment.getAllCells() : [];
@@ -7153,7 +7186,7 @@
                     }
                 }
 
-                // At molecule level or higher, check molecules
+                // At molecule level or higher, check molecules then atoms
                 if (this.level >= 1) {
                     // Check molecules first
                     for (const molecule of this.environment.getAllMolecules()) {
@@ -7179,6 +7212,14 @@
                         if (molecule.containsPoint(screenX, screenY, scale, offset)) {
                             return { type: 'molecule', entity: molecule };
                         }
+                    }
+                }
+
+                // Check intentions LAST - only selectable by clicking center icon (M/P label)
+                const intentions = this.environment.getAllIntentions ? this.environment.getAllIntentions() : [];
+                for (const intention of intentions) {
+                    if (intention.containsCenterPoint(screenX, screenY, scale, offset)) {
+                        return { type: 'intention', entity: intention };
                     }
                 }
 
