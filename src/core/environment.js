@@ -19,6 +19,7 @@ class Environment {
         this.molecules = new Map();  // id -> Molecule
         this.proteins = new Map();   // id -> Protein (polymers)
         this.cells = new Map();      // id -> Cell
+        this.prokaryotes = new Map(); // id -> Prokaryote (chemistry-based cells)
         this.organisms = new Map();  // id -> Organism (future)
         this.intentions = new Map(); // id -> Intention (blueprint attraction zones)
 
@@ -30,12 +31,12 @@ class Environment {
         this.temperature = 300;  // Kelvin
         this.pressure = 1;       // Atmospheres
 
-        // Statistics
         this.stats = {
             atomCount: 0,
             moleculeCount: 0,
             proteinCount: 0,
             cellCount: 0,
+            prokaryoteCount: 0,
             organismCount: 0,
             intentionCount: 0
         };
@@ -162,6 +163,69 @@ class Environment {
      */
     getAllCells() {
         return Array.from(this.cells.values());
+    }
+
+    // --- Prokaryote Methods ---
+
+    /**
+     * Add a prokaryote to the environment
+     * @param {Prokaryote} prokaryote - Prokaryote to add
+     */
+    addProkaryote(prokaryote) {
+        this.prokaryotes.set(prokaryote.id, prokaryote);
+        this.stats.prokaryoteCount = this.prokaryotes.size;
+    }
+
+    /**
+     * Remove a prokaryote from the environment
+     * @param {string} prokaryoteId - Prokaryote ID to remove
+     */
+    removeProkaryote(prokaryoteId) {
+        this.prokaryotes.delete(prokaryoteId);
+        this.stats.prokaryoteCount = this.prokaryotes.size;
+    }
+
+    /**
+     * Get all prokaryotes as array
+     */
+    getAllProkaryotes() {
+        return Array.from(this.prokaryotes.values());
+    }
+
+    /**
+     * Update all prokaryotes
+     * @param {number} dt - Delta time
+     */
+    updateProkaryotes(dt) {
+        for (const prokaryote of this.prokaryotes.values()) {
+            if (prokaryote.isAlive) {
+                prokaryote.update(dt, this);
+            }
+        }
+
+        // Remove dead prokaryotes
+        for (const [id, prokaryote] of this.prokaryotes) {
+            if (!prokaryote.isAlive) {
+                this.prokaryotes.delete(id);
+            }
+        }
+
+        this.stats.prokaryoteCount = this.prokaryotes.size;
+    }
+
+    /**
+     * Alias for proteins Map (polymers) - used by prokaryote factory
+     */
+    get polymers() {
+        return this.proteins;
+    }
+
+    /**
+     * Remove a polymer from the environment
+     * @param {string} polymerId - Polymer ID to remove
+     */
+    removePolymer(polymerId) {
+        this.removeProtein(polymerId);
     }
 
     /**
@@ -586,6 +650,9 @@ class Environment {
 
         // Update cells
         this.updateCells();
+
+        // Update prokaryotes (chemistry-based cells)
+        this.updateProkaryotes(dt);
     }
 
     /**
@@ -625,14 +692,18 @@ class Environment {
         this.molecules.clear();
         this.proteins.clear();
         this.cells.clear();
+        this.prokaryotes.clear();
         this.organisms.clear();
+        this.intentions.clear();
         this.grid.clear();
         this.stats = {
             atomCount: 0,
             moleculeCount: 0,
             proteinCount: 0,
             cellCount: 0,
-            organismCount: 0
+            prokaryoteCount: 0,
+            organismCount: 0,
+            intentionCount: 0
         };
     }
 
@@ -693,3 +764,4 @@ class Environment {
 
 // Make available globally
 window.Environment = Environment;
+

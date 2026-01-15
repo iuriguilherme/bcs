@@ -3086,6 +3086,11 @@
                 // These should be ignored when checking for fulfillment
                 this.excludedMolecules = new Set();
 
+                // SMART ATTRACTION: Candidate and element tracking
+                this.candidates = new Map(); // id -> { entity, type, elements }
+                this.neededElements = this._parseNeededElements(); // e.g., { H: 2, O: 1 }
+                this.gatheredElements = {}; // Counts of elements currently gathered
+
                 // Timing
                 this.age = 0;
                 this.maxAge = 10000; // Timeout after 10000 ticks if not fulfilled
@@ -3106,6 +3111,36 @@
                     case 'cell': return 500;      // Largest for polymers
                     default: return 300;
                 }
+            }
+
+            /**
+             * Parse blueprint to get element counts needed
+             * e.g., H2O → { H: 2, O: 1 }, CH4 → { C: 1, H: 4 }
+             */
+            _parseNeededElements() {
+                const elements = {};
+
+                if (this.blueprint.atomData) {
+                    // Count from atomData array
+                    for (const atomDef of this.blueprint.atomData) {
+                        const symbol = atomDef.symbol || atomDef.element;
+                        if (symbol) {
+                            elements[symbol] = (elements[symbol] || 0) + 1;
+                        }
+                    }
+                } else if (this.blueprint.formula) {
+                    // Parse from formula string (basic parsing)
+                    const formula = this.blueprint.formula;
+                    const regex = /([A-Z][a-z]?)(\d*)/g;
+                    let match;
+                    while ((match = regex.exec(formula)) !== null) {
+                        const symbol = match[1];
+                        const count = match[2] ? parseInt(match[2]) : 1;
+                        elements[symbol] = (elements[symbol] || 0) + count;
+                    }
+                }
+
+                return elements;
             }
 
             /**
@@ -3166,6 +3201,7 @@
 
             /**
              * Attract nearby components toward this intention
+             * SMART ATTRACTION: Balances element attraction based on what's still needed
              */
             _attractComponents(environment) {
                 const requirements = this.getRequirements();
@@ -3173,67 +3209,125 @@
 
                 // Clear gathered components each tick - will be recalculated
                 this.gatheredComponents.clear();
+                this.candidates.clear();
 
                 if (requirements.type === 'atoms') {
-                    // Get the required elements for this intention
-                    const requiredElements = new Set(requirements.elements || []);
+                    // SMART: Calculate current element counts in gathering zone
+                    const currentElements = {};
+                    const gatheringRadius = this.radius * 0.5;
 
-                    debugLog(`[Intention ${this.blueprint.formula}] Required elements: [${Array.from(requiredElements).join(', ')}]`);
-
-                    let attractedCount = 0;
-                    let gatheredCount = 0;
-
-                    // Attract ONLY atoms that match our required elements
+                    // Count elements from free atoms in zone
                     for (const atom of environment.atoms.values()) {
-                        // Skip atoms that don't match our required elements
-                        if (requiredElements.size > 0 && !requiredElements.has(atom.symbol)) {
-                            continue;
-                        }
-
-                        // Check if atom is in a stable molecule - skip those
                         if (atom.moleculeId) {
                             const mol = environment.molecules.get(atom.moleculeId);
-                            if (mol && mol.isStable()) {
-                                debugLog(`Skipping atom ${atom.symbol} - in stable molecule ${mol.formula}`);
-                                continue;
-                            }
+                            if (mol && mol.isStable()) continue; // Skip stable molecules
                         }
 
                         const dist = atom.position.distanceTo(this.position);
-
-                        // Attract atoms toward the center
-                        // Atoms move from ANY distance - force decays with distance
-                        if (dist > 5) {
-                            const direction = this.position.sub(atom.position).normalize();
-                            let forceMagnitude;
-
-                            if (dist < this.radius) {
-                                // Strong attraction inside radius
-                                forceMagnitude = this.attractionForce * (1 - dist / this.radius);
-                            } else {
-                                // Weaker but still present attraction outside radius
-                                // Use inverse-square falloff for long-range attraction
-                                const outsideFactor = this.radius / dist;
-                                forceMagnitude = this.attractionForce * 0.5 * (outsideFactor * outsideFactor);
-                            }
-
-                            // Minimum force to ensure atoms always move (slowly)
-                            forceMagnitude = Math.max(forceMagnitude, 0.1);
-
-                            const force = direction.mul(forceMagnitude);
-                            atom.applyForce(force);
-                            attractedCount++;
-                        }
-
-                        // Track gathered atoms (within inner zone) - ONLY count matching elements!
-                        if (dist < this.radius * 0.5) {
+                        if (dist < gatheringRadius) {
+                            const sym = atom.symbol;
+                            currentElements[sym] = (currentElements[sym] || 0) + 1;
                             this.gatheredComponents.add(atom.id);
-                            gatheredCount++;
                         }
                     }
 
-                    if (attractedCount > 0 || gatheredCount > 0) {
-                        debugLog(`[Intention ${this.blueprint.formula}] Attracted: ${attractedCount}, Gathered: ${gatheredCount}/${requirements.count}`);
+                    // Calculate what's still needed
+                    const stillNeeded = {};
+                    for (const [element, count] of Object.entries(this.neededElements)) {
+                        const have = currentElements[element] || 0;
+                        stillNeeded[element] = Math.max(0, count - have);
+                    }
+
+                    debugLog(`[Intention ${this.blueprint.formula}] Need: ${JSON.stringify(this.neededElements)}, Have: ${JSON.stringify(currentElements)}, Still need: ${JSON.stringify(stillNeeded)}`);
+
+                    // Calculate total still needed (for force scaling)
+                    const totalNeeded = Object.values(stillNeeded).reduce((a, b) => a + b, 0);
+                    const totalRequired = Object.values(this.neededElements).reduce((a, b) => a + b, 0);
+
+                    let attractedCount = 0;
+
+                    // PHASE 1: Attract unstable molecules that contain needed elements
+                    for (const mol of environment.molecules.values()) {
+                        if (mol.polymerId) continue;
+                        if (mol.isStable()) continue; // Only attract unstable molecules
+                        if (this.excludedMolecules.has(mol.id)) continue;
+
+                        // Check if this molecule contains elements we need
+                        let contributesNeeded = false;
+                        for (const atom of mol.atoms) {
+                            if (stillNeeded[atom.symbol] > 0) {
+                                contributesNeeded = true;
+                                break;
+                            }
+                        }
+
+                        if (contributesNeeded) {
+                            const center = mol.getCenter();
+                            const dist = center.distanceTo(this.position);
+
+                            if (dist > 10) {
+                                const direction = this.position.sub(center).normalize();
+                                let forceMagnitude = this.attractionForce * 1.5; // Boost for useful molecules
+
+                                if (dist < this.radius) {
+                                    forceMagnitude *= (1 - dist / this.radius);
+                                } else {
+                                    const factor = this.radius / dist;
+                                    forceMagnitude *= 0.5 * factor * factor;
+                                }
+
+                                // Apply force to all atoms in molecule
+                                for (const atom of mol.atoms) {
+                                    atom.applyForce(direction.mul(forceMagnitude));
+                                }
+                                attractedCount++;
+                                this.candidates.set(mol.id, { entity: mol, type: 'molecule' });
+                            }
+                        }
+                    }
+
+                    // PHASE 2: Attract free atoms with element-balanced force
+                    for (const atom of environment.atoms.values()) {
+                        // Skip if not a required element
+                        if (!this.neededElements[atom.symbol]) continue;
+
+                        // Skip atoms in stable molecules
+                        if (atom.moleculeId) {
+                            const mol = environment.molecules.get(atom.moleculeId);
+                            if (mol && mol.isStable()) continue;
+                        }
+
+                        const dist = atom.position.distanceTo(this.position);
+                        if (dist <= 5) continue;
+
+                        // SMART FORCE: Scale based on how much we need this element
+                        const needed = stillNeeded[atom.symbol] || 0;
+                        const required = this.neededElements[atom.symbol] || 1;
+
+                        // Priority multiplier: 1.0 if we need all, 0.1 if we have enough
+                        const priorityMultiplier = needed > 0 ? (needed / required) : 0.1;
+
+                        const direction = this.position.sub(atom.position).normalize();
+                        let forceMagnitude;
+
+                        if (dist < this.radius) {
+                            forceMagnitude = this.attractionForce * (1 - dist / this.radius);
+                        } else {
+                            const outsideFactor = this.radius / dist;
+                            forceMagnitude = this.attractionForce * 0.5 * (outsideFactor * outsideFactor);
+                        }
+
+                        // Apply priority scaling
+                        forceMagnitude *= priorityMultiplier;
+                        forceMagnitude = Math.max(forceMagnitude, 0.05); // Minimum force
+
+                        atom.applyForce(direction.mul(forceMagnitude));
+                        attractedCount++;
+                        this.candidates.set(atom.id, { entity: atom, type: 'atom' });
+                    }
+
+                    if (attractedCount > 0) {
+                        debugLog(`[Intention ${this.blueprint.formula}] Attracted: ${attractedCount} candidates, Gathered: ${this.gatheredComponents.size}/${totalRequired}`);
                     }
                 } else if (requirements.type === 'molecules') {
                     // Attract molecules (that aren't in polymers)
@@ -7541,20 +7635,33 @@
                     if (result.type === 'atom') {
                         result.entity.selected = true;
                         this.viewer.selectedAtom = result.entity;
+                        this.viewer.setLevel(0); // Auto-switch to atom level
                     } else if (result.type === 'molecule') {
                         result.entity.selected = true;
                         this.viewer.selectedMolecule = result.entity;
+                        this.viewer.setLevel(1); // Auto-switch to molecule level
                     } else if (result.type === 'cell') {
                         this.viewer.selectedCell = result.entity;
+                        this.viewer.setLevel(3); // Auto-switch to cell level
                     } else if (result.type === 'polymer') {
                         result.entity.selected = true;
+                        this.viewer.setLevel(2); // Auto-switch to polymer level
                     } else if (result.type === 'intention') {
                         result.entity.selected = true;
                         this.viewer.selectedIntention = result.entity;
+                        // Auto-switch based on intention type
+                        if (result.entity.type === 'molecule') {
+                            this.viewer.setLevel(1);
+                        } else if (result.entity.type === 'polymer') {
+                            this.viewer.setLevel(2);
+                        } else if (result.entity.type === 'cell') {
+                            this.viewer.setLevel(3);
+                        }
                     }
 
                     this._updateInspector(result);
                     this._switchToInspectorTab();
+                    this._updateLevelButtons(); // Update UI to reflect level change
                 }
             }
 
@@ -7779,8 +7886,18 @@
                         const elements = requirements.elements?.join(', ') || 'Various';
                         reqDetails = `<p><strong>Needs:</strong> ${reqCount} atoms</p><p>Elements: ${elements}</p>`;
                     } else if (requirements?.type === 'molecules') {
-                        const elements = requirements.requiredElements?.join(', ') || 'Various';
-                        reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p>With elements: ${elements}</p>`;
+                        // For polymers, show required molecules rather than just elements
+                        if (requirements.moleculeBlueprints && requirements.moleculeBlueprints.length > 0) {
+                            // We have specific molecule blueprints
+                            const moleculeList = requirements.moleculeBlueprints
+                                .map(bp => bp.formula || bp.name || 'Unknown')
+                                .join(', ');
+                            reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p><strong>Required molecules:</strong></p><p style="color: #4ade80;">${moleculeList}</p>`;
+                        } else {
+                            // Fall back to showing required elements (for template-based polymers)
+                            const elements = requirements.requiredElements?.join(', ') || 'Various';
+                            reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p><strong>With elements:</strong> ${elements}</p><p style="color: #94a3b8; font-size: 0.9em;"><em>Tip: Create molecule intents with ${elements} to speed up formation</em></p>`;
+                        }
                     } else if (requirements?.type === 'polymers') {
                         const roles = requirements.roles?.join(', ') || 'Various';
                         reqDetails = `<p><strong>Needs polymers with roles:</strong></p><p>${roles}</p>`;

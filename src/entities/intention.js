@@ -72,10 +72,12 @@ class Intention {
             };
         } else if (this.type === 'polymer') {
             // For polymers, we need molecules
+            // Include molecule blueprints if available for display purposes
             return {
                 type: 'molecules',
                 count: this.blueprint.minMolecules || 3,
-                requiredElements: this.blueprint.requiredElements
+                requiredElements: this.blueprint.requiredElements,
+                moleculeBlueprints: this.blueprint.moleculeData || this.blueprint.moleculeBlueprints || null
             };
         } else if (this.type === 'cell') {
             // For cells, we need polymer chains

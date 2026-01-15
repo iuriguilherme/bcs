@@ -538,8 +538,18 @@ class Controls {
                 const elements = requirements.elements?.join(', ') || 'Various';
                 reqDetails = `<p><strong>Needs:</strong> ${reqCount} atoms</p><p>Elements: ${elements}</p>`;
             } else if (requirements?.type === 'molecules') {
-                const elements = requirements.requiredElements?.join(', ') || 'Various';
-                reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p>With elements: ${elements}</p>`;
+                // For polymers, show required molecules rather than just elements
+                if (requirements.moleculeBlueprints && requirements.moleculeBlueprints.length > 0) {
+                    // We have specific molecule blueprints
+                    const moleculeList = requirements.moleculeBlueprints
+                        .map(bp => bp.formula || bp.name || 'Unknown')
+                        .join(', ');
+                    reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p><strong>Required molecules:</strong></p><p style="color: #4ade80;">${moleculeList}</p>`;
+                } else {
+                    // Fall back to showing required elements (for template-based polymers)
+                    const elements = requirements.requiredElements?.join(', ') || 'Various';
+                    reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p><strong>With elements:</strong> ${elements}</p><p style="color: #94a3b8; font-size: 0.9em;"><em>Tip: Create molecule intents with ${elements} to speed up formation</em></p>`;
+                }
             } else if (requirements?.type === 'polymers') {
                 const roles = requirements.roles?.join(', ') || 'Various';
                 reqDetails = `<p><strong>Needs polymers with roles:</strong></p><p>${roles}</p>`;
