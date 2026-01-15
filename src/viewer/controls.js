@@ -537,19 +537,28 @@ class Controls {
             if (requirements?.type === 'atoms') {
                 const elements = requirements.elements?.join(', ') || 'Various';
                 reqDetails = `<p><strong>Needs:</strong> ${reqCount} atoms</p><p>Elements: ${elements}</p>`;
-            } else if (requirements?.type === 'molecules') {
-                // For polymers, show required molecules rather than just elements
-                if (requirements.moleculeBlueprints && requirements.moleculeBlueprints.length > 0) {
-                    // We have specific molecule blueprints
-                    const moleculeList = requirements.moleculeBlueprints
-                        .map(bp => bp.formula || bp.name || 'Unknown')
-                        .join(', ');
-                    reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p><strong>Required molecules:</strong></p><p style="color: #4ade80;">${moleculeList}</p>`;
+            } else if (requirements?.type === 'monomers') {
+                // NEW: Monomer-based polymer requirements
+                const monomerName = requirements.monomerName || 'Unknown';
+                const monomerFormula = requirements.monomerFormula;
+
+                if (monomerFormula) {
+                    // We know the exact monomer needed
+                    reqDetails = `
+                        <p><strong>Needs:</strong> ${reqCount}+ monomers</p>
+                        <p><strong>Monomer:</strong> ${monomerName}</p>
+                        <p style="color: #4ade80; font-weight: bold;">${monomerFormula}</p>
+                        <p style="color: #94a3b8; font-size: 0.9em;"><em>Create ${reqCount}+ ${monomerFormula} molecules to form this polymer</em></p>
+                    `;
                 } else {
-                    // Fall back to showing required elements (for template-based polymers)
+                    // Fallback for legacy blueprints without monomer template
                     const elements = requirements.requiredElements?.join(', ') || 'Various';
-                    reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p><strong>With elements:</strong> ${elements}</p><p style="color: #94a3b8; font-size: 0.9em;"><em>Tip: Create molecule intents with ${elements} to speed up formation</em></p>`;
+                    reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p><strong>With elements:</strong> ${elements}</p>`;
                 }
+            } else if (requirements?.type === 'molecules') {
+                // Legacy support for old polymer blueprints
+                const elements = requirements.requiredElements?.join(', ') || 'Various';
+                reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p>With elements: ${elements}</p>`;
             } else if (requirements?.type === 'polymers') {
                 const roles = requirements.roles?.join(', ') || 'Various';
                 reqDetails = `<p><strong>Needs polymers with roles:</strong></p><p>${roles}</p>`;

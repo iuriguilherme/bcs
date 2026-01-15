@@ -1,44 +1,44 @@
 /**
  * Polymer Blueprints
  * Pre-defined templates for cell-essential polymers
- * and the PolymerBlueprint class for storing/instantiating polymers
+ * Now linked to specific monomer templates from monomer-templates.js
  */
 
 // Essential polymer templates for cell formation
+// NEW: Each polymer now references a specific monomer template
 const CELL_ESSENTIAL_POLYMERS = {
     // Membrane Components (Lipids)
+    // Monomer: Fatty Acid (C4H8O2) → Lipid Chain
     PHOSPHOLIPID: {
         id: 'phospholipid',
-        name: 'Phospholipid',
+        name: 'Phospholipid Bilayer',
         type: 'lipid',
-        description: 'Forms the cell membrane bilayer',
-        minMolecules: 3,
-        requiredElements: ['C', 'H', 'O', 'P'],
-        elementRatios: { C: 0.4, H: 0.5, O: 0.08, P: 0.02 },
+        description: 'Forms the cell membrane bilayer from fatty acid monomers',
+        monomerId: 'FATTY_ACID',        // Reference to MONOMER_TEMPLATES
+        minMonomers: 3,                  // Renamed from minMolecules
         essential: true,
         cellRole: 'membrane'
     },
-    FATTY_ACID: {
-        id: 'fatty_acid',
-        name: 'Fatty Acid',
+    FATTY_ACID_CHAIN: {
+        id: 'fatty_acid_chain',
+        name: 'Fatty Acid Chain',
         type: 'lipid',
-        description: 'Building block for lipids and energy storage',
-        minMolecules: 2,
-        requiredElements: ['C', 'H', 'O'],
-        elementRatios: { C: 0.5, H: 0.45, O: 0.05 },
+        description: 'Chain of fatty acid monomers for energy storage',
+        monomerId: 'FATTY_ACID',
+        minMonomers: 2,
         essential: false,
         cellRole: 'membrane'
     },
 
     // Structural Components (Proteins)
+    // Monomer: Glycine (C2H5NO2) → Protein
     STRUCTURAL_PROTEIN: {
         id: 'structural_protein',
         name: 'Structural Protein',
         type: 'protein',
-        description: 'Provides cell structure and support',
-        minMolecules: 4,
-        requiredElements: ['C', 'H', 'O', 'N'],
-        elementRatios: { C: 0.35, H: 0.35, O: 0.15, N: 0.15 },
+        description: 'Provides cell structure from glycine amino acid monomers',
+        monomerId: 'GLYCINE',
+        minMonomers: 4,
         essential: true,
         cellRole: 'structure'
     },
@@ -47,9 +47,8 @@ const CELL_ESSENTIAL_POLYMERS = {
         name: 'Enzyme',
         type: 'protein',
         description: 'Catalyzes chemical reactions',
-        minMolecules: 3,
-        requiredElements: ['C', 'H', 'O', 'N'],
-        elementRatios: { C: 0.35, H: 0.35, O: 0.15, N: 0.15 },
+        monomerId: 'GLYCINE',
+        minMonomers: 3,
         essential: false,
         cellRole: 'metabolism'
     },
@@ -58,22 +57,21 @@ const CELL_ESSENTIAL_POLYMERS = {
         name: 'Transport Protein',
         type: 'protein',
         description: 'Moves molecules across membrane',
-        minMolecules: 3,
-        requiredElements: ['C', 'H', 'O', 'N'],
-        elementRatios: { C: 0.35, H: 0.35, O: 0.15, N: 0.15 },
+        monomerId: 'GLYCINE',
+        minMonomers: 3,
         essential: false,
         cellRole: 'transport'
     },
 
     // Genetic Material (Nucleic Acids)
+    // Monomer: Adenine Nucleotide → DNA/RNA
     DNA_STRAND: {
         id: 'dna_strand',
         name: 'DNA Strand',
         type: 'nucleic_acid',
-        description: 'Stores genetic information',
-        minMolecules: 4,
-        requiredElements: ['C', 'H', 'O', 'N', 'P'],
-        elementRatios: { C: 0.30, H: 0.30, O: 0.20, N: 0.15, P: 0.05 },
+        description: 'Stores genetic information from nucleotide monomers',
+        monomerId: 'ADENINE_NUCLEOTIDE',
+        minMonomers: 4,
         essential: true,
         cellRole: 'genetics'
     },
@@ -82,22 +80,21 @@ const CELL_ESSENTIAL_POLYMERS = {
         name: 'RNA Strand',
         type: 'nucleic_acid',
         description: 'Carries genetic messages for protein synthesis',
-        minMolecules: 3,
-        requiredElements: ['C', 'H', 'O', 'N', 'P'],
-        elementRatios: { C: 0.30, H: 0.30, O: 0.22, N: 0.13, P: 0.05 },
+        monomerId: 'ADENINE_NUCLEOTIDE',
+        minMonomers: 3,
         essential: false,
         cellRole: 'genetics'
     },
 
     // Energy Storage (Carbohydrates)
+    // Monomer: Glucose (C6H12O6) → Polysaccharide
     GLYCOGEN: {
         id: 'glycogen',
         name: 'Glycogen',
         type: 'carbohydrate',
-        description: 'Energy storage molecule',
-        minMolecules: 3,
-        requiredElements: ['C', 'H', 'O'],
-        elementRatios: { C: 0.40, H: 0.53, O: 0.07 },
+        description: 'Energy storage from glucose monomers',
+        monomerId: 'GLUCOSE',
+        minMonomers: 3,
         essential: false,
         cellRole: 'energy'
     },
@@ -105,12 +102,23 @@ const CELL_ESSENTIAL_POLYMERS = {
         id: 'cellulose',
         name: 'Cellulose',
         type: 'carbohydrate',
-        description: 'Structural carbohydrate (cell wall)',
-        minMolecules: 4,
-        requiredElements: ['C', 'H', 'O'],
-        elementRatios: { C: 0.44, H: 0.49, O: 0.07 },
+        description: 'Structural carbohydrate (cell wall) from glucose monomers',
+        monomerId: 'GLUCOSE',
+        minMonomers: 4,
         essential: false,
         cellRole: 'structure'
+    },
+
+    // ===== SIMPLE PROOF-OF-CONCEPT POLYMER =====
+    POLYETHYLENE: {
+        id: 'polyethylene',
+        name: 'Polyethylene',
+        type: 'generic',
+        description: 'Simple plastic polymer from ethylene monomers',
+        monomerId: 'ETHYLENE',
+        minMonomers: 3,
+        essential: false,
+        cellRole: null
     }
 };
 
@@ -125,30 +133,37 @@ const CELL_REQUIREMENTS = {
 };
 
 /**
- * PolymerBlueprint - Template for creating polymers
+ * PolymerBlueprint - Template for creating polymers from monomers
+ * NEW: Now references monomer templates instead of element ratios
  */
 class PolymerBlueprint {
-    constructor(template, molecules = null) {
+    constructor(template) {
         this.id = template.id;
         this.name = template.name;
         this.type = template.type;
         this.description = template.description;
-        this.minMolecules = template.minMolecules;
-        this.requiredElements = template.requiredElements;
-        this.elementRatios = template.elementRatios;
-        this.essential = template.essential;
+        this.essential = template.essential || false;
         this.cellRole = template.cellRole;
 
-        // If based on actual molecules, store their data
-        this.moleculeData = molecules ? molecules.map(m => ({
-            formula: m.formula,
-            fingerprint: m.fingerprint,
-            atomData: m.atoms.map(a => ({
-                symbol: a.symbol,
-                relativeX: a.position.x - m.getCenter().x,
-                relativeY: a.position.y - m.getCenter().y
-            }))
-        })) : null;
+        // NEW: Monomer-based properties
+        this.monomerId = template.monomerId;              // Reference to MONOMER_TEMPLATES key
+        this.minMonomers = template.minMonomers || template.minMolecules || 2;
+
+        // Resolve the actual monomer template
+        this.monomerTemplate = null;
+        if (typeof getMonomerTemplate === 'function' && this.monomerId) {
+            this.monomerTemplate = getMonomerTemplate(this.monomerId);
+        }
+
+        // Legacy support - generate requiredElements from monomer if not provided
+        if (template.requiredElements) {
+            this.requiredElements = template.requiredElements;
+        } else if (this.monomerTemplate?.atomLayout) {
+            const elements = new Set(this.monomerTemplate.atomLayout.map(a => a.symbol));
+            this.requiredElements = Array.from(elements);
+        } else {
+            this.requiredElements = [];
+        }
 
         // Generate fingerprint for this blueprint
         this.fingerprint = this._generateFingerprint();
@@ -162,23 +177,19 @@ class PolymerBlueprint {
      * Generate unique fingerprint for this blueprint
      */
     _generateFingerprint() {
-        const parts = [
-            this.type,
-            this.requiredElements.sort().join(''),
-            this.minMolecules
-        ];
         return JSON.stringify({
             type: this.type,
-            elements: this.requiredElements.sort(),
-            minMol: this.minMolecules
+            monomerId: this.monomerId,
+            minMonomers: this.minMonomers
         });
     }
 
     /**
      * Check if a polymer matches this blueprint
+     * NEW: Validates that all monomers match the expected formula
      */
     matches(polymer) {
-        if (!polymer || !polymer.molecules || polymer.molecules.length < this.minMolecules) {
+        if (!polymer || !polymer.monomers || polymer.monomers.length < this.minMonomers) {
             return false;
         }
 
@@ -187,19 +198,13 @@ class PolymerBlueprint {
             return false;
         }
 
-        // Check required elements are present
-        const polymerElements = new Set();
-        for (const mol of polymer.molecules) {
-            if (mol.atoms) {
-                for (const atom of mol.atoms) {
-                    polymerElements.add(atom.symbol);
+        // NEW: Check that all monomers match our template formula
+        if (this.monomerTemplate) {
+            const expectedFormula = this.monomerTemplate.formula;
+            for (const monomer of polymer.monomers) {
+                if (monomer.formula !== expectedFormula) {
+                    return false;
                 }
-            }
-        }
-
-        for (const element of this.requiredElements) {
-            if (!polymerElements.has(element)) {
-                return false;
             }
         }
 

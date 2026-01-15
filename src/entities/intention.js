@@ -71,13 +71,25 @@ class Intention {
                 count: this.blueprint.atomData?.length || 4
             };
         } else if (this.type === 'polymer') {
-            // For polymers, we need molecules
-            // Include molecule blueprints if available for display purposes
+            // For polymers, we need specific MONOMERS (identical molecules that chain)
+            // NEW: Use monomer template system
+            const monomerTemplate = this.blueprint.monomerTemplate || null;
+            const monomerId = this.blueprint.monomerId || null;
+
+            // Resolve monomer template if we have an ID but no template yet
+            let resolvedTemplate = monomerTemplate;
+            if (!resolvedTemplate && monomerId && typeof getMonomerTemplate === 'function') {
+                resolvedTemplate = getMonomerTemplate(monomerId);
+            }
+
             return {
-                type: 'molecules',
-                count: this.blueprint.minMolecules || 3,
-                requiredElements: this.blueprint.requiredElements,
-                moleculeBlueprints: this.blueprint.moleculeData || this.blueprint.moleculeBlueprints || null
+                type: 'monomers',
+                count: this.blueprint.minMonomers || this.blueprint.minMolecules || 3,
+                monomerId: monomerId,
+                monomerTemplate: resolvedTemplate,
+                monomerFormula: resolvedTemplate?.formula || null,
+                monomerName: resolvedTemplate?.name || this.blueprint.name || 'Unknown',
+                requiredElements: this.blueprint.requiredElements || resolvedTemplate?.requiredElements || []
             };
         } else if (this.type === 'cell') {
             // For cells, we need polymer chains

@@ -39,23 +39,29 @@ const PolymerLabels = {
 
 class Polymer {
     /**
-     * Create a polymer from molecules
-     * @param {Molecule[]} molecules - Array of molecules forming the chain
-     * @param {string} type - Polymer type (from PolymerType)
+     * Create a polymer from monomer molecules
+     * @param {Molecule[]} monomers - Array of identical monomer molecules forming the chain
+     * @param {Object} monomerTemplate - The monomer template all molecules must match
      * @param {string} name - Optional name for this polymer
      */
-    constructor(molecules = [], type = null, name = null) {
+    constructor(monomers = [], monomerTemplate = null, name = null) {
         this.id = Utils.generateId();
-        this.molecules = molecules;
+        this.monomers = monomers;       // The monomer units (renamed from 'molecules')
+        this.molecules = monomers;       // Backward compatibility alias
         this.name = name;
+        this.monomerTemplate = monomerTemplate;
 
-        // Auto-detect type if not specified
-        this.type = type || this._detectType();
+        // Type comes from monomer template, or detect if not provided
+        if (monomerTemplate && monomerTemplate.polymerCategory) {
+            this.type = monomerTemplate.polymerCategory;
+        } else {
+            this.type = this._detectType();
+        }
 
-        // Link molecules to this polymer
-        for (const mol of molecules) {
-            mol.proteinId = this.id;  // Using proteinId for backward compatibility
-            mol.polymerId = this.id;
+        // Link monomers to this polymer
+        for (const mon of monomers) {
+            mon.proteinId = this.id;  // Using proteinId for backward compatibility
+            mon.polymerId = this.id;
         }
 
         // Polymer properties
@@ -75,6 +81,31 @@ class Polymer {
 
         // Calculate derived properties
         this._updateProperties();
+
+        // Assign cell role from monomer template if available
+        if (monomerTemplate?.cellRole) {
+            this.cellRole = monomerTemplate.cellRole;
+        } else {
+            this._assignCellRole();
+        }
+    }
+
+    /**
+     * Check if this polymer is valid (all monomers match the template)
+     */
+    isValid() {
+        if (this.monomers.length < 2) return false;
+
+        // If we have a template, all monomers must match
+        if (this.monomerTemplate) {
+            return this.monomers.every(m =>
+                m.formula === this.monomerTemplate.formula
+            );
+        }
+
+        // Without template, all monomers must at least have the same formula
+        const firstFormula = this.monomers[0]?.formula;
+        return this.monomers.every(m => m.formula === firstFormula);
     }
 
     /**
@@ -614,7 +645,8 @@ class Polymer {
 }
 
 /**
- * Create polymers from nearby molecules
+ * Create polymers from nearby molecules of the same monomer type
+ * NEW: Only molecules with the same formula (same monomer type) can form a polymer
  * @param {Molecule[]} molecules - All molecules
  * @param {number} maxDistance - Max distance for molecules to form a polymer
  * @returns {Polymer[]} New polymers found
@@ -624,10 +656,17 @@ function findPotentialPolymers(molecules, maxDistance = 100) {
     const assigned = new Set();
 
     for (const mol of molecules) {
-        if (assigned.has(mol.id) || mol.proteinId) continue;
+        if (assigned.has(mol.id) || mol.proteinId || mol.polymerId) continue;
         if (!mol.isStable()) continue;
 
-        // Find nearby molecules that could form a chain
+        // NEW: Only monomers can form polymers
+        if (!mol.canPolymerize || !mol.canPolymerize()) continue;
+
+        // Get the monomer type for this molecule
+        const monomerFormula = mol.formula;
+        const monomerTemplate = mol.monomerTemplate || null;
+
+        // Find nearby molecules of the SAME monomer type
         const chain = [mol];
         assigned.add(mol.id);
 
@@ -643,9 +682,12 @@ function findPotentialPolymers(molecules, maxDistance = 100) {
             const currentCenter = current.getCenter();
 
             for (const other of molecules) {
-                if (assigned.has(other.id) || other.proteinId) continue;
+                if (assigned.has(other.id) || other.proteinId || other.polymerId) continue;
                 if (!other.isStable || !other.isStable()) continue;
                 if (typeof other.getCenter !== 'function') continue;
+
+                // NEW: Must be the same monomer type (same formula)
+                if (other.formula !== monomerFormula) continue;
 
                 const otherCenter = other.getCenter();
                 const dist = Utils.distance(
@@ -663,9 +705,11 @@ function findPotentialPolymers(molecules, maxDistance = 100) {
             }
         }
 
-        // Only create polymer if we have a chain of 2+ molecules
+        // Only create polymer if we have a chain of 2+ molecules of the same type
         if (chain.length >= 2) {
-            polymers.push(new Polymer(chain));
+            const polymer = new Polymer(chain, monomerTemplate, monomerTemplate?.polymerName || null);
+            polymers.push(polymer);
+            console.log(`Formed polymer: ${chain.length} x ${monomerFormula} → ${polymer.name || polymer.type}`);
         }
     }
 

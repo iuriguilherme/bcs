@@ -30,6 +30,10 @@ class Molecule {
         // Polymer membership
         this.polymerId = null;
 
+        // Monomer properties - for proper biological polymerization
+        this.isMonomer = false;         // Is this molecule a known monomer type?
+        this.monomerTemplate = null;    // Reference to the monomer template this matches
+
         // Abstraction state - stable molecules can be abstracted for performance
         this.abstracted = false;
         this.blueprintRef = null; // Reference to blueprint for reconstruction
@@ -38,6 +42,9 @@ class Molecule {
         // Unstable molecules decay after 500-1500 ticks, releasing atoms
         this.decayTimer = null;
         this.decayRate = 0; // How fast decay progresses per tick
+
+        // Auto-detect if this matches a monomer template
+        this._detectMonomerType();
     }
 
     /**
@@ -170,21 +177,43 @@ class Molecule {
 
     /**
      * Check if molecule can participate in polymer formation
-     * Molecules must have free valence (open bonds) to chain with other molecules.
-     * Fully stable (inert) molecules like H2 cannot polymerize.
+     * NEW: Only molecules that are known monomers can polymerize.
+     * Random stable molecules cannot chain together - that's not how polymers work.
      */
     canPolymerize() {
         // Must have at least 2 atoms to be a molecule
         if (this.atoms.length < 2) return false;
 
-        // Must NOT be fully stable - need free valence to form polymer bonds
-        // Stable molecules have no available valence and cannot chain
-        if (this.isStable()) return false;
+        // Must be stable - unstable molecules can't form polymers
+        if (!this.isStable()) return false;
 
-        // Must have at least some bonds already (not just loose atoms)
-        if (this.bonds.length < 1) return false;
+        // NEW: Must be a known monomer type
+        // Only molecules that match a monomer template can polymerize
+        return this.isMonomer;
+    }
 
-        return true;
+    /**
+     * Detect if this molecule matches a known monomer template
+     * Called automatically when formula is calculated
+     */
+    _detectMonomerType() {
+        // Check if findMonomerByFormula function exists (from monomer-templates.js)
+        if (typeof findMonomerByFormula === 'function' && this.formula) {
+            const template = findMonomerByFormula(this.formula);
+            if (template) {
+                this.isMonomer = true;
+                this.monomerTemplate = template;
+                console.log(`Molecule ${this.formula} detected as monomer: ${template.name}`);
+            }
+        }
+    }
+
+    /**
+     * Get the monomer template this molecule matches, if any
+     * @returns {Object|null} Monomer template or null
+     */
+    getMonomerTemplate() {
+        return this.monomerTemplate;
     }
 
     /**
