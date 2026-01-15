@@ -14,12 +14,11 @@ class Molecule {
         this.name = null;  // Set when catalogued
         this.formula = null;
 
-        // Link atoms to this molecule (only atoms with bonds are truly part of molecule)
-        this.atoms.forEach(atom => {
-            if (atom.bonds.length > 0) {
-                atom.moleculeId = this.id;
-            }
-        });
+        // Link atoms to this molecule immediately
+        // This ensures atoms have correct moleculeId right after creation
+        for (const atom of this.atoms) {
+            atom.moleculeId = this.id;
+        }
 
         // Calculate properties
         this.updateProperties();

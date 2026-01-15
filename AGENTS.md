@@ -71,6 +71,59 @@ canPolymerize() {
 
 **Chemistry Rule**: Only molecules with FREE VALENCE (unsatisfied bonds) can polymerize. H2, O2, CH4, H2O are all stable and CANNOT polymerize.
 
+### Bug #3: Molecule Formation System Rewrite
+
+**Problem**: The original molecule formation logic had accumulated patches that made it increasingly broken. Atoms were being grouped incorrectly, molecules showed wrong bond counts, and the code was overly complex.
+
+**Root Cause**: Incremental patches to handle edge cases (extend, merge, filter) made the logic fragile and hard to reason about.
+
+**Fix Applied**: Complete rewrite of `Environment.updateMolecules()` with simple, clear logic:
+
+```javascript
+updateMolecules() {
+    // Step 1: Get all atoms that have at least one bond
+    const bondedAtoms = Array.from(this.atoms.values())
+        .filter(a => a.bonds.length > 0);
+
+    // Step 2: Clear all current molecule assignments
+    for (const atom of this.atoms.values()) {
+        atom.moleculeId = null;
+    }
+
+    // Step 3: Clear existing molecules
+    this.molecules.clear();
+
+    if (bondedAtoms.length === 0) {
+        this.stats.moleculeCount = 0;
+        return;
+    }
+
+    // Step 4: Find all connected groups using BFS via bonds
+    const groups = this._findAllConnectedGroups(bondedAtoms);
+
+    // Step 5: Create one molecule for each connected group
+    for (const group of groups) {
+        if (group.length < 2) continue;
+        
+        const molecule = new Molecule(group);
+        
+        for (const atom of group) {
+            atom.moleculeId = molecule.id;
+        }
+        
+        this.molecules.set(molecule.id, molecule);
+    }
+
+    this.stats.moleculeCount = this.molecules.size;
+}
+```
+
+**Key Principles**:
+1. **Clean slate each update**: Clear all moleculeIds and molecules before rebuilding
+2. **Simple BFS grouping**: `_findAllConnectedGroups()` traverses via bonds only
+3. **One molecule per group**: No complex extend/merge logic needed
+4. **Single responsibility**: `updateMolecules()` handles ALL molecule state
+
 ---
 
 ## 🧪 Chemistry Rules to Preserve

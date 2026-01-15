@@ -97,6 +97,10 @@ class Environment {
      */
     addMolecule(molecule) {
         this.molecules.set(molecule.id, molecule);
+        // Assign moleculeId to all atoms in the molecule
+        for (const atom of molecule.atoms) {
+            atom.moleculeId = molecule.id;
+        }
         this.stats.moleculeCount = this.molecules.size;
     }
 
@@ -430,72 +434,41 @@ class Environment {
 
     /**
      * Detect and register new molecules, merge connected groups
+     * Simple logic: Find bond-connected groups, each group = one molecule
      */
     updateMolecules() {
-        // Get all bonded atoms
+        // Step 1: Get all atoms that have at least one bond
         const bondedAtoms = Array.from(this.atoms.values())
             .filter(a => a.bonds.length > 0);
 
-        if (bondedAtoms.length === 0) return;
-
-        // Find all connected groups of bonded atoms
-        const groups = this._findAllConnectedGroups(bondedAtoms);
-
-        // Track which molecules need to be removed (merged)
-        const moleculesToRemove = new Set();
-
-        for (const group of groups) {
-            if (group.length === 0) continue;
-
-            // Find all existing molecules that have atoms in this group
-            const existingMolIds = new Set();
-            for (const atom of group) {
-                if (atom.moleculeId && this.molecules.has(atom.moleculeId)) {
-                    existingMolIds.add(atom.moleculeId);
-                }
-            }
-
-            if (existingMolIds.size === 0) {
-                // No existing molecules - create new one
-                const molecule = new Molecule(group);
-                this.addMolecule(molecule);
-            } else if (existingMolIds.size === 1) {
-                // One existing molecule - extend it with any new atoms
-                const molId = existingMolIds.values().next().value;
-                const molecule = this.molecules.get(molId);
-
-                for (const atom of group) {
-                    if (!molecule.atoms.includes(atom)) {
-                        molecule.atoms.push(atom);
-                        atom.moleculeId = molecule.id;
-                    }
-                }
-                molecule.updateProperties();
-            } else {
-                // Multiple molecules need to be merged
-                const molIds = Array.from(existingMolIds);
-                const primaryMol = this.molecules.get(molIds[0]);
-
-                // Merge all atoms into primary molecule
-                for (const atom of group) {
-                    if (!primaryMol.atoms.includes(atom)) {
-                        primaryMol.atoms.push(atom);
-                    }
-                    atom.moleculeId = primaryMol.id;
-                }
-
-                // Mark other molecules for removal
-                for (let i = 1; i < molIds.length; i++) {
-                    moleculesToRemove.add(molIds[i]);
-                }
-
-                primaryMol.updateProperties();
-            }
+        // Step 2: Clear all current molecule assignments
+        for (const atom of this.atoms.values()) {
+            atom.moleculeId = null;
         }
 
-        // Remove merged molecules
-        for (const molId of moleculesToRemove) {
-            this.molecules.delete(molId);
+        // Step 3: Clear existing molecules
+        this.molecules.clear();
+
+        if (bondedAtoms.length === 0) {
+            this.stats.moleculeCount = 0;
+            return;
+        }
+
+        // Step 4: Find all connected groups using BFS via bonds
+        const groups = this._findAllConnectedGroups(bondedAtoms);
+
+        // Step 5: Create one molecule for each connected group
+        for (const group of groups) {
+            if (group.length < 2) continue; // Need at least 2 atoms for a molecule
+
+            const molecule = new Molecule(group);
+
+            // Assign moleculeId to all atoms in the group
+            for (const atom of group) {
+                atom.moleculeId = molecule.id;
+            }
+
+            this.molecules.set(molecule.id, molecule);
         }
 
         this.stats.moleculeCount = this.molecules.size;
