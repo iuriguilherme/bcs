@@ -184,6 +184,31 @@ class Intention {
                     }
                 }
             }
+        } else if (requirements.type === 'monomers') {
+            // NEW: Attract only molecules that match the required monomer formula
+            const requiredFormula = requirements.monomerFormula;
+
+            for (const mol of environment.molecules.values()) {
+                // Skip molecules already in polymers
+                if (mol.polymerId) continue;
+
+                // Only attract molecules that ARE the right monomer type
+                if (requiredFormula && mol.formula !== requiredFormula) continue;
+                if (!mol.isMonomer) continue; // Must be a designated monomer
+
+                const center = mol.getCenter();
+                const dist = center.distanceTo(this.position);
+                if (dist < this.radius && dist > 10) {
+                    const direction = this.position.sub(center).normalize();
+                    const force = direction.mul(this.attractionForce * (1 - dist / this.radius));
+                    mol.applyForce(force);
+
+                    // Track gathered monomers
+                    if (dist < this.radius * 0.4) {
+                        this.gatheredComponents.add(mol.id);
+                    }
+                }
+            }
         } else if (requirements.type === 'polymers') {
             // Attract polymers
             for (const polymer of environment.proteins.values()) {
@@ -203,7 +228,7 @@ class Intention {
             }
         }
 
-        // Update progress based on atoms in/near the zone
+        // Update progress based on components in/near the zone
         const requirements2 = this.getRequirements();
         if (requirements2.type === 'atoms' && requirements2.count) {
             // Count all atoms in zone (both free and in small molecules)
@@ -215,6 +240,22 @@ class Intention {
                 }
             }
             this.progress = Math.min(1, atomsInZone / requirements2.count);
+        } else if (requirements2.type === 'monomers' && requirements2.count) {
+            // Count matching monomers in zone
+            let monomersInZone = 0;
+            const requiredFormula = requirements2.monomerFormula;
+
+            for (const mol of environment.molecules.values()) {
+                if (mol.polymerId) continue;
+                if (!mol.isMonomer) continue;
+                if (requiredFormula && mol.formula !== requiredFormula) continue;
+
+                const dist = mol.getCenter().distanceTo(this.position);
+                if (dist < this.radius * 0.6) {
+                    monomersInZone++;
+                }
+            }
+            this.progress = Math.min(1, monomersInZone / requirements2.count);
         } else if (requirements2.count) {
             this.progress = Math.min(1, this.gatheredComponents.size / requirements2.count);
         }
@@ -276,6 +317,26 @@ class Intention {
             if (nearbyMolecules.length >= requirements.count) {
                 // Form the polymer!
                 this._formPolymer(environment, nearbyMolecules.slice(0, requirements.count));
+            }
+        } else if (requirements.type === 'monomers' && requirements.count) {
+            // NEW: Check for matching monomer molecules
+            const requiredFormula = requirements.monomerFormula;
+            const nearbyMonomers = [];
+
+            for (const mol of environment.molecules.values()) {
+                if (mol.polymerId) continue;
+                if (!mol.isMonomer) continue;
+                if (requiredFormula && mol.formula !== requiredFormula) continue;
+
+                const dist = mol.getCenter().distanceTo(this.position);
+                if (dist < this.radius * 0.5) {
+                    nearbyMonomers.push(mol);
+                }
+            }
+
+            if (nearbyMonomers.length >= requirements.count) {
+                // Form the polymer from monomers!
+                this._formPolymerFromMonomers(environment, nearbyMonomers.slice(0, requirements.count), requirements.monomerTemplate);
             }
         } else if (requirements.type === 'polymers') {
             // Check if we have required polymer types
@@ -380,6 +441,50 @@ class Intention {
         this.fulfilled = true;
 
         console.log(`Intention fulfilled: Created polymer ${polymer.name || polymer.type}`);
+    }
+
+    /**
+     * Form a polymer chain from monomer molecules
+     * NEW: Uses monomer template system for proper chain creation
+     * @param {Environment} environment 
+     * @param {Molecule[]} monomers - Identical monomer molecules to chain
+     * @param {Object} monomerTemplate - The monomer template defining polymerization
+     */
+    _formPolymerFromMonomers(environment, monomers, monomerTemplate) {
+        if (monomers.length < 2) {
+            console.log('Cannot form polymer: need at least 2 monomers');
+            return;
+        }
+
+        const monomerName = monomerTemplate?.name || monomers[0]?.formula || 'Unknown';
+        console.log(`Forming polymer from ${monomers.length} ${monomerName} monomers`);
+
+        // Create polymer with monomer template
+        const polymer = new Polymer(monomers, monomerTemplate, this.blueprint.name);
+
+        // Mark molecules as part of polymer
+        monomers.forEach(mol => mol.polymerId = polymer.id);
+
+        // Handle polymerization type
+        if (monomerTemplate?.polymerizationType === 'condensation') {
+            // Condensation polymerization releases water molecules
+            const waterCount = monomers.length - 1; // n-1 water released
+            console.log(`Condensation polymerization: ${waterCount} H2O molecules released (conceptually)`);
+            // Note: Could actually spawn water molecules here if desired
+        } else if (monomerTemplate?.polymerizationType === 'addition') {
+            console.log('Addition polymerization: double bonds opened to form chain');
+        }
+
+        // Seal polymer to prevent external bonding
+        polymer.seal();
+
+        // Add to environment
+        environment.addProtein(polymer);
+
+        this.createdEntity = polymer;
+        this.fulfilled = true;
+
+        console.log(`Polymer created: ${polymer.name || polymer.type} from ${monomers.length} ${monomerName} monomers`);
     }
 
     /**
