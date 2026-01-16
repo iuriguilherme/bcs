@@ -635,8 +635,8 @@ body {
             <aside class="panel left-panel">
                 <h2 class="panel-title">Tools</h2>
                 <div class="tool-section">
-                    <h3>Place Atoms</h3>
-                    <div class="atom-palette" id="atomPalette">
+                    <h3 id="paletteTitle">Place Atoms</h3>
+                    <div class="atom-palette" id="entityPalette">
                         <!-- Populated by JS -->
                     </div>
                 </div>
@@ -721,7 +721,7 @@ body {
     <script>
 // ============================================
 // Bundled Cell Simulator Scripts
-// Generated: 2026-01-16T03:53:48.767Z
+// Generated: 2026-01-16T19:27:17.165Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -8765,11 +8765,11 @@ class Controls {
             `;
         } else if (result.type === 'molecule') {
             const mol = result.entity;
-            const isInCatalogue = window.app?.catalogue?.hasMolecule?.(mol.fingerprint);
+            const isInCatalogue = window.cellApp?.catalogue?.hasMolecule?.(mol.fingerprint);
             const catalogueBtn = mol.isStable()
                 ? (isInCatalogue
                     ? '<p style="color: #4ade80;">&#10003; In Catalogue</p>'
-                    : '<button class="tool-btn" onclick="window.app.registerMolecule()">Add to Catalogue</button>')
+                    : '<button class="tool-btn" onclick="window.cellApp.registerMolecule()">Add to Catalogue</button>')
                 : '';
             content.innerHTML = `
                 <div class="inspector-item">
@@ -8863,7 +8863,7 @@ class Controls {
                     <p>Radius: ${intention.radius} units</p>
                     <p>Position: (${intention.position.x.toFixed(0)}, ${intention.position.y.toFixed(0)})</p>
                     <p>Fulfilled: ${intention.fulfilled ? 'Yes &#10003;' : 'No'}</p>
-                    <button class="tool-btn" onclick="window.app.deleteIntention('${intention.id}')">Delete Intention</button>
+                    <button class="tool-btn" onclick="window.cellApp.deleteIntention('${intention.id}')">Delete Intention</button>
                 </div>
             `;
         }
@@ -9033,7 +9033,7 @@ class CatalogueUI {
                 const level = parseInt(btn.dataset.level);
                 this.controls.setSelectedElement(symbol);
                 this.controls.setTool('place');
-                if (window.app) window.app.setLevel(level);
+                if (window.cellApp) window.cellApp.setLevel(level);
             });
         });
 
@@ -9042,7 +9042,7 @@ class CatalogueUI {
             const fingerprint = item.dataset.fingerprint;
             item.addEventListener('click', () => {
                 this._selectBlueprint(fingerprint);
-                if (window.app) window.app.setLevel(1); // Molecule level
+                if (window.cellApp) window.cellApp.setLevel(1); // Molecule level
             });
         });
 
@@ -9055,7 +9055,7 @@ class CatalogueUI {
                 if (template) {
                     this.controls.selectedPolymerTemplate = template;
                     this.controls.setTool('place');
-                    if (window.app) window.app.setLevel(level);
+                    if (window.cellApp) window.cellApp.setLevel(level);
                 }
             });
         });
@@ -9471,10 +9471,30 @@ class App {
     }
 
     /**
+     * Set the current level (called from catalogue UI)
+     * @param {number} level - The level to switch to
+     */
+    setLevel(level) {
+        console.log('App.setLevel called with level:', level);
+        this.viewer.setLevel(level);
+
+        // Update button states
+        document.querySelectorAll('.level-btn').forEach((b, i) => {
+            b.classList.toggle('active', i === level);
+        });
+
+        // Update palette for this level
+        this._updatePaletteForLevel(level);
+
+        // Force re-render to show the new level
+        this.viewer.render();
+    }
+
+    /**
      * Populate the atom palette with available elements
      */
     _populateAtomPalette() {
-        const palette = document.getElementById('atomPalette');
+        const palette = document.getElementById('entityPalette');
         if (!palette) return;
 
         // Essential elements - synced with catalogue-ui.js
@@ -9903,11 +9923,11 @@ class App {
 }
 
 // Create global app instance
-window.app = new App();
+window.cellApp = new App();
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.app.init().catch(console.error);
+    window.cellApp.init().catch(console.error);
 });
 
 

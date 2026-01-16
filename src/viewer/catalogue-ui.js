@@ -156,7 +156,7 @@ class CatalogueUI {
                 const level = parseInt(btn.dataset.level);
                 this.controls.setSelectedElement(symbol);
                 this.controls.setTool('place');
-                if (window.app) window.app.setLevel(level);
+                if (window.cellApp) window.cellApp.setLevel(level);
             });
         });
 
@@ -165,7 +165,7 @@ class CatalogueUI {
             const fingerprint = item.dataset.fingerprint;
             item.addEventListener('click', () => {
                 this._selectBlueprint(fingerprint);
-                if (window.app) window.app.setLevel(1); // Molecule level
+                if (window.cellApp) window.cellApp.setLevel(1); // Molecule level
             });
         });
 
@@ -178,7 +178,7 @@ class CatalogueUI {
                 if (template) {
                     this.controls.selectedPolymerTemplate = template;
                     this.controls.setTool('place');
-                    if (window.app) window.app.setLevel(level);
+                    if (window.cellApp) window.cellApp.setLevel(level);
                 }
             });
         });

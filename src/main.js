@@ -170,10 +170,30 @@ class App {
     }
 
     /**
+     * Set the current level (called from catalogue UI)
+     * @param {number} level - The level to switch to
+     */
+    setLevel(level) {
+        console.log('App.setLevel called with level:', level);
+        this.viewer.setLevel(level);
+
+        // Update button states
+        document.querySelectorAll('.level-btn').forEach((b, i) => {
+            b.classList.toggle('active', i === level);
+        });
+
+        // Update palette for this level
+        this._updatePaletteForLevel(level);
+
+        // Force re-render to show the new level
+        this.viewer.render();
+    }
+
+    /**
      * Populate the atom palette with available elements
      */
     _populateAtomPalette() {
-        const palette = document.getElementById('atomPalette');
+        const palette = document.getElementById('entityPalette');
         if (!palette) return;
 
         // Essential elements - synced with catalogue-ui.js
@@ -602,9 +622,9 @@ class App {
 }
 
 // Create global app instance
-window.app = new App();
+window.cellApp = new App();
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.app.init().catch(console.error);
+    window.cellApp.init().catch(console.error);
 });

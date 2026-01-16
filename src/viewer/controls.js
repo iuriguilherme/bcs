@@ -479,11 +479,11 @@ class Controls {
             `;
         } else if (result.type === 'molecule') {
             const mol = result.entity;
-            const isInCatalogue = window.app?.catalogue?.hasMolecule?.(mol.fingerprint);
+            const isInCatalogue = window.cellApp?.catalogue?.hasMolecule?.(mol.fingerprint);
             const catalogueBtn = mol.isStable()
                 ? (isInCatalogue
                     ? '<p style="color: #4ade80;">&#10003; In Catalogue</p>'
-                    : '<button class="tool-btn" onclick="window.app.registerMolecule()">Add to Catalogue</button>')
+                    : '<button class="tool-btn" onclick="window.cellApp.registerMolecule()">Add to Catalogue</button>')
                 : '';
             content.innerHTML = `
                 <div class="inspector-item">
@@ -577,7 +577,7 @@ class Controls {
                     <p>Radius: ${intention.radius} units</p>
                     <p>Position: (${intention.position.x.toFixed(0)}, ${intention.position.y.toFixed(0)})</p>
                     <p>Fulfilled: ${intention.fulfilled ? 'Yes &#10003;' : 'No'}</p>
-                    <button class="tool-btn" onclick="window.app.deleteIntention('${intention.id}')">Delete Intention</button>
+                    <button class="tool-btn" onclick="window.cellApp.deleteIntention('${intention.id}')">Delete Intention</button>
                 </div>
             `;
         }
