@@ -243,7 +243,198 @@ class CatalogueUI {
             document.querySelectorAll('.atom-btn').forEach(btn => {
                 btn.classList.remove('selected');
             });
+
+            // Switch to inspector tab and show blueprint preview
+            this._showBlueprintInspector(blueprint);
         }
+    }
+
+    /**
+     * Show blueprint in the inspector panel
+     * @param {MoleculeBlueprint} blueprint - The blueprint to display
+     */
+    _showBlueprintInspector(blueprint) {
+        // Switch to inspector tab
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === 'inspector');
+        });
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.toggle('active', content.id === 'inspectorTab');
+        });
+
+        // Update inspector content
+        const content = document.getElementById('inspectorContent');
+        if (!content) return;
+
+        const atomCount = blueprint.atomData ? blueprint.atomData.length : 0;
+        const bondCount = blueprint.bondData ? blueprint.bondData.length : 0;
+        const canvasId = 'inspector-blueprint-preview';
+
+        // Count elements
+        const elementCounts = {};
+        if (blueprint.atomData) {
+            for (const atom of blueprint.atomData) {
+                elementCounts[atom.symbol] = (elementCounts[atom.symbol] || 0) + 1;
+            }
+        }
+        const elementList = Object.entries(elementCounts)
+            .map(([sym, count]) => `${sym}: ${count}`)
+            .join(', ');
+
+        content.innerHTML = `
+            <div class="inspector-item">
+                <h3>📋 ${blueprint.name || blueprint.formula}</h3>
+                <p style="color: #94a3b8; font-style: italic; margin-bottom: 8px;">Click on canvas to place intention</p>
+                <div class="inspector-shape-preview">
+                    <canvas id="${canvasId}" width="140" height="140"></canvas>
+                </div>
+                <p><strong>Formula:</strong> ${blueprint.formula}</p>
+                <p><strong>Atoms:</strong> ${atomCount} (${elementList})</p>
+                <p><strong>Bonds:</strong> ${bondCount}</p>
+                <p><strong>Mass:</strong> ${blueprint.mass?.toFixed(3) || '?'} u</p>
+                <p style="color: #4ade80;">✓ Stable Configuration</p>
+            </div>
+        `;
+
+        // Render blueprint preview after DOM update
+        setTimeout(() => {
+            this._renderBlueprintPreview(canvasId, blueprint);
+        }, 0);
+    }
+
+    /**
+     * Render a blueprint shape preview on a canvas
+     * @param {string} canvasId - ID of the canvas element
+     * @param {MoleculeBlueprint} blueprint - The blueprint to render
+     */
+    _renderBlueprintPreview(canvasId, blueprint) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        // Clear canvas
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, width, height);
+
+        if (!blueprint.atomData || blueprint.atomData.length === 0) return;
+
+        // Calculate bounds from relative positions
+        let minX = Infinity, minY = Infinity;
+        let maxX = -Infinity, maxY = -Infinity;
+
+        for (const atom of blueprint.atomData) {
+            minX = Math.min(minX, atom.relX);
+            minY = Math.min(minY, atom.relY);
+            maxX = Math.max(maxX, atom.relX);
+            maxY = Math.max(maxY, atom.relY);
+        }
+
+        // Calculate scale to fit in canvas with padding
+        const padding = 20;
+        const bpWidth = maxX - minX + 40;
+        const bpHeight = maxY - minY + 40;
+        const scale = Math.min(
+            (width - padding * 2) / bpWidth,
+            (height - padding * 2) / bpHeight,
+            2 // Max scale
+        );
+
+        // Draw bonds first
+        if (blueprint.bondData) {
+            for (const bond of blueprint.bondData) {
+                const atom1 = blueprint.atomData[bond.atom1Index];
+                const atom2 = blueprint.atomData[bond.atom2Index];
+                if (!atom1 || !atom2) continue;
+
+                const x1 = centerX + atom1.relX * scale;
+                const y1 = centerY + atom1.relY * scale;
+                const x2 = centerX + atom2.relX * scale;
+                const y2 = centerY + atom2.relY * scale;
+
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 2;
+
+                const order = bond.order || 1;
+                if (order === 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                } else if (order === 2) {
+                    const dx = x2 - x1;
+                    const dy = y2 - y1;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    const offsetX = (-dy / len) * 3;
+                    const offsetY = (dx / len) * 3;
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1 + offsetX, y1 + offsetY);
+                    ctx.lineTo(x2 + offsetX, y2 + offsetY);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1 - offsetX, y1 - offsetY);
+                    ctx.lineTo(x2 - offsetX, y2 - offsetY);
+                    ctx.stroke();
+                } else if (order === 3) {
+                    const dx = x2 - x1;
+                    const dy = y2 - y1;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    const offsetX = (-dy / len) * 4;
+                    const offsetY = (dx / len) * 4;
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1 + offsetX, y1 + offsetY);
+                    ctx.lineTo(x2 + offsetX, y2 + offsetY);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1 - offsetX, y1 - offsetY);
+                    ctx.lineTo(x2 - offsetX, y2 - offsetY);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Draw atoms
+        for (const atomData of blueprint.atomData) {
+            const x = centerX + atomData.relX * scale;
+            const y = centerY + atomData.relY * scale;
+
+            const element = getElement(atomData.symbol);
+            const radius = Math.max(10, (element?.radius || 10) * scale * 0.4);
+
+            // Atom circle with element color
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = element?.color || '#888';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Element symbol
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${Math.max(9, radius * 0.8)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(atomData.symbol, x, y);
+        }
+
+        // Draw border
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, width, height);
     }
 
     /**
@@ -337,6 +528,17 @@ style.textContent = `
         font-size: 0.875rem;
         color: var(--text-secondary);
         margin-bottom: 4px;
+    }
+    
+    .inspector-shape-preview {
+        display: flex;
+        justify-content: center;
+        margin: 12px 0;
+    }
+    
+    .inspector-shape-preview canvas {
+        border-radius: 8px;
+        background: #1a1a2e;
     }
     
     .catalogue-section {

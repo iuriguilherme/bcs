@@ -717,11 +717,12 @@ body {
     
     
     
+    
 
     <script>
 // ============================================
 // Bundled Cell Simulator Scripts
-// Generated: 2026-01-16T19:27:17.165Z
+// Generated: 2026-01-17T16:45:03.161Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -1219,6 +1220,355 @@ window.getElement = getElement;
 window.getBondEnergy = getBondEnergy;
 window.getAvailableElements = getAvailableElements;
 window.getElementsByCategory = getElementsByCategory;
+
+
+// ==== src/data/stable-molecules.js ====
+/**
+ * Stable Molecule Registry
+ * Defines known stable molecules with their correct geometric configurations.
+ * Used to reshape unstable molecules that match these formulas into their
+ * natural stable forms.
+ */
+
+const STABLE_MOLECULES = {
+    'H2': {
+        name: 'Hydrogen',
+        formula: 'H2',
+        atoms: [
+            { symbol: 'H', relX: -15, relY: 0 },
+            { symbol: 'H', relX: 15, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 }
+        ],
+        description: 'Diatomic hydrogen - single bond'
+    },
+    'O2': {
+        name: 'Oxygen',
+        formula: 'O2',
+        atoms: [
+            { symbol: 'O', relX: -20, relY: 0 },
+            { symbol: 'O', relX: 20, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 }
+        ],
+        description: 'Diatomic oxygen - double bond'
+    },
+    'N2': {
+        name: 'Nitrogen',
+        formula: 'N2',
+        atoms: [
+            { symbol: 'N', relX: -18, relY: 0 },
+            { symbol: 'N', relX: 18, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 3 }
+        ],
+        description: 'Diatomic nitrogen - triple bond'
+    },
+    'H2O': {
+        name: 'Water',
+        formula: 'H2O',
+        atoms: [
+            { symbol: 'O', relX: 0, relY: 0 },          // Central oxygen
+            { symbol: 'H', relX: -24, relY: 19 },       // 104.5° bond angle
+            { symbol: 'H', relX: 24, relY: 19 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 0, atom2: 2, order: 1 }
+        ],
+        description: 'Water - bent shape, 104.5° bond angle'
+    },
+    'CO2': {
+        name: 'Carbon Dioxide',
+        formula: 'CO2',
+        atoms: [
+            { symbol: 'C', relX: 0, relY: 0 },          // Central carbon
+            { symbol: 'O', relX: -35, relY: 0 },        // Linear: 180°
+            { symbol: 'O', relX: 35, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },           // Double bond
+            { atom1: 0, atom2: 2, order: 2 }            // Double bond
+        ],
+        description: 'Carbon dioxide - linear, double bonds'
+    },
+    'CH4': {
+        name: 'Methane',
+        formula: 'CH4',
+        atoms: [
+            { symbol: 'C', relX: 0, relY: 0 },          // Central carbon
+            { symbol: 'H', relX: 0, relY: -25 },        // Tetrahedral (2D projection)
+            { symbol: 'H', relX: 23, relY: 12 },
+            { symbol: 'H', relX: -23, relY: 12 },
+            { symbol: 'H', relX: 0, relY: 25 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 0, atom2: 2, order: 1 },
+            { atom1: 0, atom2: 3, order: 1 },
+            { atom1: 0, atom2: 4, order: 1 }
+        ],
+        description: 'Methane - tetrahedral geometry'
+    },
+    'NH3': {
+        name: 'Ammonia',
+        formula: 'NH3',
+        atoms: [
+            { symbol: 'N', relX: 0, relY: 0 },          // Central nitrogen
+            { symbol: 'H', relX: 0, relY: -22 },
+            { symbol: 'H', relX: 19, relY: 11 },
+            { symbol: 'H', relX: -19, relY: 11 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 0, atom2: 2, order: 1 },
+            { atom1: 0, atom2: 3, order: 1 }
+        ],
+        description: 'Ammonia - trigonal pyramidal'
+    },
+    'HCl': {
+        name: 'Hydrogen Chloride',
+        formula: 'ClH',
+        atoms: [
+            { symbol: 'Cl', relX: -17, relY: 0 },
+            { symbol: 'H', relX: 17, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 }
+        ],
+        description: 'Hydrogen chloride - polar covalent'
+    },
+    'CO': {
+        name: 'Carbon Monoxide',
+        formula: 'CO',
+        atoms: [
+            { symbol: 'C', relX: -15, relY: 0 },
+            { symbol: 'O', relX: 15, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 3 }
+        ],
+        description: 'Carbon monoxide - triple bond'
+    },
+    'H2S': {
+        name: 'Hydrogen Sulfide',
+        formula: 'H2S',
+        atoms: [
+            { symbol: 'S', relX: 0, relY: 0 },          // Central sulfur
+            { symbol: 'H', relX: -22, relY: 16 },       // ~92° bond angle
+            { symbol: 'H', relX: 22, relY: 16 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 0, atom2: 2, order: 1 }
+        ],
+        description: 'Hydrogen sulfide - bent shape'
+    }
+};
+
+/**
+ * Get a stable molecule template by formula
+ * @param {string} formula - Molecular formula (e.g., 'H2O', 'CO2')
+ * @returns {Object|null} Template object or null if not found
+ */
+function getStableMoleculeTemplate(formula) {
+    return STABLE_MOLECULES[formula] || null;
+}
+
+/**
+ * Check if a molecule's atoms match a known stable template
+ * Returns the template if matched, null otherwise
+ * @param {Molecule} molecule - The molecule to check
+ * @returns {Object|null} Matching template or null
+ */
+function matchesStableTemplate(molecule) {
+    if (!molecule || !molecule.formula) return null;
+
+    const template = STABLE_MOLECULES[molecule.formula];
+    if (!template) return null;
+
+    // Verify atom counts match
+    const moleculeAtomCounts = {};
+    for (const atom of molecule.atoms) {
+        moleculeAtomCounts[atom.symbol] = (moleculeAtomCounts[atom.symbol] || 0) + 1;
+    }
+
+    const templateAtomCounts = {};
+    for (const atomData of template.atoms) {
+        templateAtomCounts[atomData.symbol] = (templateAtomCounts[atomData.symbol] || 0) + 1;
+    }
+
+    // Check if counts match
+    const moleculeSymbols = Object.keys(moleculeAtomCounts).sort();
+    const templateSymbols = Object.keys(templateAtomCounts).sort();
+
+    if (moleculeSymbols.length !== templateSymbols.length) return null;
+
+    for (let i = 0; i < moleculeSymbols.length; i++) {
+        if (moleculeSymbols[i] !== templateSymbols[i]) return null;
+        if (moleculeAtomCounts[moleculeSymbols[i]] !== templateAtomCounts[templateSymbols[i]]) return null;
+    }
+
+    return template;
+}
+
+/**
+ * Calculate the target positions for a molecule's atoms based on a template
+ * This maps the molecule's atoms to the template atoms by element type
+ * @param {Molecule} molecule - The molecule to reshape
+ * @param {Object} template - The stable template
+ * @returns {Map<Atom, Vector2>} Map of atom -> target position
+ */
+function getTargetConfiguration(molecule, template) {
+    const center = molecule.centerOfMass;
+    const targetPositions = new Map();
+
+    // Group molecule atoms by symbol
+    const atomsBySymbol = {};
+    for (const atom of molecule.atoms) {
+        if (!atomsBySymbol[atom.symbol]) {
+            atomsBySymbol[atom.symbol] = [];
+        }
+        atomsBySymbol[atom.symbol].push(atom);
+    }
+
+    // Group template atoms by symbol
+    const templateAtomsBySymbol = {};
+    for (let i = 0; i < template.atoms.length; i++) {
+        const atomData = template.atoms[i];
+        if (!templateAtomsBySymbol[atomData.symbol]) {
+            templateAtomsBySymbol[atomData.symbol] = [];
+        }
+        templateAtomsBySymbol[atomData.symbol].push({
+            ...atomData,
+            index: i
+        });
+    }
+
+    // Match atoms to template positions
+    // For each symbol, assign molecule atoms to template positions
+    // Use a simple greedy assignment based on current proximity
+    for (const symbol of Object.keys(atomsBySymbol)) {
+        const atoms = atomsBySymbol[symbol];
+        const templatePositions = templateAtomsBySymbol[symbol];
+
+        if (!templatePositions || atoms.length !== templatePositions.length) {
+            continue;
+        }
+
+        // For each atom, find the closest available template position
+        const usedTemplateIndices = new Set();
+
+        for (const atom of atoms) {
+            let bestIndex = -1;
+            let bestDistance = Infinity;
+
+            for (let i = 0; i < templatePositions.length; i++) {
+                if (usedTemplateIndices.has(i)) continue;
+
+                const tPos = templatePositions[i];
+                const targetX = center.x + tPos.relX;
+                const targetY = center.y + tPos.relY;
+                const dist = atom.position.distanceTo(new Vector2(targetX, targetY));
+
+                if (dist < bestDistance) {
+                    bestDistance = dist;
+                    bestIndex = i;
+                }
+            }
+
+            if (bestIndex !== -1) {
+                usedTemplateIndices.add(bestIndex);
+                const tPos = templatePositions[bestIndex];
+                targetPositions.set(atom, new Vector2(
+                    center.x + tPos.relX,
+                    center.y + tPos.relY
+                ));
+            }
+        }
+    }
+
+    return targetPositions;
+}
+
+/**
+ * Get the target bond configuration for a template
+ * Returns an array of { atom1Index, atom2Index, order } objects
+ * @param {Object} template - The stable template
+ * @returns {Array} Bond configuration array
+ */
+function getTemplateBonds(template) {
+    return template.bonds || [];
+}
+
+/**
+ * Check if a molecule needs reshaping (has wrong geometry or bond orders)
+ * @param {Molecule} molecule - The molecule to check
+ * @param {Object} template - The stable template
+ * @returns {boolean} True if reshaping is needed
+ */
+function needsReshaping(molecule, template) {
+    if (!molecule || !template) return false;
+
+    // Check if bond orders match template
+    const templateBonds = template.bonds;
+    const moleculeBonds = molecule.bonds;
+
+    // If bond count doesn't match, definitely needs reshaping
+    if (moleculeBonds.length !== templateBonds.length) {
+        return true;
+    }
+
+    // Check bond orders
+    for (const bond of moleculeBonds) {
+        // Find matching template bond (by atom symbols)
+        const symbols = [bond.atom1.symbol, bond.atom2.symbol].sort();
+        let foundMatch = false;
+
+        for (const tBond of templateBonds) {
+            const tSymbols = [
+                template.atoms[tBond.atom1].symbol,
+                template.atoms[tBond.atom2].symbol
+            ].sort();
+
+            if (symbols[0] === tSymbols[0] && symbols[1] === tSymbols[1]) {
+                if (bond.order !== tBond.order) {
+                    return true; // Bond order mismatch
+                }
+                foundMatch = true;
+                break;
+            }
+        }
+
+        if (!foundMatch) {
+            return true; // Bond not found in template
+        }
+    }
+
+    // Check if atom positions are significantly different from template
+    const targetPositions = getTargetConfiguration(molecule, template);
+    const threshold = 15; // Pixels - if any atom is more than this far from target
+
+    for (const [atom, targetPos] of targetPositions) {
+        const dist = atom.position.distanceTo(targetPos);
+        if (dist > threshold) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Make available globally
+window.STABLE_MOLECULES = STABLE_MOLECULES;
+window.getStableMoleculeTemplate = getStableMoleculeTemplate;
+window.matchesStableTemplate = matchesStableTemplate;
+window.getTargetConfiguration = getTargetConfiguration;
+window.getTemplateBonds = getTemplateBonds;
+window.needsReshaping = needsReshaping;
 
 
 // ==== src/entities/atom.js ====
@@ -1841,8 +2191,19 @@ class Molecule {
         this.decayTimer = null;
         this.decayRate = 0; // How fast decay progresses per tick
 
+        // Reshaping state - for transitioning to stable configuration
+        this.reshapingTimer = null;        // Countdown timer (in ticks)
+        this.reshapingDuration = 200;      // Total ticks to reshape
+        this.targetTemplate = null;        // The stable template to reshape towards
+        this.isReshaping = false;          // Currently reshaping flag
+        this.targetPositions = null;       // Cached target positions for atoms
+        this.reshapingProgress = 0;        // 0 to 1 progress
+
         // Auto-detect if this matches a monomer template
         this._detectMonomerType();
+
+        // Check for stable template match and initiate reshaping if needed
+        this._checkForStableTemplate();
     }
 
     /**
@@ -2007,6 +2368,215 @@ class Molecule {
     }
 
     /**
+     * Check if this molecule matches a known stable template
+     * If so, initiate reshaping to the stable configuration
+     */
+    _checkForStableTemplate() {
+        // Only check if we're not already reshaping and not stable
+        if (this.isReshaping) return;
+        if (this.isStable()) return;
+
+        // Check if matchesStableTemplate function exists (from stable-molecules.js)
+        if (typeof matchesStableTemplate !== 'function') return;
+
+        const template = matchesStableTemplate(this);
+        if (template && typeof needsReshaping === 'function' && needsReshaping(this, template)) {
+            this.startReshaping(template);
+        }
+    }
+
+    /**
+     * Start the reshaping process toward a stable configuration
+     * @param {Object} template - The stable molecule template
+     */
+    startReshaping(template) {
+        if (!template) return;
+
+        this.targetTemplate = template;
+        this.reshapingTimer = this.reshapingDuration;
+        this.isReshaping = true;
+        this.reshapingProgress = 0;
+
+        // Calculate target positions
+        if (typeof getTargetConfiguration === 'function') {
+            this.targetPositions = getTargetConfiguration(this, template);
+        }
+
+        console.log(`Molecule ${this.formula} starting reshape to ${template.name}`);
+    }
+
+    /**
+     * Cancel the reshaping process (e.g., when molecule composition changes)
+     */
+    cancelReshaping() {
+        if (this.isReshaping) {
+            console.log(`Molecule ${this.formula} reshaping cancelled`);
+        }
+        this.targetTemplate = null;
+        this.reshapingTimer = null;
+        this.isReshaping = false;
+        this.reshapingProgress = 0;
+        this.targetPositions = null;
+    }
+
+    /**
+     * Update the reshaping animation
+     * @param {number} dt - Delta time
+     * @returns {boolean} True if reshaping completed this tick
+     */
+    updateReshaping(dt) {
+        if (!this.isReshaping || !this.targetPositions) return false;
+
+        // Progress the timer
+        this.reshapingTimer -= 1;
+        this.reshapingProgress = 1 - (this.reshapingTimer / this.reshapingDuration);
+
+        // Apply forces to move atoms toward target positions
+        const lerpFactor = 0.05 + (this.reshapingProgress * 0.1); // Accelerate as we progress
+
+        for (const [atom, targetPos] of this.targetPositions) {
+            const direction = targetPos.sub(atom.position);
+            const distance = direction.length();
+
+            if (distance > 1) {
+                // Apply a spring-like force toward target
+                const force = direction.normalize().mul(distance * lerpFactor * 2);
+                atom.applyForce(force);
+
+                // Also directly lerp position for smoother animation
+                atom.position = atom.position.add(direction.mul(lerpFactor));
+            }
+        }
+
+        // Check if reshaping is complete
+        if (this.reshapingTimer <= 0) {
+            this.applyStableConfiguration();
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Apply the final stable configuration
+     * Snaps atoms to target positions and restructures bonds per template
+     */
+    applyStableConfiguration() {
+        if (!this.targetTemplate || !this.targetPositions) {
+            this.cancelReshaping();
+            return;
+        }
+
+        console.log(`Molecule ${this.formula} completing reshape to ${this.targetTemplate.name}`);
+
+        // Snap atoms to final positions
+        for (const [atom, targetPos] of this.targetPositions) {
+            atom.position = targetPos;
+            atom.velocity = new Vector2(0, 0); // Stop movement
+        }
+
+        // Restructure bonds to match template (break wrong bonds, create correct ones)
+        this._restructureBonds();
+
+        // Clear reshaping state
+        this.isReshaping = false;
+        this.reshapingProgress = 1;
+        this.reshapingTimer = null;
+
+        // Update properties now that we're stable
+        this.updateProperties();
+
+        // Set the name from template
+        if (this.targetTemplate.name) {
+            this.name = this.targetTemplate.name;
+        }
+    }
+
+    /**
+     * Restructure bonds to match the target template
+     * This breaks all existing bonds and creates new ones per the template
+     */
+    _restructureBonds() {
+        if (!this.targetTemplate || !this.targetTemplate.bonds) return;
+
+        const templateBonds = this.targetTemplate.bonds;
+        const templateAtoms = this.targetTemplate.atoms;
+
+        // Step 1: Build a map of atom -> template index based on target positions
+        const atomToTemplateIndex = new Map();
+        const templateIndexToAtom = new Map();
+
+        if (this.targetPositions) {
+            const center = this.centerOfMass;
+            for (let i = 0; i < templateAtoms.length; i++) {
+                const tAtom = templateAtoms[i];
+                const tPos = new Vector2(center.x + tAtom.relX, center.y + tAtom.relY);
+
+                // Find the molecule atom closest to this template position
+                let closestAtom = null;
+                let closestDist = Infinity;
+
+                for (const [atom, targetPos] of this.targetPositions) {
+                    if (atom.symbol === tAtom.symbol && !templateIndexToAtom.has(i)) {
+                        const dist = targetPos.distanceTo(tPos);
+                        if (dist < closestDist) {
+                            // Check if this atom isn't already assigned to another template index
+                            let alreadyAssigned = false;
+                            for (const [existingAtom, existingIdx] of atomToTemplateIndex) {
+                                if (existingAtom === atom) {
+                                    alreadyAssigned = true;
+                                    break;
+                                }
+                            }
+                            if (!alreadyAssigned) {
+                                closestDist = dist;
+                                closestAtom = atom;
+                            }
+                        }
+                    }
+                }
+
+                if (closestAtom) {
+                    atomToTemplateIndex.set(closestAtom, i);
+                    templateIndexToAtom.set(i, closestAtom);
+                }
+            }
+        }
+
+        console.log(`Atom mapping: ${atomToTemplateIndex.size} atoms mapped to template`);
+
+        // Step 2: Break ALL existing bonds in this molecule
+        const bondsToBreak = [...this.bonds]; // Copy since we're modifying
+        for (const bond of bondsToBreak) {
+            console.log(`Breaking bond: ${bond.atom1.symbol}-${bond.atom2.symbol}`);
+            bond.break();
+        }
+
+        // Step 3: Create new bonds exactly per template
+        for (const tBond of templateBonds) {
+            const atom1 = templateIndexToAtom.get(tBond.atom1);
+            const atom2 = templateIndexToAtom.get(tBond.atom2);
+            const order = tBond.order || 1;
+
+            if (atom1 && atom2) {
+                console.log(`Creating bond: ${atom1.symbol}-${atom2.symbol} order ${order}`);
+
+                // Create new bond with correct order
+                const bond = new Bond(atom1, atom2, order);
+
+                // Note: Bond constructor automatically adds itself to atoms
+                // and the Environment will pick it up on next updateMolecules
+            } else {
+                console.warn(`Could not create bond: atom1=${!!atom1}, atom2=${!!atom2}`);
+            }
+        }
+
+        // Step 4: Verify the new bonds are correct
+        const newBonds = this.bonds;
+        console.log(`Molecule now has ${newBonds.length} bonds (template specifies ${templateBonds.length})`);
+    }
+
+    /**
      * Get the monomer template this molecule matches, if any
      * @returns {Object|null} Monomer template or null
      */
@@ -2046,31 +2616,45 @@ class Molecule {
             return null;
         }
 
-        // Handle decay for unstable molecules
-        if (!this.isStable()) {
-            // Initialize decay timer if not set
-            if (this.decayTimer === null) {
-                // Decay time: 500-1500 ticks depending on stability
-                const stabilityRatio = this._calculateStabilityRatio();
-                this.decayTimer = 500 + Math.floor(stabilityRatio * 1000);
-                this.decayRate = 1;
+        // Handle reshaping animation (takes priority over decay)
+        if (this.isReshaping) {
+            const completed = this.updateReshaping(dt);
+            if (completed) {
+                // Reshaping complete - molecule should now be stable
+                return { type: 'reshaped', molecule: this };
             }
+            // Don't decay while reshaping
+        } else if (!this.isStable()) {
+            // Check if we match a stable template and should start reshaping
+            this._checkForStableTemplate();
 
-            // Progress decay
-            this.decayTimer -= this.decayRate;
+            // Handle decay for unstable molecules (only if not reshaping)
+            if (!this.isReshaping) {
+                // Initialize decay timer if not set
+                if (this.decayTimer === null) {
+                    // Decay time: 500-1500 ticks depending on stability
+                    const stabilityRatio = this._calculateStabilityRatio();
+                    this.decayTimer = 500 + Math.floor(stabilityRatio * 1000);
+                    this.decayRate = 1;
+                }
 
-            // Check if it's time to release an atom
-            if (this.decayTimer <= 0) {
-                const releasedAtom = this._releaseWeakestAtom();
-                if (releasedAtom) {
-                    // Reset timer for next potential decay
-                    this.decayTimer = 200 + Math.floor(Math.random() * 300);
-                    return { type: 'decay', atom: releasedAtom };
+                // Progress decay
+                this.decayTimer -= this.decayRate;
+
+                // Check if it's time to release an atom
+                if (this.decayTimer <= 0) {
+                    const releasedAtom = this._releaseWeakestAtom();
+                    if (releasedAtom) {
+                        // Reset timer for next potential decay
+                        this.decayTimer = 200 + Math.floor(Math.random() * 300);
+                        return { type: 'decay', atom: releasedAtom };
+                    }
                 }
             }
         } else {
             // Stable molecule - reset decay timer and consider abstraction
             this.decayTimer = null;
+            this.cancelReshaping(); // Ensure reshaping state is cleared
 
             // Auto-abstract stable molecules in polymers for performance
             if (this.polymerId && !this.abstracted) {
@@ -2187,6 +2771,11 @@ class Molecule {
      * @param {Vector2} offset - Camera offset
      */
     render(ctx, scale = 1, offset = { x: 0, y: 0 }) {
+        // Draw reshaping indicator if molecule is transitioning
+        if (this.isReshaping) {
+            this._renderReshapingIndicator(ctx, scale, offset);
+        }
+
         // Draw bonds first (behind atoms)
         for (const bond of this.bonds) {
             bond.render(ctx, scale, offset);
@@ -2201,6 +2790,56 @@ class Molecule {
         if (this.selected || this.highlighted) {
             this.renderBoundingBox(ctx, scale, offset);
         }
+    }
+
+    /**
+     * Render visual indicator for reshaping molecules
+     */
+    _renderReshapingIndicator(ctx, scale, offset) {
+        const center = this.centerOfMass;
+        const screenX = (center.x + offset.x) * scale;
+        const screenY = (center.y + offset.y) * scale;
+
+        // Calculate bounding radius
+        let maxDist = 0;
+        for (const atom of this.atoms) {
+            const dist = atom.position.distanceTo(center) + atom.radius;
+            maxDist = Math.max(maxDist, dist);
+        }
+        const screenRadius = Math.max(30, (maxDist + 10) * scale);
+
+        // Pulsing effect based on progress
+        const pulse = Math.sin(Date.now() / 100) * 0.3 + 0.7;
+
+        // Draw reshaping glow
+        const gradient = ctx.createRadialGradient(
+            screenX, screenY, 0,
+            screenX, screenY, screenRadius
+        );
+        gradient.addColorStop(0, `rgba(34, 197, 94, ${0.4 * pulse})`);  // Green glow
+        gradient.addColorStop(0.5, `rgba(34, 197, 94, ${0.2 * pulse})`);
+        gradient.addColorStop(1, 'rgba(34, 197, 94, 0)');
+
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, screenRadius, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Draw progress arc
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, screenRadius * 0.9,
+            -Math.PI / 2,
+            -Math.PI / 2 + (this.reshapingProgress * Math.PI * 2));
+        ctx.strokeStyle = 'rgba(34, 197, 94, 0.8)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Draw "Reshaping" label
+        ctx.fillStyle = '#4ade80';
+        ctx.font = `${10 * scale}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('Reshaping...', screenX, screenY - screenRadius - 5);
     }
 
     /**
@@ -3184,10 +3823,41 @@ class Intention {
         // Timing
         this.age = 0;
         this.maxAge = 10000; // Timeout after 10000 ticks if not fulfilled
+        this.createdAt = Date.now(); // Timestamp for when intention was created
+
+        // Exclusion list: molecules that existed before this intention was placed
+        // These should be ignored when checking for completion
+        this.excludedMoleculeIds = new Set();
+        this.exclusionInitialized = false;
 
         // Visual state
         this.pulsePhase = 0;
         this.selected = false;
+    }
+
+    /**
+     * Initialize the exclusion list with currently existing molecules
+     * Call this once after adding the intention to the environment
+     * @param {Environment} environment - The environment to scan
+     */
+    initializeExclusions(environment) {
+        if (this.exclusionInitialized) return;
+
+        // Record all existing molecules that would match our requirements
+        if (this.type === 'molecule') {
+            const requirements = this.getRequirements();
+            if (requirements && requirements.type === 'atoms' && requirements.count) {
+                for (const mol of environment.molecules.values()) {
+                    // Exclude all molecules that match our atom count requirement
+                    if (mol.atoms.length === requirements.count) {
+                        this.excludedMoleculeIds.add(mol.id);
+                    }
+                }
+            }
+        }
+
+        this.exclusionInitialized = true;
+        console.log(`Intention ${this.id.substring(0, 8)} initialized with ${this.excludedMoleculeIds.size} excluded molecules`);
     }
 
     /**
@@ -3426,17 +4096,22 @@ class Intention {
             // OR if we have enough free atoms to form one
 
             // First check for existing molecules that match our requirements
+            // Skip molecules that existed before this intention was placed
             for (const mol of environment.molecules.values()) {
                 if (mol.polymerId) continue;
+
+                // IMPORTANT: Skip molecules that existed before this intention was created
+                if (this.excludedMoleculeIds.has(mol.id)) continue;
+
                 const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
                 const dist = center.distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
                     // Check if molecule matches our blueprint requirements
                     if (mol.atoms.length === requirements.count) {
-                        // Mark intention as fulfilled - molecule already formed naturally!
+                        // Mark intention as fulfilled - molecule formed after intention was placed!
                         this.createdEntity = mol;
                         this.fulfilled = true;
-                        console.log(`Intention fulfilled: Found matching molecule ${mol.formula}`);
+                        console.log(`Intention fulfilled: New molecule ${mol.formula} formed`);
                         return;
                     }
                 }
@@ -5453,6 +6128,12 @@ class Environment {
     addIntention(intention) {
         this.intentions.set(intention.id, intention);
         this.stats.intentionCount = this.intentions.size;
+
+        // Initialize exclusion list to ignore molecules that existed before this intention
+        // This prevents immediate fulfillment from pre-existing molecules
+        if (intention.initializeExclusions) {
+            intention.initializeExclusions(this);
+        }
     }
 
     /**
@@ -5723,36 +6404,68 @@ class Environment {
         const bondedAtoms = Array.from(this.atoms.values())
             .filter(a => a.bonds.length > 0);
 
-        // Step 2: Clear all current molecule assignments
-        for (const atom of this.atoms.values()) {
-            atom.moleculeId = null;
-        }
-
-        // Step 3: Clear existing molecules
-        this.molecules.clear();
-
         if (bondedAtoms.length === 0) {
+            // Clear all molecules and reset assignments
+            for (const atom of this.atoms.values()) {
+                atom.moleculeId = null;
+            }
+            this.molecules.clear();
             this.stats.moleculeCount = 0;
             return;
         }
 
-        // Step 4: Find all connected groups using BFS via bonds
+        // Step 2: Find all connected groups using BFS via bonds
         const groups = this._findAllConnectedGroups(bondedAtoms);
 
-        // Step 5: Create one molecule for each connected group
+        // Step 3: Build a fingerprint for each group (sorted atom IDs)
+        const groupFingerprints = new Map(); // fingerprint -> group
         for (const group of groups) {
-            if (group.length < 2) continue; // Need at least 2 atoms for a molecule
-
-            const molecule = new Molecule(group);
-
-            // Assign moleculeId to all atoms in the group
-            for (const atom of group) {
-                atom.moleculeId = molecule.id;
-            }
-
-            this.molecules.set(molecule.id, molecule);
+            if (group.length < 2) continue;
+            const fingerprint = group.map(a => a.id).sort().join(',');
+            groupFingerprints.set(fingerprint, group);
         }
 
+        // Step 4: Find existing molecules that match groups (same atoms)
+        const existingMoleculesByFingerprint = new Map();
+        for (const molecule of this.molecules.values()) {
+            const fingerprint = molecule.atoms.map(a => a.id).sort().join(',');
+            existingMoleculesByFingerprint.set(fingerprint, molecule);
+        }
+
+        // Step 5: Build new molecules map, preserving existing molecules
+        const newMolecules = new Map();
+        const atomsToUpdate = new Set();
+
+        for (const [fingerprint, group] of groupFingerprints) {
+            const existingMolecule = existingMoleculesByFingerprint.get(fingerprint);
+
+            if (existingMolecule) {
+                // Molecule still exists with same atoms - preserve it
+                newMolecules.set(existingMolecule.id, existingMolecule);
+                // Ensure atom references are up to date
+                for (const atom of group) {
+                    atom.moleculeId = existingMolecule.id;
+                }
+            } else {
+                // New group - create new molecule
+                const molecule = new Molecule(group);
+                newMolecules.set(molecule.id, molecule);
+                for (const atom of group) {
+                    atom.moleculeId = molecule.id;
+                    atomsToUpdate.add(atom.id);
+                }
+            }
+        }
+
+        // Step 6: Clear molecule ID from atoms not in any molecule
+        for (const atom of this.atoms.values()) {
+            if (atom.bonds.length === 0) {
+                atom.moleculeId = null;
+            }
+        }
+
+        // Step 7: Replace molecules map
+        this.molecules = newMolecules;
         this.stats.moleculeCount = this.molecules.size;
     }
 
@@ -8771,18 +9484,31 @@ class Controls {
                     ? '<p style="color: #4ade80;">&#10003; In Catalogue</p>'
                     : '<button class="tool-btn" onclick="window.cellApp.registerMolecule()">Add to Catalogue</button>')
                 : '';
+
+            // Generate unique canvas ID
+            const canvasId = 'inspector-mol-preview-' + mol.id.substring(0, 8);
+
             content.innerHTML = `
                 <div class="inspector-item">
                     <h3>${mol.name || mol.formula}</h3>
+                    <div class="inspector-shape-preview">
+                        <canvas id="${canvasId}" width="120" height="120"></canvas>
+                    </div>
                     <p>Formula: ${mol.formula}</p>
                     <p>Mass: ${mol.mass.toFixed(3)} u</p>
                     <p>Atoms: ${mol.atoms.length}</p>
                     <p>Bonds: ${mol.bonds.length}</p>
                     <p>Stable: ${mol.isStable() ? 'Yes &#10003;' : 'No'}</p>
+                    ${mol.isReshaping ? '<p style="color: #4ade80;">Reshaping...</p>' : ''}
                     ${mol.polymerId ? `<p>Polymer ID: ${mol.polymerId.substring(0, 8)}...</p>` : ''}
                     ${catalogueBtn}
                 </div>
             `;
+
+            // Render molecule shape preview after DOM update
+            setTimeout(() => {
+                this._renderMoleculePreview(canvasId, mol);
+            }, 0);
         } else if (result.type === 'cell') {
             const cell = result.entity;
             content.innerHTML = `
@@ -8868,10 +9594,144 @@ class Controls {
             `;
         }
     }
+
+    /**
+     * Render a molecule shape preview on a canvas
+     * @param {string} canvasId - ID of the canvas element
+     * @param {Molecule} mol - The molecule to render
+     */
+    _renderMoleculePreview(canvasId, mol) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        // Clear canvas
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, width, height);
+
+        if (!mol.atoms || mol.atoms.length === 0) return;
+
+        // Calculate bounds of molecule
+        let minX = Infinity, minY = Infinity;
+        let maxX = -Infinity, maxY = -Infinity;
+        const molCenter = mol.centerOfMass;
+
+        for (const atom of mol.atoms) {
+            const relX = atom.position.x - molCenter.x;
+            const relY = atom.position.y - molCenter.y;
+            minX = Math.min(minX, relX);
+            minY = Math.min(minY, relY);
+            maxX = Math.max(maxX, relX);
+            maxY = Math.max(maxY, relY);
+        }
+
+        // Calculate scale to fit in canvas with padding
+        const padding = 15;
+        const molWidth = maxX - minX + 40;
+        const molHeight = maxY - minY + 40;
+        const scale = Math.min(
+            (width - padding * 2) / molWidth,
+            (height - padding * 2) / molHeight,
+            2 // Max scale
+        );
+
+        // Draw bonds first
+        for (const bond of mol.bonds) {
+            const x1 = centerX + (bond.atom1.position.x - molCenter.x) * scale;
+            const y1 = centerY + (bond.atom1.position.y - molCenter.y) * scale;
+            const x2 = centerX + (bond.atom2.position.x - molCenter.x) * scale;
+            const y2 = centerY + (bond.atom2.position.y - molCenter.y) * scale;
+
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 2;
+
+            if (bond.order === 1) {
+                // Single bond - one line
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            } else if (bond.order === 2) {
+                // Double bond - two parallel lines
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const offsetX = (-dy / len) * 3;
+                const offsetY = (dx / len) * 3;
+
+                ctx.beginPath();
+                ctx.moveTo(x1 + offsetX, y1 + offsetY);
+                ctx.lineTo(x2 + offsetX, y2 + offsetY);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x1 - offsetX, y1 - offsetY);
+                ctx.lineTo(x2 - offsetX, y2 - offsetY);
+                ctx.stroke();
+            } else if (bond.order === 3) {
+                // Triple bond - three parallel lines
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const offsetX = (-dy / len) * 4;
+                const offsetY = (dx / len) * 4;
+
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x1 + offsetX, y1 + offsetY);
+                ctx.lineTo(x2 + offsetX, y2 + offsetY);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x1 - offsetX, y1 - offsetY);
+                ctx.lineTo(x2 - offsetX, y2 - offsetY);
+                ctx.stroke();
+            }
+        }
+
+        // Draw atoms
+        for (const atom of mol.atoms) {
+            const x = centerX + (atom.position.x - molCenter.x) * scale;
+            const y = centerY + (atom.position.y - molCenter.y) * scale;
+            const radius = Math.max(8, (atom.radius || 10) * scale * 0.5);
+
+            // Atom circle with element color
+            const element = getElement(atom.symbol);
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = element?.color || '#888';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Element symbol
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${Math.max(8, radius * 0.9)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(atom.symbol, x, y);
+        }
+
+        // Draw border
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, width, height);
+    }
 }
 
 // Make available globally
 window.Controls = Controls;
+
 
 
 // ==== src/viewer/catalogue-ui.js ====
@@ -9120,7 +9980,198 @@ class CatalogueUI {
             document.querySelectorAll('.atom-btn').forEach(btn => {
                 btn.classList.remove('selected');
             });
+
+            // Switch to inspector tab and show blueprint preview
+            this._showBlueprintInspector(blueprint);
         }
+    }
+
+    /**
+     * Show blueprint in the inspector panel
+     * @param {MoleculeBlueprint} blueprint - The blueprint to display
+     */
+    _showBlueprintInspector(blueprint) {
+        // Switch to inspector tab
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === 'inspector');
+        });
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.toggle('active', content.id === 'inspectorTab');
+        });
+
+        // Update inspector content
+        const content = document.getElementById('inspectorContent');
+        if (!content) return;
+
+        const atomCount = blueprint.atomData ? blueprint.atomData.length : 0;
+        const bondCount = blueprint.bondData ? blueprint.bondData.length : 0;
+        const canvasId = 'inspector-blueprint-preview';
+
+        // Count elements
+        const elementCounts = {};
+        if (blueprint.atomData) {
+            for (const atom of blueprint.atomData) {
+                elementCounts[atom.symbol] = (elementCounts[atom.symbol] || 0) + 1;
+            }
+        }
+        const elementList = Object.entries(elementCounts)
+            .map(([sym, count]) => `${sym}: ${count}`)
+            .join(', ');
+
+        content.innerHTML = `
+            <div class="inspector-item">
+                <h3>📋 ${blueprint.name || blueprint.formula}</h3>
+                <p style="color: #94a3b8; font-style: italic; margin-bottom: 8px;">Click on canvas to place intention</p>
+                <div class="inspector-shape-preview">
+                    <canvas id="${canvasId}" width="140" height="140"></canvas>
+                </div>
+                <p><strong>Formula:</strong> ${blueprint.formula}</p>
+                <p><strong>Atoms:</strong> ${atomCount} (${elementList})</p>
+                <p><strong>Bonds:</strong> ${bondCount}</p>
+                <p><strong>Mass:</strong> ${blueprint.mass?.toFixed(3) || '?'} u</p>
+                <p style="color: #4ade80;">✓ Stable Configuration</p>
+            </div>
+        `;
+
+        // Render blueprint preview after DOM update
+        setTimeout(() => {
+            this._renderBlueprintPreview(canvasId, blueprint);
+        }, 0);
+    }
+
+    /**
+     * Render a blueprint shape preview on a canvas
+     * @param {string} canvasId - ID of the canvas element
+     * @param {MoleculeBlueprint} blueprint - The blueprint to render
+     */
+    _renderBlueprintPreview(canvasId, blueprint) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        // Clear canvas
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, width, height);
+
+        if (!blueprint.atomData || blueprint.atomData.length === 0) return;
+
+        // Calculate bounds from relative positions
+        let minX = Infinity, minY = Infinity;
+        let maxX = -Infinity, maxY = -Infinity;
+
+        for (const atom of blueprint.atomData) {
+            minX = Math.min(minX, atom.relX);
+            minY = Math.min(minY, atom.relY);
+            maxX = Math.max(maxX, atom.relX);
+            maxY = Math.max(maxY, atom.relY);
+        }
+
+        // Calculate scale to fit in canvas with padding
+        const padding = 20;
+        const bpWidth = maxX - minX + 40;
+        const bpHeight = maxY - minY + 40;
+        const scale = Math.min(
+            (width - padding * 2) / bpWidth,
+            (height - padding * 2) / bpHeight,
+            2 // Max scale
+        );
+
+        // Draw bonds first
+        if (blueprint.bondData) {
+            for (const bond of blueprint.bondData) {
+                const atom1 = blueprint.atomData[bond.atom1Index];
+                const atom2 = blueprint.atomData[bond.atom2Index];
+                if (!atom1 || !atom2) continue;
+
+                const x1 = centerX + atom1.relX * scale;
+                const y1 = centerY + atom1.relY * scale;
+                const x2 = centerX + atom2.relX * scale;
+                const y2 = centerY + atom2.relY * scale;
+
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 2;
+
+                const order = bond.order || 1;
+                if (order === 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                } else if (order === 2) {
+                    const dx = x2 - x1;
+                    const dy = y2 - y1;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    const offsetX = (-dy / len) * 3;
+                    const offsetY = (dx / len) * 3;
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1 + offsetX, y1 + offsetY);
+                    ctx.lineTo(x2 + offsetX, y2 + offsetY);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1 - offsetX, y1 - offsetY);
+                    ctx.lineTo(x2 - offsetX, y2 - offsetY);
+                    ctx.stroke();
+                } else if (order === 3) {
+                    const dx = x2 - x1;
+                    const dy = y2 - y1;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    const offsetX = (-dy / len) * 4;
+                    const offsetY = (dx / len) * 4;
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1 + offsetX, y1 + offsetY);
+                    ctx.lineTo(x2 + offsetX, y2 + offsetY);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1 - offsetX, y1 - offsetY);
+                    ctx.lineTo(x2 - offsetX, y2 - offsetY);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Draw atoms
+        for (const atomData of blueprint.atomData) {
+            const x = centerX + atomData.relX * scale;
+            const y = centerY + atomData.relY * scale;
+
+            const element = getElement(atomData.symbol);
+            const radius = Math.max(10, (element?.radius || 10) * scale * 0.4);
+
+            // Atom circle with element color
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = element?.color || '#888';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Element symbol
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${Math.max(9, radius * 0.8)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(atomData.symbol, x, y);
+        }
+
+        // Draw border
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, width, height);
     }
 
     /**
@@ -9214,6 +10265,17 @@ style.textContent = `
         font-size: 0.875rem;
         color: var(--text-secondary);
         margin-bottom: 4px;
+    }
+    
+    .inspector-shape-preview {
+        display: flex;
+        justify-content: center;
+        margin: 12px 0;
+    }
+    
+    .inspector-shape-preview canvas {
+        border-radius: 8px;
+        background: #1a1a2e;
     }
     
     .catalogue-section {
@@ -9679,6 +10741,11 @@ class App {
                         this.controls.setTool('place');
                         palette.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('selected'));
                         btn.classList.add('selected');
+
+                        // Show blueprint preview in inspector
+                        if (this.catalogueUI && this.catalogueUI._showBlueprintInspector) {
+                            this.catalogueUI._showBlueprintInspector(bp);
+                        }
                     } else {
                         console.error('Blueprint not found for fingerprint:', fingerprint);
                     }

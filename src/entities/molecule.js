@@ -43,8 +43,19 @@ class Molecule {
         this.decayTimer = null;
         this.decayRate = 0; // How fast decay progresses per tick
 
+        // Reshaping state - for transitioning to stable configuration
+        this.reshapingTimer = null;        // Countdown timer (in ticks)
+        this.reshapingDuration = 200;      // Total ticks to reshape
+        this.targetTemplate = null;        // The stable template to reshape towards
+        this.isReshaping = false;          // Currently reshaping flag
+        this.targetPositions = null;       // Cached target positions for atoms
+        this.reshapingProgress = 0;        // 0 to 1 progress
+
         // Auto-detect if this matches a monomer template
         this._detectMonomerType();
+
+        // Check for stable template match and initiate reshaping if needed
+        this._checkForStableTemplate();
     }
 
     /**
@@ -209,6 +220,215 @@ class Molecule {
     }
 
     /**
+     * Check if this molecule matches a known stable template
+     * If so, initiate reshaping to the stable configuration
+     */
+    _checkForStableTemplate() {
+        // Only check if we're not already reshaping and not stable
+        if (this.isReshaping) return;
+        if (this.isStable()) return;
+
+        // Check if matchesStableTemplate function exists (from stable-molecules.js)
+        if (typeof matchesStableTemplate !== 'function') return;
+
+        const template = matchesStableTemplate(this);
+        if (template && typeof needsReshaping === 'function' && needsReshaping(this, template)) {
+            this.startReshaping(template);
+        }
+    }
+
+    /**
+     * Start the reshaping process toward a stable configuration
+     * @param {Object} template - The stable molecule template
+     */
+    startReshaping(template) {
+        if (!template) return;
+
+        this.targetTemplate = template;
+        this.reshapingTimer = this.reshapingDuration;
+        this.isReshaping = true;
+        this.reshapingProgress = 0;
+
+        // Calculate target positions
+        if (typeof getTargetConfiguration === 'function') {
+            this.targetPositions = getTargetConfiguration(this, template);
+        }
+
+        console.log(`Molecule ${this.formula} starting reshape to ${template.name}`);
+    }
+
+    /**
+     * Cancel the reshaping process (e.g., when molecule composition changes)
+     */
+    cancelReshaping() {
+        if (this.isReshaping) {
+            console.log(`Molecule ${this.formula} reshaping cancelled`);
+        }
+        this.targetTemplate = null;
+        this.reshapingTimer = null;
+        this.isReshaping = false;
+        this.reshapingProgress = 0;
+        this.targetPositions = null;
+    }
+
+    /**
+     * Update the reshaping animation
+     * @param {number} dt - Delta time
+     * @returns {boolean} True if reshaping completed this tick
+     */
+    updateReshaping(dt) {
+        if (!this.isReshaping || !this.targetPositions) return false;
+
+        // Progress the timer
+        this.reshapingTimer -= 1;
+        this.reshapingProgress = 1 - (this.reshapingTimer / this.reshapingDuration);
+
+        // Apply forces to move atoms toward target positions
+        const lerpFactor = 0.05 + (this.reshapingProgress * 0.1); // Accelerate as we progress
+
+        for (const [atom, targetPos] of this.targetPositions) {
+            const direction = targetPos.sub(atom.position);
+            const distance = direction.length();
+
+            if (distance > 1) {
+                // Apply a spring-like force toward target
+                const force = direction.normalize().mul(distance * lerpFactor * 2);
+                atom.applyForce(force);
+
+                // Also directly lerp position for smoother animation
+                atom.position = atom.position.add(direction.mul(lerpFactor));
+            }
+        }
+
+        // Check if reshaping is complete
+        if (this.reshapingTimer <= 0) {
+            this.applyStableConfiguration();
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Apply the final stable configuration
+     * Snaps atoms to target positions and restructures bonds per template
+     */
+    applyStableConfiguration() {
+        if (!this.targetTemplate || !this.targetPositions) {
+            this.cancelReshaping();
+            return;
+        }
+
+        console.log(`Molecule ${this.formula} completing reshape to ${this.targetTemplate.name}`);
+
+        // Snap atoms to final positions
+        for (const [atom, targetPos] of this.targetPositions) {
+            atom.position = targetPos;
+            atom.velocity = new Vector2(0, 0); // Stop movement
+        }
+
+        // Restructure bonds to match template (break wrong bonds, create correct ones)
+        this._restructureBonds();
+
+        // Clear reshaping state
+        this.isReshaping = false;
+        this.reshapingProgress = 1;
+        this.reshapingTimer = null;
+
+        // Update properties now that we're stable
+        this.updateProperties();
+
+        // Set the name from template
+        if (this.targetTemplate.name) {
+            this.name = this.targetTemplate.name;
+        }
+    }
+
+    /**
+     * Restructure bonds to match the target template
+     * This breaks all existing bonds and creates new ones per the template
+     */
+    _restructureBonds() {
+        if (!this.targetTemplate || !this.targetTemplate.bonds) return;
+
+        const templateBonds = this.targetTemplate.bonds;
+        const templateAtoms = this.targetTemplate.atoms;
+
+        // Step 1: Build a map of atom -> template index based on target positions
+        const atomToTemplateIndex = new Map();
+        const templateIndexToAtom = new Map();
+
+        if (this.targetPositions) {
+            const center = this.centerOfMass;
+            for (let i = 0; i < templateAtoms.length; i++) {
+                const tAtom = templateAtoms[i];
+                const tPos = new Vector2(center.x + tAtom.relX, center.y + tAtom.relY);
+
+                // Find the molecule atom closest to this template position
+                let closestAtom = null;
+                let closestDist = Infinity;
+
+                for (const [atom, targetPos] of this.targetPositions) {
+                    if (atom.symbol === tAtom.symbol && !templateIndexToAtom.has(i)) {
+                        const dist = targetPos.distanceTo(tPos);
+                        if (dist < closestDist) {
+                            // Check if this atom isn't already assigned to another template index
+                            let alreadyAssigned = false;
+                            for (const [existingAtom, existingIdx] of atomToTemplateIndex) {
+                                if (existingAtom === atom) {
+                                    alreadyAssigned = true;
+                                    break;
+                                }
+                            }
+                            if (!alreadyAssigned) {
+                                closestDist = dist;
+                                closestAtom = atom;
+                            }
+                        }
+                    }
+                }
+
+                if (closestAtom) {
+                    atomToTemplateIndex.set(closestAtom, i);
+                    templateIndexToAtom.set(i, closestAtom);
+                }
+            }
+        }
+
+        console.log(`Atom mapping: ${atomToTemplateIndex.size} atoms mapped to template`);
+
+        // Step 2: Break ALL existing bonds in this molecule
+        const bondsToBreak = [...this.bonds]; // Copy since we're modifying
+        for (const bond of bondsToBreak) {
+            console.log(`Breaking bond: ${bond.atom1.symbol}-${bond.atom2.symbol}`);
+            bond.break();
+        }
+
+        // Step 3: Create new bonds exactly per template
+        for (const tBond of templateBonds) {
+            const atom1 = templateIndexToAtom.get(tBond.atom1);
+            const atom2 = templateIndexToAtom.get(tBond.atom2);
+            const order = tBond.order || 1;
+
+            if (atom1 && atom2) {
+                console.log(`Creating bond: ${atom1.symbol}-${atom2.symbol} order ${order}`);
+
+                // Create new bond with correct order
+                const bond = new Bond(atom1, atom2, order);
+
+                // Note: Bond constructor automatically adds itself to atoms
+                // and the Environment will pick it up on next updateMolecules
+            } else {
+                console.warn(`Could not create bond: atom1=${!!atom1}, atom2=${!!atom2}`);
+            }
+        }
+
+        // Step 4: Verify the new bonds are correct
+        const newBonds = this.bonds;
+        console.log(`Molecule now has ${newBonds.length} bonds (template specifies ${templateBonds.length})`);
+    }
+
+    /**
      * Get the monomer template this molecule matches, if any
      * @returns {Object|null} Monomer template or null
      */
@@ -248,31 +468,45 @@ class Molecule {
             return null;
         }
 
-        // Handle decay for unstable molecules
-        if (!this.isStable()) {
-            // Initialize decay timer if not set
-            if (this.decayTimer === null) {
-                // Decay time: 500-1500 ticks depending on stability
-                const stabilityRatio = this._calculateStabilityRatio();
-                this.decayTimer = 500 + Math.floor(stabilityRatio * 1000);
-                this.decayRate = 1;
+        // Handle reshaping animation (takes priority over decay)
+        if (this.isReshaping) {
+            const completed = this.updateReshaping(dt);
+            if (completed) {
+                // Reshaping complete - molecule should now be stable
+                return { type: 'reshaped', molecule: this };
             }
+            // Don't decay while reshaping
+        } else if (!this.isStable()) {
+            // Check if we match a stable template and should start reshaping
+            this._checkForStableTemplate();
 
-            // Progress decay
-            this.decayTimer -= this.decayRate;
+            // Handle decay for unstable molecules (only if not reshaping)
+            if (!this.isReshaping) {
+                // Initialize decay timer if not set
+                if (this.decayTimer === null) {
+                    // Decay time: 500-1500 ticks depending on stability
+                    const stabilityRatio = this._calculateStabilityRatio();
+                    this.decayTimer = 500 + Math.floor(stabilityRatio * 1000);
+                    this.decayRate = 1;
+                }
 
-            // Check if it's time to release an atom
-            if (this.decayTimer <= 0) {
-                const releasedAtom = this._releaseWeakestAtom();
-                if (releasedAtom) {
-                    // Reset timer for next potential decay
-                    this.decayTimer = 200 + Math.floor(Math.random() * 300);
-                    return { type: 'decay', atom: releasedAtom };
+                // Progress decay
+                this.decayTimer -= this.decayRate;
+
+                // Check if it's time to release an atom
+                if (this.decayTimer <= 0) {
+                    const releasedAtom = this._releaseWeakestAtom();
+                    if (releasedAtom) {
+                        // Reset timer for next potential decay
+                        this.decayTimer = 200 + Math.floor(Math.random() * 300);
+                        return { type: 'decay', atom: releasedAtom };
+                    }
                 }
             }
         } else {
             // Stable molecule - reset decay timer and consider abstraction
             this.decayTimer = null;
+            this.cancelReshaping(); // Ensure reshaping state is cleared
 
             // Auto-abstract stable molecules in polymers for performance
             if (this.polymerId && !this.abstracted) {
@@ -389,6 +623,11 @@ class Molecule {
      * @param {Vector2} offset - Camera offset
      */
     render(ctx, scale = 1, offset = { x: 0, y: 0 }) {
+        // Draw reshaping indicator if molecule is transitioning
+        if (this.isReshaping) {
+            this._renderReshapingIndicator(ctx, scale, offset);
+        }
+
         // Draw bonds first (behind atoms)
         for (const bond of this.bonds) {
             bond.render(ctx, scale, offset);
@@ -403,6 +642,56 @@ class Molecule {
         if (this.selected || this.highlighted) {
             this.renderBoundingBox(ctx, scale, offset);
         }
+    }
+
+    /**
+     * Render visual indicator for reshaping molecules
+     */
+    _renderReshapingIndicator(ctx, scale, offset) {
+        const center = this.centerOfMass;
+        const screenX = (center.x + offset.x) * scale;
+        const screenY = (center.y + offset.y) * scale;
+
+        // Calculate bounding radius
+        let maxDist = 0;
+        for (const atom of this.atoms) {
+            const dist = atom.position.distanceTo(center) + atom.radius;
+            maxDist = Math.max(maxDist, dist);
+        }
+        const screenRadius = Math.max(30, (maxDist + 10) * scale);
+
+        // Pulsing effect based on progress
+        const pulse = Math.sin(Date.now() / 100) * 0.3 + 0.7;
+
+        // Draw reshaping glow
+        const gradient = ctx.createRadialGradient(
+            screenX, screenY, 0,
+            screenX, screenY, screenRadius
+        );
+        gradient.addColorStop(0, `rgba(34, 197, 94, ${0.4 * pulse})`);  // Green glow
+        gradient.addColorStop(0.5, `rgba(34, 197, 94, ${0.2 * pulse})`);
+        gradient.addColorStop(1, 'rgba(34, 197, 94, 0)');
+
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, screenRadius, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Draw progress arc
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, screenRadius * 0.9,
+            -Math.PI / 2,
+            -Math.PI / 2 + (this.reshapingProgress * Math.PI * 2));
+        ctx.strokeStyle = 'rgba(34, 197, 94, 0.8)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Draw "Reshaping" label
+        ctx.fillStyle = '#4ade80';
+        ctx.font = `${10 * scale}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('Reshaping...', screenX, screenY - screenRadius - 5);
     }
 
     /**

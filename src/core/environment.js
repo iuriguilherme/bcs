@@ -235,6 +235,12 @@ class Environment {
     addIntention(intention) {
         this.intentions.set(intention.id, intention);
         this.stats.intentionCount = this.intentions.size;
+
+        // Initialize exclusion list to ignore molecules that existed before this intention
+        // This prevents immediate fulfillment from pre-existing molecules
+        if (intention.initializeExclusions) {
+            intention.initializeExclusions(this);
+        }
     }
 
     /**
@@ -505,36 +511,68 @@ class Environment {
         const bondedAtoms = Array.from(this.atoms.values())
             .filter(a => a.bonds.length > 0);
 
-        // Step 2: Clear all current molecule assignments
-        for (const atom of this.atoms.values()) {
-            atom.moleculeId = null;
-        }
-
-        // Step 3: Clear existing molecules
-        this.molecules.clear();
-
         if (bondedAtoms.length === 0) {
+            // Clear all molecules and reset assignments
+            for (const atom of this.atoms.values()) {
+                atom.moleculeId = null;
+            }
+            this.molecules.clear();
             this.stats.moleculeCount = 0;
             return;
         }
 
-        // Step 4: Find all connected groups using BFS via bonds
+        // Step 2: Find all connected groups using BFS via bonds
         const groups = this._findAllConnectedGroups(bondedAtoms);
 
-        // Step 5: Create one molecule for each connected group
+        // Step 3: Build a fingerprint for each group (sorted atom IDs)
+        const groupFingerprints = new Map(); // fingerprint -> group
         for (const group of groups) {
-            if (group.length < 2) continue; // Need at least 2 atoms for a molecule
-
-            const molecule = new Molecule(group);
-
-            // Assign moleculeId to all atoms in the group
-            for (const atom of group) {
-                atom.moleculeId = molecule.id;
-            }
-
-            this.molecules.set(molecule.id, molecule);
+            if (group.length < 2) continue;
+            const fingerprint = group.map(a => a.id).sort().join(',');
+            groupFingerprints.set(fingerprint, group);
         }
 
+        // Step 4: Find existing molecules that match groups (same atoms)
+        const existingMoleculesByFingerprint = new Map();
+        for (const molecule of this.molecules.values()) {
+            const fingerprint = molecule.atoms.map(a => a.id).sort().join(',');
+            existingMoleculesByFingerprint.set(fingerprint, molecule);
+        }
+
+        // Step 5: Build new molecules map, preserving existing molecules
+        const newMolecules = new Map();
+        const atomsToUpdate = new Set();
+
+        for (const [fingerprint, group] of groupFingerprints) {
+            const existingMolecule = existingMoleculesByFingerprint.get(fingerprint);
+
+            if (existingMolecule) {
+                // Molecule still exists with same atoms - preserve it
+                newMolecules.set(existingMolecule.id, existingMolecule);
+                // Ensure atom references are up to date
+                for (const atom of group) {
+                    atom.moleculeId = existingMolecule.id;
+                }
+            } else {
+                // New group - create new molecule
+                const molecule = new Molecule(group);
+                newMolecules.set(molecule.id, molecule);
+                for (const atom of group) {
+                    atom.moleculeId = molecule.id;
+                    atomsToUpdate.add(atom.id);
+                }
+            }
+        }
+
+        // Step 6: Clear molecule ID from atoms not in any molecule
+        for (const atom of this.atoms.values()) {
+            if (atom.bonds.length === 0) {
+                atom.moleculeId = null;
+            }
+        }
+
+        // Step 7: Replace molecules map
+        this.molecules = newMolecules;
         this.stats.moleculeCount = this.molecules.size;
     }
 

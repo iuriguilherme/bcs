@@ -378,6 +378,11 @@ class App {
                         this.controls.setTool('place');
                         palette.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('selected'));
                         btn.classList.add('selected');
+
+                        // Show blueprint preview in inspector
+                        if (this.catalogueUI && this.catalogueUI._showBlueprintInspector) {
+                            this.catalogueUI._showBlueprintInspector(bp);
+                        }
                     } else {
                         console.error('Blueprint not found for fingerprint:', fingerprint);
                     }

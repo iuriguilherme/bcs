@@ -31,10 +31,41 @@ class Intention {
         // Timing
         this.age = 0;
         this.maxAge = 10000; // Timeout after 10000 ticks if not fulfilled
+        this.createdAt = Date.now(); // Timestamp for when intention was created
+
+        // Exclusion list: molecules that existed before this intention was placed
+        // These should be ignored when checking for completion
+        this.excludedMoleculeIds = new Set();
+        this.exclusionInitialized = false;
 
         // Visual state
         this.pulsePhase = 0;
         this.selected = false;
+    }
+
+    /**
+     * Initialize the exclusion list with currently existing molecules
+     * Call this once after adding the intention to the environment
+     * @param {Environment} environment - The environment to scan
+     */
+    initializeExclusions(environment) {
+        if (this.exclusionInitialized) return;
+
+        // Record all existing molecules that would match our requirements
+        if (this.type === 'molecule') {
+            const requirements = this.getRequirements();
+            if (requirements && requirements.type === 'atoms' && requirements.count) {
+                for (const mol of environment.molecules.values()) {
+                    // Exclude all molecules that match our atom count requirement
+                    if (mol.atoms.length === requirements.count) {
+                        this.excludedMoleculeIds.add(mol.id);
+                    }
+                }
+            }
+        }
+
+        this.exclusionInitialized = true;
+        console.log(`Intention ${this.id.substring(0, 8)} initialized with ${this.excludedMoleculeIds.size} excluded molecules`);
     }
 
     /**
@@ -273,17 +304,22 @@ class Intention {
             // OR if we have enough free atoms to form one
 
             // First check for existing molecules that match our requirements
+            // Skip molecules that existed before this intention was placed
             for (const mol of environment.molecules.values()) {
                 if (mol.polymerId) continue;
+
+                // IMPORTANT: Skip molecules that existed before this intention was created
+                if (this.excludedMoleculeIds.has(mol.id)) continue;
+
                 const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
                 const dist = center.distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
                     // Check if molecule matches our blueprint requirements
                     if (mol.atoms.length === requirements.count) {
-                        // Mark intention as fulfilled - molecule already formed naturally!
+                        // Mark intention as fulfilled - molecule formed after intention was placed!
                         this.createdEntity = mol;
                         this.fulfilled = true;
-                        console.log(`Intention fulfilled: Found matching molecule ${mol.formula}`);
+                        console.log(`Intention fulfilled: New molecule ${mol.formula} formed`);
                         return;
                     }
                 }

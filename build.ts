@@ -13,6 +13,7 @@ const cssFile = './index.css';
 const scriptOrder = [
     'src/core/utils.js',
     'src/data/periodic-table.js',
+    'src/data/stable-molecules.js',
     'src/entities/atom.js',
     'src/entities/bond.js',
     'src/entities/molecule.js',

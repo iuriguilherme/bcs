@@ -485,18 +485,31 @@ class Controls {
                     ? '<p style="color: #4ade80;">&#10003; In Catalogue</p>'
                     : '<button class="tool-btn" onclick="window.cellApp.registerMolecule()">Add to Catalogue</button>')
                 : '';
+
+            // Generate unique canvas ID
+            const canvasId = 'inspector-mol-preview-' + mol.id.substring(0, 8);
+
             content.innerHTML = `
                 <div class="inspector-item">
                     <h3>${mol.name || mol.formula}</h3>
+                    <div class="inspector-shape-preview">
+                        <canvas id="${canvasId}" width="120" height="120"></canvas>
+                    </div>
                     <p>Formula: ${mol.formula}</p>
                     <p>Mass: ${mol.mass.toFixed(3)} u</p>
                     <p>Atoms: ${mol.atoms.length}</p>
                     <p>Bonds: ${mol.bonds.length}</p>
                     <p>Stable: ${mol.isStable() ? 'Yes &#10003;' : 'No'}</p>
+                    ${mol.isReshaping ? '<p style="color: #4ade80;">Reshaping...</p>' : ''}
                     ${mol.polymerId ? `<p>Polymer ID: ${mol.polymerId.substring(0, 8)}...</p>` : ''}
                     ${catalogueBtn}
                 </div>
             `;
+
+            // Render molecule shape preview after DOM update
+            setTimeout(() => {
+                this._renderMoleculePreview(canvasId, mol);
+            }, 0);
         } else if (result.type === 'cell') {
             const cell = result.entity;
             content.innerHTML = `
@@ -582,7 +595,141 @@ class Controls {
             `;
         }
     }
+
+    /**
+     * Render a molecule shape preview on a canvas
+     * @param {string} canvasId - ID of the canvas element
+     * @param {Molecule} mol - The molecule to render
+     */
+    _renderMoleculePreview(canvasId, mol) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        // Clear canvas
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, width, height);
+
+        if (!mol.atoms || mol.atoms.length === 0) return;
+
+        // Calculate bounds of molecule
+        let minX = Infinity, minY = Infinity;
+        let maxX = -Infinity, maxY = -Infinity;
+        const molCenter = mol.centerOfMass;
+
+        for (const atom of mol.atoms) {
+            const relX = atom.position.x - molCenter.x;
+            const relY = atom.position.y - molCenter.y;
+            minX = Math.min(minX, relX);
+            minY = Math.min(minY, relY);
+            maxX = Math.max(maxX, relX);
+            maxY = Math.max(maxY, relY);
+        }
+
+        // Calculate scale to fit in canvas with padding
+        const padding = 15;
+        const molWidth = maxX - minX + 40;
+        const molHeight = maxY - minY + 40;
+        const scale = Math.min(
+            (width - padding * 2) / molWidth,
+            (height - padding * 2) / molHeight,
+            2 // Max scale
+        );
+
+        // Draw bonds first
+        for (const bond of mol.bonds) {
+            const x1 = centerX + (bond.atom1.position.x - molCenter.x) * scale;
+            const y1 = centerY + (bond.atom1.position.y - molCenter.y) * scale;
+            const x2 = centerX + (bond.atom2.position.x - molCenter.x) * scale;
+            const y2 = centerY + (bond.atom2.position.y - molCenter.y) * scale;
+
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 2;
+
+            if (bond.order === 1) {
+                // Single bond - one line
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            } else if (bond.order === 2) {
+                // Double bond - two parallel lines
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const offsetX = (-dy / len) * 3;
+                const offsetY = (dx / len) * 3;
+
+                ctx.beginPath();
+                ctx.moveTo(x1 + offsetX, y1 + offsetY);
+                ctx.lineTo(x2 + offsetX, y2 + offsetY);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x1 - offsetX, y1 - offsetY);
+                ctx.lineTo(x2 - offsetX, y2 - offsetY);
+                ctx.stroke();
+            } else if (bond.order === 3) {
+                // Triple bond - three parallel lines
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const offsetX = (-dy / len) * 4;
+                const offsetY = (dx / len) * 4;
+
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x1 + offsetX, y1 + offsetY);
+                ctx.lineTo(x2 + offsetX, y2 + offsetY);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x1 - offsetX, y1 - offsetY);
+                ctx.lineTo(x2 - offsetX, y2 - offsetY);
+                ctx.stroke();
+            }
+        }
+
+        // Draw atoms
+        for (const atom of mol.atoms) {
+            const x = centerX + (atom.position.x - molCenter.x) * scale;
+            const y = centerY + (atom.position.y - molCenter.y) * scale;
+            const radius = Math.max(8, (atom.radius || 10) * scale * 0.5);
+
+            // Atom circle with element color
+            const element = getElement(atom.symbol);
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = element?.color || '#888';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Element symbol
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${Math.max(8, radius * 0.9)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(atom.symbol, x, y);
+        }
+
+        // Draw border
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, width, height);
+    }
 }
 
 // Make available globally
 window.Controls = Controls;
+
