@@ -207,6 +207,9 @@ class Viewer {
         // Render intention zones (blueprint attraction zones)
         this._renderIntentions();
 
+        // Render atom spawner zone
+        this._renderSpawnerZone();
+
         // Draw environment bounds
         this._renderBounds();
 
@@ -249,6 +252,20 @@ class Viewer {
                 intention.render(this.ctx, scale, offset);
             }
         }
+    }
+
+    /**
+     * Render atom spawner zone
+     */
+    _renderSpawnerZone() {
+        // Get spawner from global app instance
+        const spawner = window.cellApp?.atomSpawner;
+        if (!spawner || !spawner.active) return;
+        
+        const scale = this.camera.zoom;
+        const offset = this.getOffset();
+        
+        spawner.render(this.ctx, scale, offset);
     }
 
     /**

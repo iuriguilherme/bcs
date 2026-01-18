@@ -130,6 +130,20 @@ class Controls {
             return;
         }
 
+        // Check for spawner zone resize handles first
+        const spawner = window.cellApp?.atomSpawner;
+        if (spawner && spawner.active) {
+            const scale = this.viewer.camera.zoom;
+            const offset = this.viewer.getOffset();
+            const resizeEdge = spawner.getResizeHandleAt(x, y, scale, offset);
+            
+            if (resizeEdge) {
+                spawner.startResize(resizeEdge, x, y);
+                this.viewer.canvas.style.cursor = spawner.getCursorForEdge(resizeEdge);
+                return;
+            }
+        }
+
         // Left-click actions based on tool
         switch (this.tool) {
             case 'place':
@@ -155,6 +169,15 @@ class Controls {
         this.mouse.x = x;
         this.mouse.y = y;
 
+        // Check for spawner zone resizing
+        const spawner = window.cellApp?.atomSpawner;
+        if (spawner && spawner.resizing) {
+            const scale = this.viewer.camera.zoom;
+            spawner.updateResize(x, y, scale);
+            this.viewer.render();
+            return;
+        }
+
         // Panning
         if (this.mouse.dragging && this.mouse.down) {
             const dx = x - this.mouse.dragStartX;
@@ -166,6 +189,18 @@ class Controls {
             this.mouse.dragStartY = y;
         }
 
+        // Check for spawner resize handle hover
+        if (spawner && spawner.active) {
+            const scale = this.viewer.camera.zoom;
+            const offset = this.viewer.getOffset();
+            const resizeEdge = spawner.getResizeHandleAt(x, y, scale, offset);
+            
+            if (resizeEdge) {
+                this.viewer.canvas.style.cursor = spawner.getCursorForEdge(resizeEdge);
+                return;
+            }
+        }
+
         // Hover effects
         this._updateHover(x, y);
     }
@@ -174,6 +209,18 @@ class Controls {
      * Handle mouse up
      */
     _onMouseUp(event) {
+        // End spawner resize if active
+        const spawner = window.cellApp?.atomSpawner;
+        if (spawner && spawner.resizing) {
+            spawner.endResize();
+            
+            // Update modal inputs if open
+            const widthInput = document.getElementById('zoneWidth');
+            const heightInput = document.getElementById('zoneHeight');
+            if (widthInput) widthInput.value = Math.round(spawner.zone.width);
+            if (heightInput) heightInput.value = Math.round(spawner.zone.height);
+        }
+        
         this.mouse.down = false;
         this.mouse.dragging = false;
 

@@ -28,6 +28,7 @@
             <div class="sim-controls">
                 <button id="playPauseBtn" class="control-btn" title="Play/Pause">▶️</button>
                 <button id="stepBtn" class="control-btn" title="Step">⏭️</button>
+                <button id="spawnerBtn" class="control-btn spawner-btn" title="Toggle Atom Spawner">⚛️</button>
                 <input type="range" id="speedSlider" min="1" max="100" value="50" title="Simulation Speed">
             </div>
         </header>
@@ -94,6 +95,41 @@
             <span id="tickCounter">Tick: 0</span>
             <span id="fpsCounter">FPS: 0</span>
         </footer>
+
+        <!-- Spawner Configuration Modal -->
+        <div id="spawnerModal" class="modal" style="display: none;">
+            <div class="modal-backdrop"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>⚛️ Atom Spawner Configuration</h3>
+                    <button id="closeSpawnerModal" class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="spawnInterval">Ticks Between Spawns:</label>
+                        <input type="number" id="spawnInterval" value="60" min="1" max="600">
+                        <span class="form-hint">60 ticks ≈ 1 second</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Atom Pool (select which atoms can spawn):</label>
+                        <div class="atom-pool-selector" id="atomPoolSelector">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Spawn Zone Size:</label>
+                        <div class="zone-size-inputs">
+                            <input type="number" id="zoneWidth" value="400" min="50"> × 
+                            <input type="number" id="zoneHeight" value="400" min="50"> px
+                        </div>
+                        <span class="form-hint">Drag zone borders on canvas to resize visually</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="applySpawnerConfig" class="btn-primary">Apply</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Scripts (order matters) -->
@@ -107,6 +143,7 @@
     <script src="src/entities/polymer.js"></script>
     <script src="src/entities/intention.js"></script>
     <script src="src/systems/neural-network.js"></script>
+    <script src="src/systems/atom-spawner.js"></script>
     <script src="src/entities/cell-memory.js"></script>
     <script src="src/entities/cell.js"></script>
     <script src="src/entities/prokaryote.js"></script>

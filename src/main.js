@@ -12,6 +12,7 @@ class App {
         this.viewer = null;
         this.controls = null;
         this.catalogueUI = null;
+        this.atomSpawner = null;
 
         // State
         this.initialized = false;
@@ -44,6 +45,9 @@ class App {
         // Create catalogue UI
         this.catalogueUI = new CatalogueUI(this.catalogue, this.controls);
 
+        // Create atom spawner
+        this.atomSpawner = new AtomSpawner(this.environment);
+
         // Set up simulation callbacks
         this.simulation.onUpdate = () => {
             this.viewer.render();
@@ -51,6 +55,11 @@ class App {
         };
 
         this.simulation.onTick = (tick) => {
+            // Update atom spawner
+            if (this.atomSpawner) {
+                this.atomSpawner.update(1/60);
+            }
+            
             // Auto-discover stable molecules every 60 ticks
             if (tick % 60 === 0) {
                 this.catalogue.autoDiscover(this.environment.getAllMolecules());
@@ -104,6 +113,9 @@ class App {
             const speed = e.target.value / 50;  // 0.02 to 2.0
             this.simulation.setSpeed(speed);
         });
+
+        // Spawner button and modal
+        this._setupSpawnerUI();
 
         // Level buttons
         const levelButtons = document.getElementById('levelButtons');
@@ -623,6 +635,151 @@ class App {
         } catch (e) {
             console.error('Failed to import state:', e);
         }
+    }
+
+    /**
+     * Set up atom spawner UI (button and modal)
+     */
+    _setupSpawnerUI() {
+        const spawnerBtn = document.getElementById('spawnerBtn');
+        const spawnerModal = document.getElementById('spawnerModal');
+        const closeModalBtn = document.getElementById('closeSpawnerModal');
+        const applyBtn = document.getElementById('applySpawnerConfig');
+        const atomPoolSelector = document.getElementById('atomPoolSelector');
+        
+        if (!spawnerBtn || !spawnerModal) return;
+        
+        // Available atoms for spawning
+        const availableAtoms = ['H', 'C', 'N', 'O', 'P', 'S', 'Cl', 'Na', 'K', 'Ca', 'Fe'];
+        
+        // Populate atom pool selector
+        atomPoolSelector.innerHTML = availableAtoms.map(symbol => {
+            const element = getElement(symbol);
+            const isSelected = this.atomSpawner.atomPool.includes(symbol);
+            return `
+                <button class="atom-pool-btn ${isSelected ? 'selected' : ''}" 
+                        data-symbol="${symbol}"
+                        style="color: ${element.color}; border-color: ${element.color}40;">
+                    ${symbol}
+                </button>
+            `;
+        }).join('');
+        
+        // Toggle atom in pool on click
+        atomPoolSelector.querySelectorAll('.atom-pool-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.classList.toggle('selected');
+            });
+        });
+        
+        // Left-click: toggle spawner on/off
+        spawnerBtn.addEventListener('click', (e) => {
+            if (e.shiftKey) {
+                // Shift+click opens config modal
+                this._openSpawnerModal();
+            } else {
+                // Regular click toggles spawner
+                const active = this.atomSpawner.toggle();
+                spawnerBtn.classList.toggle('active', active);
+                this.viewer.render();
+            }
+        });
+        
+        // Right-click: open config modal
+        spawnerBtn.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this._openSpawnerModal();
+        });
+        
+        // Close modal
+        closeModalBtn?.addEventListener('click', () => {
+            spawnerModal.style.display = 'none';
+        });
+        
+        // Click backdrop to close
+        spawnerModal.querySelector('.modal-backdrop')?.addEventListener('click', () => {
+            spawnerModal.style.display = 'none';
+        });
+        
+        // Apply configuration
+        applyBtn?.addEventListener('click', () => {
+            this._applySpawnerConfig();
+            spawnerModal.style.display = 'none';
+        });
+    }
+    
+    /**
+     * Open spawner configuration modal
+     */
+    _openSpawnerModal() {
+        const modal = document.getElementById('spawnerModal');
+        const intervalInput = document.getElementById('spawnInterval');
+        const widthInput = document.getElementById('zoneWidth');
+        const heightInput = document.getElementById('zoneHeight');
+        const atomPoolSelector = document.getElementById('atomPoolSelector');
+        
+        if (!modal) return;
+        
+        // Update inputs with current values
+        if (intervalInput) intervalInput.value = this.atomSpawner.tickInterval;
+        if (widthInput) widthInput.value = Math.round(this.atomSpawner.zone.width);
+        if (heightInput) heightInput.value = Math.round(this.atomSpawner.zone.height);
+        
+        // Update atom pool selection
+        atomPoolSelector?.querySelectorAll('.atom-pool-btn').forEach(btn => {
+            const symbol = btn.dataset.symbol;
+            btn.classList.toggle('selected', this.atomSpawner.atomPool.includes(symbol));
+        });
+        
+        modal.style.display = 'flex';
+    }
+    
+    /**
+     * Apply spawner configuration from modal
+     */
+    _applySpawnerConfig() {
+        const intervalInput = document.getElementById('spawnInterval');
+        const widthInput = document.getElementById('zoneWidth');
+        const heightInput = document.getElementById('zoneHeight');
+        const atomPoolSelector = document.getElementById('atomPoolSelector');
+        
+        // Get selected atoms
+        const selectedAtoms = [];
+        atomPoolSelector?.querySelectorAll('.atom-pool-btn.selected').forEach(btn => {
+            selectedAtoms.push(btn.dataset.symbol);
+        });
+        
+        // Apply tick interval
+        if (intervalInput) {
+            this.atomSpawner.setTickInterval(parseInt(intervalInput.value) || 60);
+        }
+        
+        // Apply atom pool
+        if (selectedAtoms.length > 0) {
+            this.atomSpawner.setAtomPool(selectedAtoms);
+        }
+        
+        // Apply zone size (centered on current zone center)
+        if (widthInput && heightInput) {
+            const newWidth = parseInt(widthInput.value) || 400;
+            const newHeight = parseInt(heightInput.value) || 400;
+            const centerX = this.atomSpawner.zone.x + this.atomSpawner.zone.width / 2;
+            const centerY = this.atomSpawner.zone.y + this.atomSpawner.zone.height / 2;
+            
+            this.atomSpawner.setZone(
+                centerX - newWidth / 2,
+                centerY - newHeight / 2,
+                newWidth,
+                newHeight
+            );
+        }
+        
+        this.viewer.render();
+        console.log('Spawner config applied:', {
+            interval: this.atomSpawner.tickInterval,
+            pool: this.atomSpawner.atomPool,
+            zone: this.atomSpawner.zone
+        });
     }
 }
 
