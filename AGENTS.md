@@ -251,6 +251,84 @@ if (mol.atoms.length < 5) continue;
 
 **Chemistry Rule**: Only complex molecules (amino acids, nucleotides, etc.) can form polymers. Simple stable molecules cannot.
 
+### Bug #8: Stale Bonds After Molecule Decay (2026-01)
+
+**Problem**: Multiple related issues causing bond/molecule inconsistencies:
+1. Atoms appeared to have bonds to multiple molecules simultaneously
+2. Stable molecules showed old bonds to previously unstable molecules
+3. Atoms belonging to molecules incorrectly showed up in molecule view level
+4. Bond.break() didn't remove bonds from environment.bonds Map
+
+**Root Cause Analysis**:
+1. **Bond.break() only updates atom.bonds, not environment.bonds**: When molecules decay via `_releaseWeakestAtom()` or restructure bonds via `_restructureBonds()`, they call `bond.break()` which only removes the bond from `atom.bonds` arrays. The bond object remained in `environment.bonds` Map.
+2. **No synchronization between bond storage systems**: Two separate storage systems (`environment.bonds` Map and `atom.bonds` arrays) could become desynchronized.
+3. **Molecule.atoms array could become stale**: When fingerprints matched existing molecules, old atoms arrays were preserved even if group composition changed.
+
+**Fix Applied**:
+
+1. **Added `syncBonds()` method** to Environment that cleans up broken/stale bonds:
+```javascript
+syncBonds() {
+    // Step 1: Remove broken bonds from environment.bonds
+    const bondsToRemove = [];
+    for (const [bondId, bond] of this.bonds) {
+        const atom1Exists = bond.atom1 && this.atoms.has(bond.atom1.id);
+        const atom2Exists = bond.atom2 && this.atoms.has(bond.atom2.id);
+        
+        if (!atom1Exists || !atom2Exists) {
+            bondsToRemove.push(bondId);
+            continue;
+        }
+        
+        // Check if bond has been broken (atoms don't have it)
+        const atom1HasBond = bond.atom1.bonds.includes(bond);
+        const atom2HasBond = bond.atom2.bonds.includes(bond);
+        
+        if (!atom1HasBond || !atom2HasBond) {
+            bondsToRemove.push(bondId);
+        }
+    }
+    
+    for (const bondId of bondsToRemove) {
+        this.bonds.delete(bondId);
+    }
+    
+    // Step 2: Rebuild atom.bonds from environment.bonds (source of truth)
+    for (const atom of this.atoms.values()) {
+        atom.bonds = [];
+    }
+    for (const bond of this.bonds.values()) {
+        if (bond.atom1 && bond.atom2) {
+            bond.atom1.bonds.push(bond);
+            bond.atom2.bonds.push(bond);
+        }
+    }
+}
+```
+
+2. **Call `syncBonds()` at start of `update()`** - ensures bonds are clean before any other operations.
+
+3. **Update molecule.atoms when preserving molecules** in `updateMolecules()`:
+```javascript
+if (existingMolecule) {
+    existingMolecule.atoms = group; // Keep atoms array fresh
+    newMolecules.set(existingMolecule.id, existingMolecule);
+    // ...
+}
+```
+
+4. **Enhanced moleculeId cleanup** - verify atoms are actually in their claimed molecule:
+```javascript
+if (atom.moleculeId) {
+    const molecule = newMolecules.get(atom.moleculeId);
+    if (!molecule || !molecule.atoms.includes(atom)) {
+        atom.moleculeId = null;
+    }
+}
+```
+
+**Key Insight**: Bond lifecycle must be synchronized between environment.bonds (source of truth for rendering) and atom.bonds (convenience cache for chemistry). The `syncBonds()` method provides this synchronization.
+
 ---
 
 ## 🧪 Chemistry Rules to Preserve

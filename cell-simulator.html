@@ -6616,6 +6616,59 @@ class Environment {
     }
 
     /**
+     * Synchronize bonds between environment.bonds and atom.bonds
+     * This cleans up stale/broken bonds and ensures consistency.
+     * 
+     * environment.bonds is the SOURCE OF TRUTH.
+     * After sync, atom.bonds will exactly match what's in environment.bonds.
+     */
+    syncBonds() {
+        // Step 1: Remove broken bonds from environment.bonds
+        // A bond is "broken" if either atom no longer references it
+        const bondsToRemove = [];
+        for (const [bondId, bond] of this.bonds) {
+            // Check if bond is orphaned (atoms don't exist in environment)
+            const atom1Exists = bond.atom1 && this.atoms.has(bond.atom1.id);
+            const atom2Exists = bond.atom2 && this.atoms.has(bond.atom2.id);
+            
+            if (!atom1Exists || !atom2Exists) {
+                bondsToRemove.push(bondId);
+                continue;
+            }
+            
+            // Check if bond has been broken (atoms don't have it in their bonds array)
+            const atom1HasBond = bond.atom1.bonds.includes(bond);
+            const atom2HasBond = bond.atom2.bonds.includes(bond);
+            
+            if (!atom1HasBond || !atom2HasBond) {
+                bondsToRemove.push(bondId);
+            }
+        }
+        
+        for (const bondId of bondsToRemove) {
+            this.bonds.delete(bondId);
+        }
+        
+        // Step 2: Rebuild atom.bonds arrays from environment.bonds (source of truth)
+        // First clear all atom bonds
+        for (const atom of this.atoms.values()) {
+            atom.bonds = [];
+        }
+        
+        // Then rebuild from environment.bonds
+        for (const bond of this.bonds.values()) {
+            if (bond.atom1 && bond.atom2) {
+                if (!bond.atom1.bonds.includes(bond)) {
+                    bond.atom1.bonds.push(bond);
+                }
+                if (!bond.atom2.bonds.includes(bond)) {
+                    bond.atom2.bonds.push(bond);
+                }
+            }
+        }
+    }
+
+    /**
      * Register a molecule
      * @param {Molecule} molecule - Molecule to register
      */
@@ -7071,6 +7124,8 @@ class Environment {
 
             if (existingMolecule) {
                 // Molecule still exists with same atoms - preserve it
+                // Update the atoms array to ensure it matches the current group
+                existingMolecule.atoms = group;
                 newMolecules.set(existingMolecule.id, existingMolecule);
                 // Ensure atom references are up to date
                 for (const atom of group) {
@@ -7088,15 +7143,31 @@ class Environment {
         }
 
         // Step 6: Clear molecule ID from atoms not in any molecule
+        // Also clear atoms that claim a moleculeId but aren't in that molecule's atom list
         for (const atom of this.atoms.values()) {
             if (atom.bonds.length === 0) {
                 atom.moleculeId = null;
+            } else if (atom.moleculeId) {
+                // Verify the atom is actually in the molecule it claims
+                const molecule = newMolecules.get(atom.moleculeId);
+                if (!molecule || !molecule.atoms.includes(atom)) {
+                    atom.moleculeId = null;
+                }
             }
         }
 
         // Step 7: Replace molecules map
         this.molecules = newMolecules;
         this.stats.moleculeCount = this.molecules.size;
+        
+        // Step 8: Final validation - ensure all atoms in each molecule have correct moleculeId
+        for (const molecule of this.molecules.values()) {
+            for (const atom of molecule.atoms) {
+                if (atom.moleculeId !== molecule.id) {
+                    atom.moleculeId = molecule.id;
+                }
+            }
+        }
     }
 
     /**
@@ -7168,6 +7239,9 @@ class Environment {
      * @param {number} dt - Delta time
      */
     update(dt) {
+        // Synchronize bonds first - clean up any broken/stale bonds
+        this.syncBonds();
+        
         // Apply forces
         this.applyBoundaries();
         this.applyAtomicForces();
