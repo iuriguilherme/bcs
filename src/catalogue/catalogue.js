@@ -24,6 +24,9 @@ class Catalogue {
 
         // Load pre-defined polymer templates
         this._loadPolymerTemplates();
+
+        // Load monomer blueprints (molecule blueprints for monomers)
+        this._loadMonomerBlueprints();
     }
 
     /**
@@ -36,6 +39,24 @@ class Catalogue {
                 this.polymers.set(template.fingerprint, template);
             }
             console.log(`Loaded ${templates.length} polymer templates`);
+        }
+    }
+
+    /**
+     * Load monomer blueprints into the molecule catalogue
+     * These are pre-defined molecules that can be used as monomers for polymers
+     */
+    _loadMonomerBlueprints() {
+        if (typeof getAllMonomerBlueprints === 'function') {
+            const blueprints = getAllMonomerBlueprints();
+            for (const blueprint of blueprints) {
+                // Don't overwrite if already exists (e.g., from IndexedDB)
+                if (!this.molecules.has(blueprint.fingerprint)) {
+                    this.molecules.set(blueprint.fingerprint, blueprint);
+                    this.knownFingerprints.add(blueprint.fingerprint);
+                }
+            }
+            console.log(`Loaded ${blueprints.length} monomer blueprints`);
         }
     }
 
@@ -270,6 +291,55 @@ class Catalogue {
      */
     getAllMolecules() {
         return Array.from(this.molecules.values());
+    }
+
+    /**
+     * Get a monomer blueprint by monomer ID
+     * If not already loaded, creates it from the monomer template
+     * @param {string} monomerId - The monomer template ID (e.g., 'ETHYLENE', 'GLYCINE')
+     * @returns {Object|null} The monomer blueprint or null
+     */
+    getMonomerById(monomerId) {
+        if (!monomerId) return null;
+
+        // Check if already in catalogue by looking for fingerprint pattern
+        const expectedFingerprint = `monomer:${monomerId.toLowerCase()}:`;
+        for (const [fp, blueprint] of this.molecules) {
+            if (fp.startsWith(expectedFingerprint) || blueprint.monomerId === monomerId.toLowerCase()) {
+                return blueprint;
+            }
+        }
+
+        // Not found - try to create from template
+        if (typeof getMonomerBlueprint === 'function') {
+            const blueprint = getMonomerBlueprint(monomerId);
+            if (blueprint) {
+                this.molecules.set(blueprint.fingerprint, blueprint);
+                this.knownFingerprints.add(blueprint.fingerprint);
+                console.log(`Created monomer blueprint on-demand: ${blueprint.name}`);
+                return blueprint;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Ensure a monomer blueprint exists for a polymer blueprint
+     * Call this when placing a polymer intention to make sure the monomer is available
+     * @param {Object} polymerBlueprint - The polymer blueprint
+     * @returns {Object|null} The monomer blueprint or null
+     */
+    ensureMonomerForPolymer(polymerBlueprint) {
+        if (!polymerBlueprint) return null;
+
+        const monomerId = polymerBlueprint.monomerId;
+        if (!monomerId) {
+            console.warn('Polymer blueprint has no monomerId:', polymerBlueprint.name);
+            return null;
+        }
+
+        return this.getMonomerById(monomerId);
     }
 
     // ============ Polymer Methods ============

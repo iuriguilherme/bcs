@@ -284,8 +284,9 @@ class Environment {
     /**
      * Add an intention to the environment
      * @param {Intention} intention - Intention zone to add
+     * @param {Catalogue} catalogue - Optional catalogue to ensure monomer blueprints exist
      */
-    addIntention(intention) {
+    addIntention(intention, catalogue = null) {
         this.intentions.set(intention.id, intention);
         this.stats.intentionCount = this.intentions.size;
 
@@ -293,6 +294,19 @@ class Environment {
         // This prevents immediate fulfillment from pre-existing molecules
         if (intention.initializeExclusions) {
             intention.initializeExclusions(this);
+        }
+
+        // For polymer intentions, ensure the monomer blueprint exists in the catalogue
+        if (intention.type === 'polymer' && intention.blueprint) {
+            const cat = catalogue || (typeof window !== 'undefined' ? window.catalogue : null);
+            if (cat && typeof cat.ensureMonomerForPolymer === 'function') {
+                const monomerBlueprint = cat.ensureMonomerForPolymer(intention.blueprint);
+                if (monomerBlueprint) {
+                    console.log(`Polymer intention: Monomer blueprint '${monomerBlueprint.name}' ready`);
+                } else {
+                    console.warn(`Polymer intention: Could not find/create monomer for '${intention.blueprint.name}'`);
+                }
+            }
         }
     }
 

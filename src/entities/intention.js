@@ -141,11 +141,8 @@ class Intention {
         this.age++;
         this.pulsePhase += 0.05;
 
-        // Check for timeout
-        if (this.age > this.maxAge) {
-            this.fulfilled = true; // Mark for removal
-            return;
-        }
+        // NOTE: No timeout - intentions persist until fulfilled or manually deleted
+        // (Bug #6 fix from AGENTS.md)
 
         // Find and attract nearby components
         this._attractComponents(environment);
@@ -314,12 +311,21 @@ class Intention {
                 const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
                 const dist = center.distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
-                    // Check if molecule matches our blueprint requirements
-                    if (mol.atoms.length === requirements.count) {
-                        // Mark intention as fulfilled - molecule formed after intention was placed!
+                    // CRITICAL: Validate formula matches blueprint, not just atom count
+                    // This prevents unrelated molecules from fulfilling the intention
+                    const blueprintFormula = this.blueprint.formula;
+                    if (blueprintFormula && mol.formula === blueprintFormula) {
+                        // Mark intention as fulfilled - correct molecule formed!
                         this.createdEntity = mol;
                         this.fulfilled = true;
-                        console.log(`Intention fulfilled: New molecule ${mol.formula} formed`);
+                        console.log(`Intention fulfilled: Molecule ${mol.formula} matches blueprint`);
+                        return;
+                    }
+                    // If no formula in blueprint, fall back to atom count check (legacy)
+                    else if (!blueprintFormula && mol.atoms.length === requirements.count) {
+                        this.createdEntity = mol;
+                        this.fulfilled = true;
+                        console.log(`Intention fulfilled: New molecule ${mol.formula} formed (atom count match)`);
                         return;
                     }
                 }
@@ -436,6 +442,14 @@ class Intention {
         // Create molecule from bonded atoms only
         const molecule = new Molecule(bondedAtoms);
         environment.addMolecule(molecule);
+
+        // CRITICAL: Validate the formed molecule matches our blueprint formula
+        // If wrong molecule formed, don't fulfill - keep trying
+        const blueprintFormula = this.blueprint.formula;
+        if (blueprintFormula && molecule.formula !== blueprintFormula) {
+            console.log(`Intention: Formed ${molecule.formula} but need ${blueprintFormula}, continuing...`);
+            return; // Don't fulfill - wrong molecule formed
+        }
 
         this.createdEntity = molecule;
         this.fulfilled = true;
@@ -675,16 +689,18 @@ class Intention {
     }
 
     /**
-     * Check if point is inside intention zone
+     * Check if point is inside intention zone (for selection)
+     * Uses small hitbox around center icon, not the full attraction radius
      */
     containsPoint(x, y, scale = 1, offset = { x: 0, y: 0 }) {
         const screenX = (this.position.x + offset.x) * scale;
         const screenY = (this.position.y + offset.y) * scale;
-        const screenRadius = this.radius * scale;
+        // Use small hitbox radius (matches the center icon size) instead of full attraction radius
+        const hitboxRadius = 25 * scale;
 
         const dx = x - screenX;
         const dy = y - screenY;
-        return (dx * dx + dy * dy) <= (screenRadius * screenRadius);
+        return (dx * dx + dy * dy) <= (hitboxRadius * hitboxRadius);
     }
 }
 

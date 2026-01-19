@@ -4163,11 +4163,8 @@ class Intention {
         this.age++;
         this.pulsePhase += 0.05;
 
-        // Check for timeout
-        if (this.age > this.maxAge) {
-            this.fulfilled = true; // Mark for removal
-            return;
-        }
+        // NOTE: No timeout - intentions persist until fulfilled or manually deleted
+        // (Bug #6 fix from AGENTS.md)
 
         // Find and attract nearby components
         this._attractComponents(environment);
@@ -4336,12 +4333,21 @@ class Intention {
                 const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
                 const dist = center.distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
-                    // Check if molecule matches our blueprint requirements
-                    if (mol.atoms.length === requirements.count) {
-                        // Mark intention as fulfilled - molecule formed after intention was placed!
+                    // CRITICAL: Validate formula matches blueprint, not just atom count
+                    // This prevents unrelated molecules from fulfilling the intention
+                    const blueprintFormula = this.blueprint.formula;
+                    if (blueprintFormula && mol.formula === blueprintFormula) {
+                        // Mark intention as fulfilled - correct molecule formed!
                         this.createdEntity = mol;
                         this.fulfilled = true;
-                        console.log(`Intention fulfilled: New molecule ${mol.formula} formed`);
+                        console.log(`Intention fulfilled: Molecule ${mol.formula} matches blueprint`);
+                        return;
+                    }
+                    // If no formula in blueprint, fall back to atom count check (legacy)
+                    else if (!blueprintFormula && mol.atoms.length === requirements.count) {
+                        this.createdEntity = mol;
+                        this.fulfilled = true;
+                        console.log(`Intention fulfilled: New molecule ${mol.formula} formed (atom count match)`);
                         return;
                     }
                 }
@@ -4458,6 +4464,14 @@ class Intention {
         // Create molecule from bonded atoms only
         const molecule = new Molecule(bondedAtoms);
         environment.addMolecule(molecule);
+
+        // CRITICAL: Validate the formed molecule matches our blueprint formula
+        // If wrong molecule formed, don't fulfill - keep trying
+        const blueprintFormula = this.blueprint.formula;
+        if (blueprintFormula && molecule.formula !== blueprintFormula) {
+            console.log(`Intention: Formed ${molecule.formula} but need ${blueprintFormula}, continuing...`);
+            return; // Don't fulfill - wrong molecule formed
+        }
 
         this.createdEntity = molecule;
         this.fulfilled = true;
@@ -4697,16 +4711,18 @@ class Intention {
     }
 
     /**
-     * Check if point is inside intention zone
+     * Check if point is inside intention zone (for selection)
+     * Uses small hitbox around center icon, not the full attraction radius
      */
     containsPoint(x, y, scale = 1, offset = { x: 0, y: 0 }) {
         const screenX = (this.position.x + offset.x) * scale;
         const screenY = (this.position.y + offset.y) * scale;
-        const screenRadius = this.radius * scale;
+        // Use small hitbox radius (matches the center icon size) instead of full attraction radius
+        const hitboxRadius = 25 * scale;
 
         const dx = x - screenX;
         const dy = y - screenY;
-        return (dx * dx + dy * dy) <= (screenRadius * screenRadius);
+        return (dx * dx + dy * dy) <= (hitboxRadius * hitboxRadius);
     }
 }
 
@@ -6807,8 +6823,9 @@ class Environment {
     /**
      * Add an intention to the environment
      * @param {Intention} intention - Intention zone to add
+     * @param {Catalogue} catalogue - Optional catalogue to ensure monomer blueprints exist
      */
-    addIntention(intention) {
+    addIntention(intention, catalogue = null) {
         this.intentions.set(intention.id, intention);
         this.stats.intentionCount = this.intentions.size;
 
@@ -6816,6 +6833,19 @@ class Environment {
         // This prevents immediate fulfillment from pre-existing molecules
         if (intention.initializeExclusions) {
             intention.initializeExclusions(this);
+        }
+
+        // For polymer intentions, ensure the monomer blueprint exists in the catalogue
+        if (intention.type === 'polymer' && intention.blueprint) {
+            const cat = catalogue || (typeof window !== 'undefined' ? window.catalogue : null);
+            if (cat && typeof cat.ensureMonomerForPolymer === 'function') {
+                const monomerBlueprint = cat.ensureMonomerForPolymer(intention.blueprint);
+                if (monomerBlueprint) {
+                    console.log(`Polymer intention: Monomer blueprint '${monomerBlueprint.name}' ready`);
+                } else {
+                    console.warn(`Polymer intention: Could not find/create monomer for '${intention.blueprint.name}'`);
+                }
+            }
         }
     }
 
@@ -8210,6 +8240,177 @@ function isKnownMonomer(formula) {
     return findMonomerByFormula(formula) !== null;
 }
 
+/**
+ * Create a MoleculeBlueprint from a monomer template
+ * This allows monomer templates to be used in the catalogue like discovered molecules
+ * @param {Object} template - Monomer template from MONOMER_TEMPLATES
+ * @returns {Object} A blueprint-like object compatible with MoleculeBlueprint
+ */
+function createMonomerBlueprint(template) {
+    if (!template || !template.atomLayout) {
+        console.warn('createMonomerBlueprint: Invalid template', template);
+        return null;
+    }
+
+    // Build atomData in blueprint format (with indices)
+    const atomData = template.atomLayout.map((atom, index) => ({
+        index,
+        symbol: atom.symbol,
+        relX: atom.relX,
+        relY: atom.relY
+    }));
+
+    // Build bondData in blueprint format
+    const bondData = (template.bondLayout || []).map(bond => ({
+        atom1Index: bond.atom1,
+        atom2Index: bond.atom2,
+        order: bond.order || 1
+    }));
+
+    // Calculate mass from atoms
+    let mass = 0;
+    for (const atom of atomData) {
+        const element = typeof getElement === 'function' ? getElement(atom.symbol) : null;
+        if (element) {
+            mass += element.mass;
+        }
+    }
+
+    // Generate a fingerprint based on the template
+    const fingerprint = `monomer:${template.id}:${template.formula}`;
+
+    // Create a blueprint-compatible object
+    const blueprint = {
+        id: template.id,
+        type: 'molecule',
+        name: template.name,
+        formula: template.formula,
+        fingerprint: fingerprint,
+        atomData: atomData,
+        bondData: bondData,
+        mass: mass,
+        isStable: true, // Monomers are stable molecules
+        createdAt: Date.now(),
+        description: template.description || `Monomer for ${template.polymerName}`,
+        tags: ['monomer', template.polymerCategory || 'generic'],
+        isMonomer: true,
+        monomerId: template.id,
+        polymerCategory: template.polymerCategory,
+        polymerName: template.polymerName,
+        cellRole: template.cellRole || null,
+
+        // Implement instantiate method to create actual molecules
+        instantiate: function(x, y) {
+            // Create atoms at relative positions
+            const atoms = this.atomData.map(data =>
+                new Atom(data.symbol, x + data.relX, y + data.relY)
+            );
+
+            // Create bonds
+            for (const bondInfo of this.bondData) {
+                const atom1 = atoms[bondInfo.atom1Index];
+                const atom2 = atoms[bondInfo.atom2Index];
+                if (atom1 && atom2) {
+                    new Bond(atom1, atom2, bondInfo.order);
+                }
+            }
+
+            // Create molecule
+            const molecule = new Molecule(atoms);
+            molecule.name = this.name;
+            molecule.isMonomer = true;
+            molecule.monomerId = this.monomerId;
+            molecule.blueprintRef = this;
+
+            return molecule;
+        },
+
+        // Implement serialize for persistence
+        serialize: function() {
+            return {
+                id: this.id,
+                type: this.type,
+                name: this.name,
+                formula: this.formula,
+                fingerprint: this.fingerprint,
+                atomData: this.atomData,
+                bondData: this.bondData,
+                mass: this.mass,
+                isStable: this.isStable,
+                createdAt: this.createdAt,
+                description: this.description,
+                tags: this.tags,
+                isMonomer: this.isMonomer,
+                monomerId: this.monomerId,
+                polymerCategory: this.polymerCategory,
+                polymerName: this.polymerName,
+                cellRole: this.cellRole
+            };
+        },
+
+        // Render preview for catalogue UI
+        renderPreview: function(ctx, x, y, size) {
+            const scale = size / 100;
+
+            // Draw bonds
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 1;
+
+            for (const bondInfo of this.bondData) {
+                const a1 = this.atomData[bondInfo.atom1Index];
+                const a2 = this.atomData[bondInfo.atom2Index];
+                if (!a1 || !a2) continue;
+
+                ctx.beginPath();
+                ctx.moveTo(x + a1.relX * scale, y + a1.relY * scale);
+                ctx.lineTo(x + a2.relX * scale, y + a2.relY * scale);
+                ctx.stroke();
+            }
+
+            // Draw atoms
+            for (const atomInfo of this.atomData) {
+                const element = typeof getElement === 'function' ? getElement(atomInfo.symbol) : null;
+                const ax = x + atomInfo.relX * scale;
+                const ay = y + atomInfo.relY * scale;
+                const radius = Math.max(3, (element?.radius || 10) * scale * 0.25);
+
+                ctx.beginPath();
+                ctx.arc(ax, ay, radius, 0, Math.PI * 2);
+                ctx.fillStyle = element?.color || '#888';
+                ctx.fill();
+            }
+        }
+    };
+
+    return blueprint;
+}
+
+/**
+ * Get all monomer templates as MoleculeBlueprints
+ * @returns {Object[]} Array of blueprint objects
+ */
+function getAllMonomerBlueprints() {
+    const blueprints = [];
+    for (const template of Object.values(MONOMER_TEMPLATES)) {
+        const bp = createMonomerBlueprint(template);
+        if (bp) {
+            blueprints.push(bp);
+        }
+    }
+    return blueprints;
+}
+
+/**
+ * Get a monomer blueprint by monomer ID
+ * @param {string} monomerId - The monomer template ID
+ * @returns {Object|null} Blueprint or null
+ */
+function getMonomerBlueprint(monomerId) {
+    const template = getMonomerTemplate(monomerId);
+    if (!template) return null;
+    return createMonomerBlueprint(template);
+}
+
 // Make available globally
 window.PolymerizationType = PolymerizationType;
 window.MONOMER_TEMPLATES = MONOMER_TEMPLATES;
@@ -8218,6 +8419,9 @@ window.getAllMonomerTemplates = getAllMonomerTemplates;
 window.getMonomersByCategory = getMonomersByCategory;
 window.findMonomerByFormula = findMonomerByFormula;
 window.isKnownMonomer = isKnownMonomer;
+window.createMonomerBlueprint = createMonomerBlueprint;
+window.getAllMonomerBlueprints = getAllMonomerBlueprints;
+window.getMonomerBlueprint = getMonomerBlueprint;
 
 
 // ==== src/catalogue/polymer-blueprints.js ====
@@ -8646,6 +8850,9 @@ class Catalogue {
 
         // Load pre-defined polymer templates
         this._loadPolymerTemplates();
+
+        // Load monomer blueprints (molecule blueprints for monomers)
+        this._loadMonomerBlueprints();
     }
 
     /**
@@ -8658,6 +8865,24 @@ class Catalogue {
                 this.polymers.set(template.fingerprint, template);
             }
             console.log(`Loaded ${templates.length} polymer templates`);
+        }
+    }
+
+    /**
+     * Load monomer blueprints into the molecule catalogue
+     * These are pre-defined molecules that can be used as monomers for polymers
+     */
+    _loadMonomerBlueprints() {
+        if (typeof getAllMonomerBlueprints === 'function') {
+            const blueprints = getAllMonomerBlueprints();
+            for (const blueprint of blueprints) {
+                // Don't overwrite if already exists (e.g., from IndexedDB)
+                if (!this.molecules.has(blueprint.fingerprint)) {
+                    this.molecules.set(blueprint.fingerprint, blueprint);
+                    this.knownFingerprints.add(blueprint.fingerprint);
+                }
+            }
+            console.log(`Loaded ${blueprints.length} monomer blueprints`);
         }
     }
 
@@ -8892,6 +9117,55 @@ class Catalogue {
      */
     getAllMolecules() {
         return Array.from(this.molecules.values());
+    }
+
+    /**
+     * Get a monomer blueprint by monomer ID
+     * If not already loaded, creates it from the monomer template
+     * @param {string} monomerId - The monomer template ID (e.g., 'ETHYLENE', 'GLYCINE')
+     * @returns {Object|null} The monomer blueprint or null
+     */
+    getMonomerById(monomerId) {
+        if (!monomerId) return null;
+
+        // Check if already in catalogue by looking for fingerprint pattern
+        const expectedFingerprint = `monomer:${monomerId.toLowerCase()}:`;
+        for (const [fp, blueprint] of this.molecules) {
+            if (fp.startsWith(expectedFingerprint) || blueprint.monomerId === monomerId.toLowerCase()) {
+                return blueprint;
+            }
+        }
+
+        // Not found - try to create from template
+        if (typeof getMonomerBlueprint === 'function') {
+            const blueprint = getMonomerBlueprint(monomerId);
+            if (blueprint) {
+                this.molecules.set(blueprint.fingerprint, blueprint);
+                this.knownFingerprints.add(blueprint.fingerprint);
+                console.log(`Created monomer blueprint on-demand: ${blueprint.name}`);
+                return blueprint;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Ensure a monomer blueprint exists for a polymer blueprint
+     * Call this when placing a polymer intention to make sure the monomer is available
+     * @param {Object} polymerBlueprint - The polymer blueprint
+     * @returns {Object|null} The monomer blueprint or null
+     */
+    ensureMonomerForPolymer(polymerBlueprint) {
+        if (!polymerBlueprint) return null;
+
+        const monomerId = polymerBlueprint.monomerId;
+        if (!monomerId) {
+            console.warn('Polymer blueprint has no monomerId:', polymerBlueprint.name);
+            return null;
+        }
+
+        return this.getMonomerById(monomerId);
     }
 
     // ============ Polymer Methods ============
@@ -10493,6 +10767,60 @@ class Controls {
         ctx.lineWidth = 1;
         ctx.strokeRect(0, 0, width, height);
     }
+
+    /**
+     * Update inspector with polymer template data (before placing intention)
+     * @param {Object} template - Polymer blueprint template
+     */
+    updateInspectorWithPolymerTemplate(template) {
+        const content = document.getElementById('inspectorContent');
+        if (!content || !template) return;
+
+        // Switch to inspector tab
+        this._switchToInspectorTab();
+
+        // Get monomer info
+        let monomerInfo = '';
+        if (template.monomerId) {
+            const monomerTemplate = typeof getMonomerTemplate === 'function' 
+                ? getMonomerTemplate(template.monomerId) 
+                : null;
+            if (monomerTemplate) {
+                monomerInfo = `
+                    <hr style="border-color: #444; margin: 8px 0;">
+                    <p><strong>Monomer Required:</strong></p>
+                    <p>${monomerTemplate.name}</p>
+                    <p style="color: #4ade80; font-weight: bold;">${monomerTemplate.formula}</p>
+                    <p style="color: #94a3b8; font-size: 0.9em;"><em>Create ${template.minMonomers || 2}+ of these molecules</em></p>
+                `;
+            }
+        }
+
+        // Get type color
+        const typeColors = {
+            'lipid': '#f59e0b',
+            'protein': '#22c55e',
+            'nucleic_acid': '#3b82f6',
+            'carbohydrate': '#ec4899',
+            'generic': '#8b5cf6'
+        };
+        const typeColor = typeColors[template.type] || '#8b5cf6';
+
+        content.innerHTML = `
+            <div class="inspector-item">
+                <h3 style="color: ${typeColor};">${template.name}</h3>
+                <p><strong>Type:</strong> ${template.type}</p>
+                <p>${template.description || ''}</p>
+                ${template.essential ? '<p style="color: #4ade80;">&#9733; Essential for cells</p>' : ''}
+                ${template.cellRole ? `<p><strong>Cell Role:</strong> ${template.cellRole}</p>` : ''}
+                <hr style="border-color: #444; margin: 8px 0;">
+                <p><strong>Min Monomers:</strong> ${template.minMonomers || template.minMolecules || 2}</p>
+                ${monomerInfo}
+                <hr style="border-color: #444; margin: 8px 0;">
+                <p style="color: #94a3b8;"><em>Click in the view to place this polymer intention</em></p>
+            </div>
+        `;
+    }
 }
 
 // Make available globally
@@ -10681,6 +11009,10 @@ class CatalogueUI {
                 if (template) {
                     this.controls.selectedPolymerTemplate = template;
                     this.controls.setTool('place');
+                    // Show polymer template data in inspector
+                    if (this.controls.updateInspectorWithPolymerTemplate) {
+                        this.controls.updateInspectorWithPolymerTemplate(template);
+                    }
                     if (window.cellApp) window.cellApp.setLevel(level);
                 }
             });
@@ -11616,6 +11948,10 @@ class App {
                         this.controls.setTool('place');
                         palette.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('selected'));
                         btn.classList.add('selected');
+                        // Show polymer template data in inspector
+                        if (this.controls.updateInspectorWithPolymerTemplate) {
+                            this.controls.updateInspectorWithPolymerTemplate(template);
+                        }
                     }
                 });
             });

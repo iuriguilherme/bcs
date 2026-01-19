@@ -178,6 +178,10 @@ class CatalogueUI {
                 if (template) {
                     this.controls.selectedPolymerTemplate = template;
                     this.controls.setTool('place');
+                    // Show polymer template data in inspector
+                    if (this.controls.updateInspectorWithPolymerTemplate) {
+                        this.controls.updateInspectorWithPolymerTemplate(template);
+                    }
                     if (window.cellApp) window.cellApp.setLevel(level);
                 }
             });

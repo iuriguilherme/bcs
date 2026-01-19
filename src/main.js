@@ -487,6 +487,10 @@ class App {
                         this.controls.setTool('place');
                         palette.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('selected'));
                         btn.classList.add('selected');
+                        // Show polymer template data in inspector
+                        if (this.controls.updateInspectorWithPolymerTemplate) {
+                            this.controls.updateInspectorWithPolymerTemplate(template);
+                        }
                     }
                 });
             });

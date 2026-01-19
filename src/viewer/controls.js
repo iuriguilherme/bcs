@@ -775,6 +775,60 @@ class Controls {
         ctx.lineWidth = 1;
         ctx.strokeRect(0, 0, width, height);
     }
+
+    /**
+     * Update inspector with polymer template data (before placing intention)
+     * @param {Object} template - Polymer blueprint template
+     */
+    updateInspectorWithPolymerTemplate(template) {
+        const content = document.getElementById('inspectorContent');
+        if (!content || !template) return;
+
+        // Switch to inspector tab
+        this._switchToInspectorTab();
+
+        // Get monomer info
+        let monomerInfo = '';
+        if (template.monomerId) {
+            const monomerTemplate = typeof getMonomerTemplate === 'function' 
+                ? getMonomerTemplate(template.monomerId) 
+                : null;
+            if (monomerTemplate) {
+                monomerInfo = `
+                    <hr style="border-color: #444; margin: 8px 0;">
+                    <p><strong>Monomer Required:</strong></p>
+                    <p>${monomerTemplate.name}</p>
+                    <p style="color: #4ade80; font-weight: bold;">${monomerTemplate.formula}</p>
+                    <p style="color: #94a3b8; font-size: 0.9em;"><em>Create ${template.minMonomers || 2}+ of these molecules</em></p>
+                `;
+            }
+        }
+
+        // Get type color
+        const typeColors = {
+            'lipid': '#f59e0b',
+            'protein': '#22c55e',
+            'nucleic_acid': '#3b82f6',
+            'carbohydrate': '#ec4899',
+            'generic': '#8b5cf6'
+        };
+        const typeColor = typeColors[template.type] || '#8b5cf6';
+
+        content.innerHTML = `
+            <div class="inspector-item">
+                <h3 style="color: ${typeColor};">${template.name}</h3>
+                <p><strong>Type:</strong> ${template.type}</p>
+                <p>${template.description || ''}</p>
+                ${template.essential ? '<p style="color: #4ade80;">&#9733; Essential for cells</p>' : ''}
+                ${template.cellRole ? `<p><strong>Cell Role:</strong> ${template.cellRole}</p>` : ''}
+                <hr style="border-color: #444; margin: 8px 0;">
+                <p><strong>Min Monomers:</strong> ${template.minMonomers || template.minMolecules || 2}</p>
+                ${monomerInfo}
+                <hr style="border-color: #444; margin: 8px 0;">
+                <p style="color: #94a3b8;"><em>Click in the view to place this polymer intention</em></p>
+            </div>
+        `;
+    }
 }
 
 // Make available globally
