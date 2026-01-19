@@ -143,6 +143,599 @@ const STABLE_MOLECULES = {
         description: 'Hydrogen sulfide - bent shape'
     },
 
+    // ===== HYDROCARBONS - ALKANES (saturated) =====
+
+    'C2H6': {
+        name: 'Ethane',
+        formula: 'C2H6',
+        atoms: [
+            { symbol: 'C', relX: -18, relY: 0 },        // C1
+            { symbol: 'C', relX: 18, relY: 0 },         // C2
+            { symbol: 'H', relX: -33, relY: -15 },
+            { symbol: 'H', relX: -33, relY: 15 },
+            { symbol: 'H', relX: -18, relY: -25 },
+            { symbol: 'H', relX: 33, relY: -15 },
+            { symbol: 'H', relX: 33, relY: 15 },
+            { symbol: 'H', relX: 18, relY: 25 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 0, atom2: 2, order: 1 },
+            { atom1: 0, atom2: 3, order: 1 },
+            { atom1: 0, atom2: 4, order: 1 },
+            { atom1: 1, atom2: 5, order: 1 },
+            { atom1: 1, atom2: 6, order: 1 },
+            { atom1: 1, atom2: 7, order: 1 }
+        ],
+        description: 'Ethane - simplest alkane with C-C bond'
+    },
+    'C3H8': {
+        name: 'Propane',
+        formula: 'C3H8',
+        atoms: [
+            { symbol: 'C', relX: -30, relY: 0 },        // C1 (methyl)
+            { symbol: 'C', relX: 0, relY: 0 },          // C2 (central)
+            { symbol: 'C', relX: 30, relY: 0 },         // C3 (methyl)
+            { symbol: 'H', relX: -45, relY: -15 },
+            { symbol: 'H', relX: -45, relY: 15 },
+            { symbol: 'H', relX: -30, relY: -22 },
+            { symbol: 'H', relX: 0, relY: -22 },
+            { symbol: 'H', relX: 0, relY: 22 },
+            { symbol: 'H', relX: 45, relY: -15 },
+            { symbol: 'H', relX: 45, relY: 15 },
+            { symbol: 'H', relX: 30, relY: 22 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 0, atom2: 3, order: 1 },
+            { atom1: 0, atom2: 4, order: 1 },
+            { atom1: 0, atom2: 5, order: 1 },
+            { atom1: 1, atom2: 6, order: 1 },
+            { atom1: 1, atom2: 7, order: 1 },
+            { atom1: 2, atom2: 8, order: 1 },
+            { atom1: 2, atom2: 9, order: 1 },
+            { atom1: 2, atom2: 10, order: 1 }
+        ],
+        description: 'Propane - 3-carbon alkane'
+    },
+    'C4H10': {
+        name: 'Butane',
+        formula: 'C4H10',
+        atoms: [
+            { symbol: 'C', relX: -45, relY: 0 },        // C1
+            { symbol: 'C', relX: -15, relY: 0 },        // C2
+            { symbol: 'C', relX: 15, relY: 0 },         // C3
+            { symbol: 'C', relX: 45, relY: 0 },         // C4
+            { symbol: 'H', relX: -60, relY: -15 },
+            { symbol: 'H', relX: -60, relY: 15 },
+            { symbol: 'H', relX: -45, relY: -22 },
+            { symbol: 'H', relX: -15, relY: -22 },
+            { symbol: 'H', relX: -15, relY: 22 },
+            { symbol: 'H', relX: 15, relY: -22 },
+            { symbol: 'H', relX: 15, relY: 22 },
+            { symbol: 'H', relX: 60, relY: -15 },
+            { symbol: 'H', relX: 60, relY: 15 },
+            { symbol: 'H', relX: 45, relY: 22 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 0, atom2: 4, order: 1 },
+            { atom1: 0, atom2: 5, order: 1 },
+            { atom1: 0, atom2: 6, order: 1 },
+            { atom1: 1, atom2: 7, order: 1 },
+            { atom1: 1, atom2: 8, order: 1 },
+            { atom1: 2, atom2: 9, order: 1 },
+            { atom1: 2, atom2: 10, order: 1 },
+            { atom1: 3, atom2: 11, order: 1 },
+            { atom1: 3, atom2: 12, order: 1 },
+            { atom1: 3, atom2: 13, order: 1 }
+        ],
+        description: 'Butane - 4-carbon alkane'
+    },
+    'C5H12': {
+        name: 'Pentane',
+        formula: 'C5H12',
+        atoms: [
+            { symbol: 'C', relX: -60, relY: 0 },        // C1
+            { symbol: 'C', relX: -30, relY: 0 },        // C2
+            { symbol: 'C', relX: 0, relY: 0 },          // C3
+            { symbol: 'C', relX: 30, relY: 0 },         // C4
+            { symbol: 'C', relX: 60, relY: 0 },         // C5
+            { symbol: 'H', relX: -75, relY: -15 },
+            { symbol: 'H', relX: -75, relY: 15 },
+            { symbol: 'H', relX: -60, relY: -22 },
+            { symbol: 'H', relX: -30, relY: -22 },
+            { symbol: 'H', relX: -30, relY: 22 },
+            { symbol: 'H', relX: 0, relY: -22 },
+            { symbol: 'H', relX: 0, relY: 22 },
+            { symbol: 'H', relX: 30, relY: -22 },
+            { symbol: 'H', relX: 30, relY: 22 },
+            { symbol: 'H', relX: 75, relY: -15 },
+            { symbol: 'H', relX: 75, relY: 15 },
+            { symbol: 'H', relX: 60, relY: 22 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 0, atom2: 5, order: 1 },
+            { atom1: 0, atom2: 6, order: 1 },
+            { atom1: 0, atom2: 7, order: 1 },
+            { atom1: 1, atom2: 8, order: 1 },
+            { atom1: 1, atom2: 9, order: 1 },
+            { atom1: 2, atom2: 10, order: 1 },
+            { atom1: 2, atom2: 11, order: 1 },
+            { atom1: 3, atom2: 12, order: 1 },
+            { atom1: 3, atom2: 13, order: 1 },
+            { atom1: 4, atom2: 14, order: 1 },
+            { atom1: 4, atom2: 15, order: 1 },
+            { atom1: 4, atom2: 16, order: 1 }
+        ],
+        description: 'Pentane - 5-carbon alkane'
+    },
+    'C6H14': {
+        name: 'Hexane',
+        formula: 'C6H14',
+        atoms: [
+            { symbol: 'C', relX: -75, relY: 0 },        // C1
+            { symbol: 'C', relX: -45, relY: 0 },        // C2
+            { symbol: 'C', relX: -15, relY: 0 },        // C3
+            { symbol: 'C', relX: 15, relY: 0 },         // C4
+            { symbol: 'C', relX: 45, relY: 0 },         // C5
+            { symbol: 'C', relX: 75, relY: 0 },         // C6
+            { symbol: 'H', relX: -90, relY: -15 },
+            { symbol: 'H', relX: -90, relY: 15 },
+            { symbol: 'H', relX: -75, relY: -22 },
+            { symbol: 'H', relX: -45, relY: -22 },
+            { symbol: 'H', relX: -45, relY: 22 },
+            { symbol: 'H', relX: -15, relY: -22 },
+            { symbol: 'H', relX: -15, relY: 22 },
+            { symbol: 'H', relX: 15, relY: -22 },
+            { symbol: 'H', relX: 15, relY: 22 },
+            { symbol: 'H', relX: 45, relY: -22 },
+            { symbol: 'H', relX: 45, relY: 22 },
+            { symbol: 'H', relX: 90, relY: -15 },
+            { symbol: 'H', relX: 90, relY: 15 },
+            { symbol: 'H', relX: 75, relY: 22 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 4, atom2: 5, order: 1 },
+            { atom1: 0, atom2: 6, order: 1 },
+            { atom1: 0, atom2: 7, order: 1 },
+            { atom1: 0, atom2: 8, order: 1 },
+            { atom1: 1, atom2: 9, order: 1 },
+            { atom1: 1, atom2: 10, order: 1 },
+            { atom1: 2, atom2: 11, order: 1 },
+            { atom1: 2, atom2: 12, order: 1 },
+            { atom1: 3, atom2: 13, order: 1 },
+            { atom1: 3, atom2: 14, order: 1 },
+            { atom1: 4, atom2: 15, order: 1 },
+            { atom1: 4, atom2: 16, order: 1 },
+            { atom1: 5, atom2: 17, order: 1 },
+            { atom1: 5, atom2: 18, order: 1 },
+            { atom1: 5, atom2: 19, order: 1 }
+        ],
+        description: 'Hexane - 6-carbon alkane'
+    },
+
+    // ===== HYDROCARBONS - ALKENES (unsaturated with C=C) =====
+
+    'C3H6': {
+        name: 'Propene',
+        formula: 'C3H6',
+        atoms: [
+            { symbol: 'C', relX: -30, relY: 0 },        // C1 (CH3)
+            { symbol: 'C', relX: 0, relY: 0 },          // C2 (=CH)
+            { symbol: 'C', relX: 30, relY: 0 },         // C3 (=CH2)
+            { symbol: 'H', relX: -45, relY: -15 },
+            { symbol: 'H', relX: -45, relY: 15 },
+            { symbol: 'H', relX: -30, relY: -22 },
+            { symbol: 'H', relX: 0, relY: 22 },
+            { symbol: 'H', relX: 45, relY: -15 },
+            { symbol: 'H', relX: 45, relY: 15 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 2 },           // C=C double bond
+            { atom1: 0, atom2: 3, order: 1 },
+            { atom1: 0, atom2: 4, order: 1 },
+            { atom1: 0, atom2: 5, order: 1 },
+            { atom1: 1, atom2: 6, order: 1 },
+            { atom1: 2, atom2: 7, order: 1 },
+            { atom1: 2, atom2: 8, order: 1 }
+        ],
+        description: 'Propene - 3-carbon alkene (propylene)'
+    },
+    'C4H8': {
+        name: 'Butene',
+        formula: 'C4H8',
+        atoms: [
+            { symbol: 'C', relX: -45, relY: 0 },        // C1 (CH3)
+            { symbol: 'C', relX: -15, relY: 0 },        // C2
+            { symbol: 'C', relX: 15, relY: 0 },         // C3
+            { symbol: 'C', relX: 45, relY: 0 },         // C4 (=CH2)
+            { symbol: 'H', relX: -60, relY: -15 },
+            { symbol: 'H', relX: -60, relY: 15 },
+            { symbol: 'H', relX: -45, relY: -22 },
+            { symbol: 'H', relX: -15, relY: -22 },
+            { symbol: 'H', relX: -15, relY: 22 },
+            { symbol: 'H', relX: 15, relY: 22 },
+            { symbol: 'H', relX: 60, relY: -15 },
+            { symbol: 'H', relX: 60, relY: 15 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 2 },           // C=C double bond
+            { atom1: 0, atom2: 4, order: 1 },
+            { atom1: 0, atom2: 5, order: 1 },
+            { atom1: 0, atom2: 6, order: 1 },
+            { atom1: 1, atom2: 7, order: 1 },
+            { atom1: 1, atom2: 8, order: 1 },
+            { atom1: 2, atom2: 9, order: 1 },
+            { atom1: 3, atom2: 10, order: 1 },
+            { atom1: 3, atom2: 11, order: 1 }
+        ],
+        description: 'Butene - 4-carbon alkene (1-butene)'
+    },
+    'C5H10': {
+        name: 'Pentene',
+        formula: 'C5H10',
+        atoms: [
+            { symbol: 'C', relX: -60, relY: 0 },        // C1
+            { symbol: 'C', relX: -30, relY: 0 },        // C2
+            { symbol: 'C', relX: 0, relY: 0 },          // C3
+            { symbol: 'C', relX: 30, relY: 0 },         // C4
+            { symbol: 'C', relX: 60, relY: 0 },         // C5 (=CH2)
+            { symbol: 'H', relX: -75, relY: -15 },
+            { symbol: 'H', relX: -75, relY: 15 },
+            { symbol: 'H', relX: -60, relY: -22 },
+            { symbol: 'H', relX: -30, relY: -22 },
+            { symbol: 'H', relX: -30, relY: 22 },
+            { symbol: 'H', relX: 0, relY: -22 },
+            { symbol: 'H', relX: 0, relY: 22 },
+            { symbol: 'H', relX: 30, relY: 22 },
+            { symbol: 'H', relX: 75, relY: -15 },
+            { symbol: 'H', relX: 75, relY: 15 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 3, atom2: 4, order: 2 },           // C=C double bond
+            { atom1: 0, atom2: 5, order: 1 },
+            { atom1: 0, atom2: 6, order: 1 },
+            { atom1: 0, atom2: 7, order: 1 },
+            { atom1: 1, atom2: 8, order: 1 },
+            { atom1: 1, atom2: 9, order: 1 },
+            { atom1: 2, atom2: 10, order: 1 },
+            { atom1: 2, atom2: 11, order: 1 },
+            { atom1: 3, atom2: 12, order: 1 },
+            { atom1: 4, atom2: 13, order: 1 },
+            { atom1: 4, atom2: 14, order: 1 }
+        ],
+        description: 'Pentene - 5-carbon alkene (1-pentene)'
+    },
+
+    // ===== HYDROCARBONS - ALKYNES (triple bond) =====
+
+    'C2H2': {
+        name: 'Acetylene',
+        formula: 'C2H2',
+        atoms: [
+            { symbol: 'C', relX: -15, relY: 0 },
+            { symbol: 'C', relX: 15, relY: 0 },
+            { symbol: 'H', relX: -35, relY: 0 },
+            { symbol: 'H', relX: 35, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 3 },           // C≡C triple bond
+            { atom1: 0, atom2: 2, order: 1 },
+            { atom1: 1, atom2: 3, order: 1 }
+        ],
+        description: 'Acetylene - simplest alkyne with C≡C triple bond'
+    },
+    'C3H4': {
+        name: 'Propyne',
+        formula: 'C3H4',
+        atoms: [
+            { symbol: 'C', relX: -30, relY: 0 },        // CH3
+            { symbol: 'C', relX: 0, relY: 0 },          // C (triple)
+            { symbol: 'C', relX: 30, relY: 0 },         // CH
+            { symbol: 'H', relX: -45, relY: -15 },
+            { symbol: 'H', relX: -45, relY: 15 },
+            { symbol: 'H', relX: -30, relY: -22 },
+            { symbol: 'H', relX: 50, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 3 },           // C≡C triple bond
+            { atom1: 0, atom2: 3, order: 1 },
+            { atom1: 0, atom2: 4, order: 1 },
+            { atom1: 0, atom2: 5, order: 1 },
+            { atom1: 2, atom2: 6, order: 1 }
+        ],
+        description: 'Propyne - 3-carbon alkyne (methylacetylene)'
+    },
+    'C4H6': {
+        name: 'Butyne',
+        formula: 'C4H6',
+        atoms: [
+            { symbol: 'C', relX: -45, relY: 0 },        // CH3
+            { symbol: 'C', relX: -15, relY: 0 },        // C (triple)
+            { symbol: 'C', relX: 15, relY: 0 },         // C (triple)
+            { symbol: 'C', relX: 45, relY: 0 },         // CH3
+            { symbol: 'H', relX: -60, relY: -15 },
+            { symbol: 'H', relX: -60, relY: 15 },
+            { symbol: 'H', relX: -45, relY: -22 },
+            { symbol: 'H', relX: 60, relY: -15 },
+            { symbol: 'H', relX: 60, relY: 15 },
+            { symbol: 'H', relX: 45, relY: 22 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 3 },           // C≡C triple bond
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 0, atom2: 4, order: 1 },
+            { atom1: 0, atom2: 5, order: 1 },
+            { atom1: 0, atom2: 6, order: 1 },
+            { atom1: 3, atom2: 7, order: 1 },
+            { atom1: 3, atom2: 8, order: 1 },
+            { atom1: 3, atom2: 9, order: 1 }
+        ],
+        description: 'Butyne - 4-carbon alkyne (2-butyne)'
+    },
+
+    // ===== HYDROCARBONS - AROMATICS =====
+
+    'C6H6': {
+        name: 'Benzene',
+        formula: 'C6H6',
+        atoms: [
+            // Hexagonal ring of carbons (60° apart)
+            { symbol: 'C', relX: 0, relY: -30 },        // Top
+            { symbol: 'C', relX: 26, relY: -15 },       // Top-right
+            { symbol: 'C', relX: 26, relY: 15 },        // Bottom-right
+            { symbol: 'C', relX: 0, relY: 30 },         // Bottom
+            { symbol: 'C', relX: -26, relY: 15 },       // Bottom-left
+            { symbol: 'C', relX: -26, relY: -15 },      // Top-left
+            // Hydrogens pointing outward
+            { symbol: 'H', relX: 0, relY: -50 },
+            { symbol: 'H', relX: 43, relY: -25 },
+            { symbol: 'H', relX: 43, relY: 25 },
+            { symbol: 'H', relX: 0, relY: 50 },
+            { symbol: 'H', relX: -43, relY: 25 },
+            { symbol: 'H', relX: -43, relY: -25 }
+        ],
+        bonds: [
+            // Alternating double bonds (Kekulé structure)
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 2 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 4, atom2: 5, order: 2 },
+            { atom1: 5, atom2: 0, order: 1 },
+            // C-H bonds
+            { atom1: 0, atom2: 6, order: 1 },
+            { atom1: 1, atom2: 7, order: 1 },
+            { atom1: 2, atom2: 8, order: 1 },
+            { atom1: 3, atom2: 9, order: 1 },
+            { atom1: 4, atom2: 10, order: 1 },
+            { atom1: 5, atom2: 11, order: 1 }
+        ],
+        description: 'Benzene - aromatic ring with delocalized electrons'
+    },
+    'C7H8': {
+        name: 'Toluene',
+        formula: 'C7H8',
+        atoms: [
+            // Benzene ring
+            { symbol: 'C', relX: 0, relY: -30 },
+            { symbol: 'C', relX: 26, relY: -15 },
+            { symbol: 'C', relX: 26, relY: 15 },
+            { symbol: 'C', relX: 0, relY: 30 },
+            { symbol: 'C', relX: -26, relY: 15 },
+            { symbol: 'C', relX: -26, relY: -15 },
+            // Methyl group on top carbon
+            { symbol: 'C', relX: 0, relY: -55 },
+            // Ring hydrogens (5, top has CH3)
+            { symbol: 'H', relX: 43, relY: -25 },
+            { symbol: 'H', relX: 43, relY: 25 },
+            { symbol: 'H', relX: 0, relY: 50 },
+            { symbol: 'H', relX: -43, relY: 25 },
+            { symbol: 'H', relX: -43, relY: -25 },
+            // Methyl hydrogens
+            { symbol: 'H', relX: -15, relY: -65 },
+            { symbol: 'H', relX: 15, relY: -65 },
+            { symbol: 'H', relX: 0, relY: -75 }
+        ],
+        bonds: [
+            // Aromatic ring
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 2 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 4, atom2: 5, order: 2 },
+            { atom1: 5, atom2: 0, order: 1 },
+            // C-CH3
+            { atom1: 0, atom2: 6, order: 1 },
+            // C-H on ring
+            { atom1: 1, atom2: 7, order: 1 },
+            { atom1: 2, atom2: 8, order: 1 },
+            { atom1: 3, atom2: 9, order: 1 },
+            { atom1: 4, atom2: 10, order: 1 },
+            { atom1: 5, atom2: 11, order: 1 },
+            // CH3 hydrogens
+            { atom1: 6, atom2: 12, order: 1 },
+            { atom1: 6, atom2: 13, order: 1 },
+            { atom1: 6, atom2: 14, order: 1 }
+        ],
+        description: 'Toluene - methylbenzene aromatic compound'
+    },
+
+    // ===== HYDROCARBONS - CYCLIC =====
+
+    'C3H6cyc': {
+        name: 'Cyclopropane',
+        formula: 'C3H6',
+        atoms: [
+            // Triangular ring
+            { symbol: 'C', relX: 0, relY: -20 },
+            { symbol: 'C', relX: 17, relY: 10 },
+            { symbol: 'C', relX: -17, relY: 10 },
+            // Hydrogens
+            { symbol: 'H', relX: -12, relY: -35 },
+            { symbol: 'H', relX: 12, relY: -35 },
+            { symbol: 'H', relX: 32, relY: 0 },
+            { symbol: 'H', relX: 27, relY: 25 },
+            { symbol: 'H', relX: -32, relY: 0 },
+            { symbol: 'H', relX: -27, relY: 25 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 0, order: 1 },
+            { atom1: 0, atom2: 3, order: 1 },
+            { atom1: 0, atom2: 4, order: 1 },
+            { atom1: 1, atom2: 5, order: 1 },
+            { atom1: 1, atom2: 6, order: 1 },
+            { atom1: 2, atom2: 7, order: 1 },
+            { atom1: 2, atom2: 8, order: 1 }
+        ],
+        description: 'Cyclopropane - 3-membered carbon ring'
+    },
+    'C4H8cyc': {
+        name: 'Cyclobutane',
+        formula: 'C4H8',
+        atoms: [
+            // Square ring
+            { symbol: 'C', relX: -15, relY: -15 },
+            { symbol: 'C', relX: 15, relY: -15 },
+            { symbol: 'C', relX: 15, relY: 15 },
+            { symbol: 'C', relX: -15, relY: 15 },
+            // Hydrogens
+            { symbol: 'H', relX: -30, relY: -25 },
+            { symbol: 'H', relX: -15, relY: -35 },
+            { symbol: 'H', relX: 30, relY: -25 },
+            { symbol: 'H', relX: 15, relY: -35 },
+            { symbol: 'H', relX: 30, relY: 25 },
+            { symbol: 'H', relX: 15, relY: 35 },
+            { symbol: 'H', relX: -30, relY: 25 },
+            { symbol: 'H', relX: -15, relY: 35 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 3, atom2: 0, order: 1 },
+            { atom1: 0, atom2: 4, order: 1 },
+            { atom1: 0, atom2: 5, order: 1 },
+            { atom1: 1, atom2: 6, order: 1 },
+            { atom1: 1, atom2: 7, order: 1 },
+            { atom1: 2, atom2: 8, order: 1 },
+            { atom1: 2, atom2: 9, order: 1 },
+            { atom1: 3, atom2: 10, order: 1 },
+            { atom1: 3, atom2: 11, order: 1 }
+        ],
+        description: 'Cyclobutane - 4-membered carbon ring'
+    },
+    'C5H10cyc': {
+        name: 'Cyclopentane',
+        formula: 'C5H10',
+        atoms: [
+            // Pentagon ring
+            { symbol: 'C', relX: 0, relY: -25 },
+            { symbol: 'C', relX: 24, relY: -8 },
+            { symbol: 'C', relX: 15, relY: 20 },
+            { symbol: 'C', relX: -15, relY: 20 },
+            { symbol: 'C', relX: -24, relY: -8 },
+            // Hydrogens
+            { symbol: 'H', relX: -12, relY: -40 },
+            { symbol: 'H', relX: 12, relY: -40 },
+            { symbol: 'H', relX: 40, relY: -18 },
+            { symbol: 'H', relX: 35, relY: 5 },
+            { symbol: 'H', relX: 25, relY: 35 },
+            { symbol: 'H', relX: 5, relY: 35 },
+            { symbol: 'H', relX: -25, relY: 35 },
+            { symbol: 'H', relX: -5, relY: 35 },
+            { symbol: 'H', relX: -40, relY: -18 },
+            { symbol: 'H', relX: -35, relY: 5 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 4, atom2: 0, order: 1 },
+            { atom1: 0, atom2: 5, order: 1 },
+            { atom1: 0, atom2: 6, order: 1 },
+            { atom1: 1, atom2: 7, order: 1 },
+            { atom1: 1, atom2: 8, order: 1 },
+            { atom1: 2, atom2: 9, order: 1 },
+            { atom1: 2, atom2: 10, order: 1 },
+            { atom1: 3, atom2: 11, order: 1 },
+            { atom1: 3, atom2: 12, order: 1 },
+            { atom1: 4, atom2: 13, order: 1 },
+            { atom1: 4, atom2: 14, order: 1 }
+        ],
+        description: 'Cyclopentane - 5-membered carbon ring'
+    },
+    'C6H12': {
+        name: 'Cyclohexane',
+        formula: 'C6H12',
+        atoms: [
+            // Hexagonal ring
+            { symbol: 'C', relX: 0, relY: -28 },
+            { symbol: 'C', relX: 24, relY: -14 },
+            { symbol: 'C', relX: 24, relY: 14 },
+            { symbol: 'C', relX: 0, relY: 28 },
+            { symbol: 'C', relX: -24, relY: 14 },
+            { symbol: 'C', relX: -24, relY: -14 },
+            // Hydrogens (2 per carbon)
+            { symbol: 'H', relX: -12, relY: -43 },
+            { symbol: 'H', relX: 12, relY: -43 },
+            { symbol: 'H', relX: 40, relY: -24 },
+            { symbol: 'H', relX: 38, relY: -4 },
+            { symbol: 'H', relX: 40, relY: 24 },
+            { symbol: 'H', relX: 38, relY: 4 },
+            { symbol: 'H', relX: -12, relY: 43 },
+            { symbol: 'H', relX: 12, relY: 43 },
+            { symbol: 'H', relX: -40, relY: 24 },
+            { symbol: 'H', relX: -38, relY: 4 },
+            { symbol: 'H', relX: -40, relY: -24 },
+            { symbol: 'H', relX: -38, relY: -4 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 4, atom2: 5, order: 1 },
+            { atom1: 5, atom2: 0, order: 1 },
+            { atom1: 0, atom2: 6, order: 1 },
+            { atom1: 0, atom2: 7, order: 1 },
+            { atom1: 1, atom2: 8, order: 1 },
+            { atom1: 1, atom2: 9, order: 1 },
+            { atom1: 2, atom2: 10, order: 1 },
+            { atom1: 2, atom2: 11, order: 1 },
+            { atom1: 3, atom2: 12, order: 1 },
+            { atom1: 3, atom2: 13, order: 1 },
+            { atom1: 4, atom2: 14, order: 1 },
+            { atom1: 4, atom2: 15, order: 1 },
+            { atom1: 5, atom2: 16, order: 1 },
+            { atom1: 5, atom2: 17, order: 1 }
+        ],
+        description: 'Cyclohexane - 6-membered carbon ring (chair conformation)'
+    },
+
     // ===== MONOMER MOLECULES (for polymer formation) =====
 
     'C2H4': {
