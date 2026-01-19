@@ -329,6 +329,90 @@ if (atom.moleculeId) {
 
 **Key Insight**: Bond lifecycle must be synchronized between environment.bonds (source of truth for rendering) and atom.bonds (convenience cache for chemistry). The `syncBonds()` method provides this synchronization.
 
+### Bug #9: Reshape Loop After Stability (2026-01)
+
+**Problem**: Molecules like C2H4 (Ethylene) would complete reshaping, then immediately start reshaping again in an infinite loop. Console showed repeated "completing reshape to Ethylene" followed by "starting reshape to Ethylene".
+
+**Root Cause**: After `applyStableConfiguration()` completed and set `isReshaping = false`, the next call to `isStable()` would re-check geometry with `needsReshaping()`. Due to small floating-point differences or bond restructuring side-effects, this could return true, triggering another reshape cycle.
+
+**Fix Applied**: Added `geometryVerified` flag to track completed reshapes:
+
+```javascript
+// In molecule state initialization:
+this.geometryVerified = false;  // Set true after reshaping completes
+
+// In isStable():
+if (this.geometryVerified) return true;  // Skip re-check after verified
+
+// In applyStableConfiguration():
+this.geometryVerified = true;  // Mark as verified when complete
+
+// In startReshaping(), cancelReshaping(), and updateProperties():
+this.geometryVerified = false;  // Clear when composition changes
+```
+
+**Key Rule**: Once a molecule completes reshaping successfully, don't re-check geometry until composition changes.
+
+### Bug #10: Stability Requires Geometry Match (2026-01)
+
+**Problem**: Molecules like H2 and H2O would become "stable" immediately upon forming (valence satisfied) without going through the reshaping process. This led to multiple catalogue entries for the same molecule with different shapes.
+
+**Root Cause**: `isStable()` only checked valence satisfaction, not geometry. A molecule with satisfied valences was considered stable even if its atoms were positioned incorrectly.
+
+**Fix Applied**: Updated `isStable()` to require geometry match for known templates:
+
+```javascript
+hasValidValence() {
+    // Original valence-only check (helper method)
+    if (this.atoms.length < 2) return false;
+    if (this.bonds.length < 1) return false;
+    for (const atom of this.atoms) {
+        if (atom.availableValence > 0) return false;
+    }
+    return true;
+}
+
+isStable() {
+    if (!this.hasValidValence()) return false;
+    if (this.isReshaping) return false;
+    if (this.geometryVerified) return true;  // Already verified
+    
+    // Check template geometry for known molecules
+    const template = matchesStableTemplate(this);
+    if (template && needsReshaping(this, template)) {
+        this.startReshaping(template);
+        return false;  // Not stable until reshaped
+    }
+    return true;
+}
+```
+
+**Key Rule**: Molecules matching known templates (H2, H2O, CH4, etc.) are NOT stable until their geometry matches the template configuration.
+
+### Bug #11: Intention Repulsion Policy (2026-01)
+
+**Problem**: Multiple issues with how intentions handled molecules:
+1. Wrong molecules were being actively broken inside intention zones
+2. Unstable molecules with useful atoms were being repelled
+
+**Root Cause**: Overly aggressive handling - intentions were breaking molecules and repelling anything that wasn't the exact target.
+
+**Fix Applied**: Simplified repulsion policy:
+
+```javascript
+// In _attractComponents() for molecule intents:
+// ONLY repel STABLE molecules that don't match target
+// Unstable molecules may still transform - leave them alone
+if (!mol.isStable()) continue;  // Don't repel unstable
+if (mol.formula === targetFormula) continue;  // Don't repel target
+// Repel stable unrelated molecules
+```
+
+**Key Rules**:
+1. **Never break molecules** inside intentions - let chemistry handle transformation
+2. **Only repel stable unrelated molecules** - unstable ones may still become the target
+3. **Attract needed atoms** - repel atoms not in target composition
+
 ---
 
 ## 🧪 Chemistry Rules to Preserve
@@ -338,20 +422,46 @@ if (atom.moleculeId) {
 - `availableValence = maxBonds - currentBondCount`
 - Atoms can only bond if both have `availableValence > 0`
 
-### Molecule Stability
+### Molecule Stability (UPDATED)
 A molecule is stable when:
 1. It has at least 2 atoms
 2. It has at least 1 bond
-3. ALL atoms have `availableValence === 0`
+3. ALL atoms have `availableValence === 0` (valence satisfied)
+4. If formula matches a known template, geometry must also match
+5. NOT currently reshaping
 
 ```javascript
 isStable() {
-    if (this.atoms.length < 2) return false;
-    if (this.bonds.length < 1) return false;
-    for (const atom of this.atoms) {
-        if (atom.availableValence > 0) return false;
+    if (!this.hasValidValence()) return false;
+    if (this.isReshaping) return false;
+    if (this.geometryVerified) return true;
+    
+    const template = matchesStableTemplate(this);
+    if (template && needsReshaping(this, template)) {
+        this.startReshaping(template);
+        return false;
     }
     return true;
+}
+```
+
+### Geometry Verification System
+- `geometryVerified` flag prevents reshape loops
+- Set `true` after `applyStableConfiguration()` completes
+- Cleared when: starting reshape, cancelling reshape, formula changes
+- `isStable()` returns `true` immediately if `geometryVerified` is set
+- `updateProperties()` clears the flag if formula changes (composition changed)
+
+```javascript
+updateProperties() {
+    const oldFormula = this.formula;
+    this.formula = this.calculateFormula();
+    this.fingerprint = this.calculateFingerprint();
+    
+    // If formula changed, geometry needs re-verification
+    if (oldFormula && oldFormula !== this.formula) {
+        this.geometryVerified = false;
+    }
 }
 ```
 
@@ -457,6 +567,12 @@ Before considering a change complete, verify:
 14. [ ] Place H2O molecules close together → do NOT form polymer
 15. [ ] Only molecules with 5+ atoms can potentially polymerize
 
+### Geometry & Reshaping Tests
+16. [ ] H2 molecule goes through reshape animation before becoming stable
+17. [ ] C2H4 (Ethylene) completes reshaping WITHOUT looping indefinitely
+18. [ ] Console does NOT show repeated "completing reshape" followed by "starting reshape"
+19. [ ] Stable molecule with `geometryVerified=true` does NOT trigger new reshape
+
 
 ---
 
@@ -469,14 +585,47 @@ Before considering a change complete, verify:
 
 ---
 
+## �️ UI Behaviors to Preserve
+
+### Play/Pause Button
+- Shows "▶️ Play" when simulation is paused (initial state)
+- Shows "⏸️ Pause" when simulation is running
+- Updated in THREE places: `index.html`, `main.js`, `controls.js`- Button has class `play-pause-btn` for wider styling to fit text
+- Initial HTML must show "▶️ Play" since simulation starts paused
+
+```javascript
+// In main.js _setupUI():
+playPauseBtn.textContent = this.simulation.running ? '⏸️ Pause' : '▶️ Play';
+
+// In controls.js _updatePlayButton():
+btn.textContent = this.simulation.running ? '⏸️ Pause' : '▶️ Play';
+```
+### Paused Interaction
+- Pan (right-click drag) and zoom (scroll wheel) must work when paused
+- Both `_onWheel()` and panning code in `_onMouseMove()` call `this.viewer.render()` to refresh view
+
+```javascript
+// In _onWheel():
+this.viewer.zoom(delta, x, y);
+this.viewer.render();  // CRITICAL: refresh when paused
+
+// In _onMouseMove() panning section:
+this.viewer.pan(dx, dy);
+this.viewer.render();  // CRITICAL: refresh when paused
+```
+
+---
+
 ## 🚫 Common Mistakes to Avoid
 
 1. **Forgetting the bundle**: Always update `cell-simulator.html` when changing source files
 2. **Proximity-based molecules**: Never group atoms into molecules without bond validation
 3. **Ignoring valence**: Always check `availableValence` before forming bonds
-4. **Breaking isStable()**: This method gates polymerization - it must correctly identify satisfied valences
+4. **Breaking isStable()**: This method gates polymerization AND geometry verification
 5. **Breaking canPolymerize()**: Must return `false` for stable molecules
 6. **Hardcoded element lists**: Multiple locations need updating when adding elements
+7. **Breaking geometryVerified**: This flag prevents reshape loops - don't remove it
+8. **Repelling unstable molecules**: Only repel STABLE unrelated molecules in intentions
 
 ---
 
