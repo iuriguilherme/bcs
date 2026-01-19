@@ -143,6 +143,872 @@ const STABLE_MOLECULES = {
         description: 'Hydrogen sulfide - bent shape'
     },
 
+    // ===== CARBON ALLOTROPES & CLUSTERS =====
+
+    'C2': {
+        name: 'Dicarbon',
+        formula: 'C2',
+        atoms: [
+            { symbol: 'C', relX: -15, relY: 0 },
+            { symbol: 'C', relX: 15, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 4 }  // Quadruple bond (or double based on model)
+        ],
+        description: 'Dicarbon - found in carbon vapor and comets'
+    },
+    'C3': {
+        name: 'Tricarbon',
+        formula: 'C3',
+        atoms: [
+            { symbol: 'C', relX: -25, relY: 0 },
+            { symbol: 'C', relX: 0, relY: 0 },
+            { symbol: 'C', relX: 25, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 2 }
+        ],
+        description: 'Tricarbon - linear molecule found in space'
+    },
+    'C4': {
+        name: 'Tetracarbon',
+        formula: 'C4',
+        atoms: [
+            { symbol: 'C', relX: -35, relY: 0 },
+            { symbol: 'C', relX: -12, relY: 0 },
+            { symbol: 'C', relX: 12, relY: 0 },
+            { symbol: 'C', relX: 35, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 2 },
+            { atom1: 2, atom2: 3, order: 2 }
+        ],
+        description: 'Tetracarbon - linear carbon chain (cumulene form)'
+    },
+    'C5': {
+        name: 'Pentacarbon',
+        formula: 'C5',
+        atoms: [
+            { symbol: 'C', relX: -45, relY: 0 },
+            { symbol: 'C', relX: -22, relY: 0 },
+            { symbol: 'C', relX: 0, relY: 0 },
+            { symbol: 'C', relX: 22, relY: 0 },
+            { symbol: 'C', relX: 45, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 2 },
+            { atom1: 2, atom2: 3, order: 2 },
+            { atom1: 3, atom2: 4, order: 2 }
+        ],
+        description: 'Pentacarbon - linear carbon chain'
+    },
+    'C6lin': {
+        name: 'Hexacarbon (Linear)',
+        formula: 'C6',
+        atoms: [
+            { symbol: 'C', relX: -55, relY: 0 },
+            { symbol: 'C', relX: -33, relY: 0 },
+            { symbol: 'C', relX: -11, relY: 0 },
+            { symbol: 'C', relX: 11, relY: 0 },
+            { symbol: 'C', relX: 33, relY: 0 },
+            { symbol: 'C', relX: 55, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 2 },
+            { atom1: 2, atom2: 3, order: 2 },
+            { atom1: 3, atom2: 4, order: 2 },
+            { atom1: 4, atom2: 5, order: 2 }
+        ],
+        description: 'Hexacarbon linear chain (cumulene)'
+    },
+    'C6ring': {
+        name: 'Hexacarbon (Ring)',
+        formula: 'C6',
+        atoms: [
+            // Hexagonal ring
+            { symbol: 'C', relX: 0, relY: -25 },
+            { symbol: 'C', relX: 22, relY: -12 },
+            { symbol: 'C', relX: 22, relY: 12 },
+            { symbol: 'C', relX: 0, relY: 25 },
+            { symbol: 'C', relX: -22, relY: 12 },
+            { symbol: 'C', relX: -22, relY: -12 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 2 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 4, atom2: 5, order: 2 },
+            { atom1: 5, atom2: 0, order: 1 }
+        ],
+        description: 'Hexacarbon ring - cyclic carbon cluster'
+    },
+    'C8': {
+        name: 'Cyclooctacarbon',
+        formula: 'C8',
+        atoms: [
+            // Octagonal ring
+            { symbol: 'C', relX: 0, relY: -30 },
+            { symbol: 'C', relX: 21, relY: -21 },
+            { symbol: 'C', relX: 30, relY: 0 },
+            { symbol: 'C', relX: 21, relY: 21 },
+            { symbol: 'C', relX: 0, relY: 30 },
+            { symbol: 'C', relX: -21, relY: 21 },
+            { symbol: 'C', relX: -30, relY: 0 },
+            { symbol: 'C', relX: -21, relY: -21 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 2 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 4, atom2: 5, order: 2 },
+            { atom1: 5, atom2: 6, order: 1 },
+            { atom1: 6, atom2: 7, order: 2 },
+            { atom1: 7, atom2: 0, order: 1 }
+        ],
+        description: 'Cyclooctacarbon - stable 8-carbon ring'
+    },
+    'C10': {
+        name: 'Cyclodecacarbon',
+        formula: 'C10',
+        atoms: [
+            // Decagonal ring (36° apart)
+            { symbol: 'C', relX: 0, relY: -35 },
+            { symbol: 'C', relX: 20, relY: -28 },
+            { symbol: 'C', relX: 33, relY: -11 },
+            { symbol: 'C', relX: 33, relY: 11 },
+            { symbol: 'C', relX: 20, relY: 28 },
+            { symbol: 'C', relX: 0, relY: 35 },
+            { symbol: 'C', relX: -20, relY: 28 },
+            { symbol: 'C', relX: -33, relY: 11 },
+            { symbol: 'C', relX: -33, relY: -11 },
+            { symbol: 'C', relX: -20, relY: -28 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 2 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 4, atom2: 5, order: 2 },
+            { atom1: 5, atom2: 6, order: 1 },
+            { atom1: 6, atom2: 7, order: 2 },
+            { atom1: 7, atom2: 8, order: 1 },
+            { atom1: 8, atom2: 9, order: 2 },
+            { atom1: 9, atom2: 0, order: 1 }
+        ],
+        description: 'Cyclodecacarbon - 10-carbon ring (detected in space)'
+    },
+    'C12': {
+        name: 'Cyclododecacarbon',
+        formula: 'C12',
+        atoms: [
+            // Dodecagonal ring (30° apart)
+            { symbol: 'C', relX: 0, relY: -40 },
+            { symbol: 'C', relX: 20, relY: -35 },
+            { symbol: 'C', relX: 35, relY: -20 },
+            { symbol: 'C', relX: 40, relY: 0 },
+            { symbol: 'C', relX: 35, relY: 20 },
+            { symbol: 'C', relX: 20, relY: 35 },
+            { symbol: 'C', relX: 0, relY: 40 },
+            { symbol: 'C', relX: -20, relY: 35 },
+            { symbol: 'C', relX: -35, relY: 20 },
+            { symbol: 'C', relX: -40, relY: 0 },
+            { symbol: 'C', relX: -35, relY: -20 },
+            { symbol: 'C', relX: -20, relY: -35 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 2 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 4, atom2: 5, order: 2 },
+            { atom1: 5, atom2: 6, order: 1 },
+            { atom1: 6, atom2: 7, order: 2 },
+            { atom1: 7, atom2: 8, order: 1 },
+            { atom1: 8, atom2: 9, order: 2 },
+            { atom1: 9, atom2: 10, order: 1 },
+            { atom1: 10, atom2: 11, order: 2 },
+            { atom1: 11, atom2: 0, order: 1 }
+        ],
+        description: 'Cyclododecacarbon - 12-carbon ring'
+    },
+
+    // ===== CARBON-OXYGEN COMPOUNDS =====
+
+    'C3O2': {
+        name: 'Carbon Suboxide',
+        formula: 'C3O2',
+        atoms: [
+            { symbol: 'O', relX: -45, relY: 0 },
+            { symbol: 'C', relX: -22, relY: 0 },
+            { symbol: 'C', relX: 0, relY: 0 },
+            { symbol: 'C', relX: 22, relY: 0 },
+            { symbol: 'O', relX: 45, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 2 },
+            { atom1: 2, atom2: 3, order: 2 },
+            { atom1: 3, atom2: 4, order: 2 }
+        ],
+        description: 'Carbon suboxide - linear O=C=C=C=O'
+    },
+    'C2O': {
+        name: 'Dicarbon Monoxide',
+        formula: 'C2O',
+        atoms: [
+            { symbol: 'C', relX: -22, relY: 0 },
+            { symbol: 'C', relX: 0, relY: 0 },
+            { symbol: 'O', relX: 22, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 3 },
+            { atom1: 1, atom2: 2, order: 1 }
+        ],
+        description: 'Dicarbon monoxide - detected in space (C≡C-O)'
+    },
+    'C4O': {
+        name: 'Tetracarbon Monoxide',
+        formula: 'C4O',
+        atoms: [
+            { symbol: 'C', relX: -40, relY: 0 },
+            { symbol: 'C', relX: -20, relY: 0 },
+            { symbol: 'C', relX: 0, relY: 0 },
+            { symbol: 'C', relX: 20, relY: 0 },
+            { symbol: 'O', relX: 40, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 3 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 3 },
+            { atom1: 3, atom2: 4, order: 1 }
+        ],
+        description: 'Tetracarbon monoxide - interstellar molecule'
+    },
+    'C5O': {
+        name: 'Pentacarbon Monoxide',
+        formula: 'C5O',
+        atoms: [
+            { symbol: 'C', relX: -50, relY: 0 },
+            { symbol: 'C', relX: -25, relY: 0 },
+            { symbol: 'C', relX: 0, relY: 0 },
+            { symbol: 'C', relX: 25, relY: 0 },
+            { symbol: 'C', relX: 50, relY: 0 },
+            { symbol: 'O', relX: 72, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 3 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 3 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 4, atom2: 5, order: 3 }
+        ],
+        description: 'Pentacarbon monoxide - carbon chain oxide'
+    },
+    'C2O2': {
+        name: 'Ethylenedione',
+        formula: 'C2O2',
+        atoms: [
+            { symbol: 'O', relX: -35, relY: 0 },
+            { symbol: 'C', relX: -12, relY: 0 },
+            { symbol: 'C', relX: 12, relY: 0 },
+            { symbol: 'O', relX: 35, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 2 },
+            { atom1: 2, atom2: 3, order: 2 }
+        ],
+        description: 'Ethylenedione - O=C=C=O (glyoxal precursor)'
+    },
+    'C4O2': {
+        name: 'Butatrienedione',
+        formula: 'C4O2',
+        atoms: [
+            { symbol: 'O', relX: -50, relY: 0 },
+            { symbol: 'C', relX: -28, relY: 0 },
+            { symbol: 'C', relX: -9, relY: 0 },
+            { symbol: 'C', relX: 9, relY: 0 },
+            { symbol: 'C', relX: 28, relY: 0 },
+            { symbol: 'O', relX: 50, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 2 },
+            { atom1: 2, atom2: 3, order: 2 },
+            { atom1: 3, atom2: 4, order: 2 },
+            { atom1: 4, atom2: 5, order: 2 }
+        ],
+        description: 'Butatrienedione - O=C=C=C=C=O'
+    },
+    'C5O2': {
+        name: 'Pentatetraenedione',
+        formula: 'C5O2',
+        atoms: [
+            { symbol: 'O', relX: -60, relY: 0 },
+            { symbol: 'C', relX: -38, relY: 0 },
+            { symbol: 'C', relX: -19, relY: 0 },
+            { symbol: 'C', relX: 0, relY: 0 },
+            { symbol: 'C', relX: 19, relY: 0 },
+            { symbol: 'C', relX: 38, relY: 0 },
+            { symbol: 'O', relX: 60, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 2 },
+            { atom1: 2, atom2: 3, order: 2 },
+            { atom1: 3, atom2: 4, order: 2 },
+            { atom1: 4, atom2: 5, order: 2 },
+            { atom1: 5, atom2: 6, order: 2 }
+        ],
+        description: 'Pentatetraenedione - O=C=C=C=C=C=O'
+    },
+    'CO3': {
+        name: 'Carbonate Radical',
+        formula: 'CO3',
+        atoms: [
+            { symbol: 'C', relX: 0, relY: 0 },
+            { symbol: 'O', relX: 0, relY: -25 },
+            { symbol: 'O', relX: -22, relY: 12 },
+            { symbol: 'O', relX: 22, relY: 12 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 0, atom2: 2, order: 1 },
+            { atom1: 0, atom2: 3, order: 1 }
+        ],
+        description: 'Carbonate radical - trigonal planar CO3'
+    },
+    'C2O3': {
+        name: 'Oxalic Anhydride',
+        formula: 'C2O3',
+        atoms: [
+            { symbol: 'O', relX: -35, relY: -15 },
+            { symbol: 'C', relX: -15, relY: 0 },
+            { symbol: 'O', relX: 0, relY: 15 },
+            { symbol: 'C', relX: 15, relY: 0 },
+            { symbol: 'O', relX: 35, relY: -15 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 3, atom2: 4, order: 2 }
+        ],
+        description: 'Oxalic anhydride - cyclic C2O3'
+    },
+    'C3O': {
+        name: 'Tricarbon Monoxide',
+        formula: 'C3O',
+        atoms: [
+            { symbol: 'C', relX: -30, relY: 0 },
+            { symbol: 'C', relX: -10, relY: 0 },
+            { symbol: 'C', relX: 10, relY: 0 },
+            { symbol: 'O', relX: 30, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 1, atom2: 2, order: 2 },
+            { atom1: 2, atom2: 3, order: 2 }
+        ],
+        description: 'Tricarbon monoxide - interstellar molecule C=C=C=O'
+    },
+
+    // ===== SIMPLE CARBOHYDRATES =====
+
+    'CH2O': {
+        name: 'Formaldehyde',
+        formula: 'CH2O',
+        atoms: [
+            { symbol: 'C', relX: 0, relY: 0 },
+            { symbol: 'O', relX: 25, relY: 0 },
+            { symbol: 'H', relX: -15, relY: -18 },
+            { symbol: 'H', relX: -15, relY: 18 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 0, atom2: 2, order: 1 },
+            { atom1: 0, atom2: 3, order: 1 }
+        ],
+        description: 'Formaldehyde - simplest aldehyde (H2C=O)'
+    },
+    'C2H4O2': {
+        name: 'Glycolaldehyde',
+        formula: 'C2H4O2',
+        atoms: [
+            { symbol: 'C', relX: -20, relY: 0 },        // CHO carbon
+            { symbol: 'C', relX: 20, relY: 0 },         // CH2OH carbon
+            { symbol: 'O', relX: -40, relY: 0 },        // Aldehyde O
+            { symbol: 'O', relX: 40, relY: 10 },        // Hydroxyl O
+            { symbol: 'H', relX: -20, relY: -22 },      // CHO hydrogen
+            { symbol: 'H', relX: 20, relY: -22 },
+            { symbol: 'H', relX: 20, relY: 22 },
+            { symbol: 'H', relX: 55, relY: 15 }         // OH hydrogen
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 0, atom2: 2, order: 2 },
+            { atom1: 1, atom2: 3, order: 1 },
+            { atom1: 0, atom2: 4, order: 1 },
+            { atom1: 1, atom2: 5, order: 1 },
+            { atom1: 1, atom2: 6, order: 1 },
+            { atom1: 3, atom2: 7, order: 1 }
+        ],
+        description: 'Glycolaldehyde - simplest sugar, found in space (HOCH2-CHO)'
+    },
+    'C3H6O3': {
+        name: 'Glyceraldehyde',
+        formula: 'C3H6O3',
+        atoms: [
+            { symbol: 'C', relX: -30, relY: 0 },        // CHO
+            { symbol: 'C', relX: 0, relY: 0 },          // CHOH
+            { symbol: 'C', relX: 30, relY: 0 },         // CH2OH
+            { symbol: 'O', relX: -50, relY: 0 },        // Aldehyde O
+            { symbol: 'O', relX: 0, relY: 25 },         // Middle OH
+            { symbol: 'O', relX: 50, relY: 10 },        // Terminal OH
+            { symbol: 'H', relX: -30, relY: -22 },
+            { symbol: 'H', relX: 0, relY: -22 },
+            { symbol: 'H', relX: 30, relY: -22 },
+            { symbol: 'H', relX: 30, relY: 22 },
+            { symbol: 'H', relX: 10, relY: 38 },
+            { symbol: 'H', relX: 62, relY: 18 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 0, atom2: 3, order: 2 },
+            { atom1: 1, atom2: 4, order: 1 },
+            { atom1: 2, atom2: 5, order: 1 },
+            { atom1: 0, atom2: 6, order: 1 },
+            { atom1: 1, atom2: 7, order: 1 },
+            { atom1: 2, atom2: 8, order: 1 },
+            { atom1: 2, atom2: 9, order: 1 },
+            { atom1: 4, atom2: 10, order: 1 },
+            { atom1: 5, atom2: 11, order: 1 }
+        ],
+        description: 'Glyceraldehyde - 3-carbon aldose sugar (triose)'
+    },
+    'C3H6O3k': {
+        name: 'Dihydroxyacetone',
+        formula: 'C3H6O3',
+        atoms: [
+            { symbol: 'C', relX: -30, relY: 0 },        // CH2OH
+            { symbol: 'C', relX: 0, relY: 0 },          // C=O
+            { symbol: 'C', relX: 30, relY: 0 },         // CH2OH
+            { symbol: 'O', relX: 0, relY: -25 },        // Ketone O
+            { symbol: 'O', relX: -50, relY: 10 },       // Left OH
+            { symbol: 'O', relX: 50, relY: 10 },        // Right OH
+            { symbol: 'H', relX: -30, relY: -22 },
+            { symbol: 'H', relX: -30, relY: 22 },
+            { symbol: 'H', relX: 30, relY: -22 },
+            { symbol: 'H', relX: 30, relY: 22 },
+            { symbol: 'H', relX: -62, relY: 18 },
+            { symbol: 'H', relX: 62, relY: 18 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 1, atom2: 3, order: 2 },
+            { atom1: 0, atom2: 4, order: 1 },
+            { atom1: 2, atom2: 5, order: 1 },
+            { atom1: 0, atom2: 6, order: 1 },
+            { atom1: 0, atom2: 7, order: 1 },
+            { atom1: 2, atom2: 8, order: 1 },
+            { atom1: 2, atom2: 9, order: 1 },
+            { atom1: 4, atom2: 10, order: 1 },
+            { atom1: 5, atom2: 11, order: 1 }
+        ],
+        description: 'Dihydroxyacetone - 3-carbon ketose sugar (triose)'
+    },
+    'C4H8O4': {
+        name: 'Erythrose',
+        formula: 'C4H8O4',
+        atoms: [
+            { symbol: 'C', relX: -45, relY: 0 },        // CHO
+            { symbol: 'C', relX: -15, relY: 0 },        // CHOH
+            { symbol: 'C', relX: 15, relY: 0 },         // CHOH
+            { symbol: 'C', relX: 45, relY: 0 },         // CH2OH
+            { symbol: 'O', relX: -65, relY: 0 },        // Aldehyde O
+            { symbol: 'O', relX: -15, relY: 25 },       // OH
+            { symbol: 'O', relX: 15, relY: 25 },        // OH
+            { symbol: 'O', relX: 65, relY: 10 },        // Terminal OH
+            { symbol: 'H', relX: -45, relY: -20 },
+            { symbol: 'H', relX: -15, relY: -20 },
+            { symbol: 'H', relX: 15, relY: -20 },
+            { symbol: 'H', relX: 45, relY: -20 },
+            { symbol: 'H', relX: 45, relY: 20 },
+            { symbol: 'H', relX: -5, relY: 38 },
+            { symbol: 'H', relX: 25, relY: 38 },
+            { symbol: 'H', relX: 77, relY: 18 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 0, atom2: 4, order: 2 },
+            { atom1: 1, atom2: 5, order: 1 },
+            { atom1: 2, atom2: 6, order: 1 },
+            { atom1: 3, atom2: 7, order: 1 },
+            { atom1: 0, atom2: 8, order: 1 },
+            { atom1: 1, atom2: 9, order: 1 },
+            { atom1: 2, atom2: 10, order: 1 },
+            { atom1: 3, atom2: 11, order: 1 },
+            { atom1: 3, atom2: 12, order: 1 },
+            { atom1: 5, atom2: 13, order: 1 },
+            { atom1: 6, atom2: 14, order: 1 },
+            { atom1: 7, atom2: 15, order: 1 }
+        ],
+        description: 'Erythrose - 4-carbon aldose sugar (tetrose)'
+    },
+    'C5H10O5': {
+        name: 'Ribose',
+        formula: 'C5H10O5',
+        atoms: [
+            { symbol: 'C', relX: -55, relY: 0 },        // CHO
+            { symbol: 'C', relX: -28, relY: 0 },        // CHOH
+            { symbol: 'C', relX: 0, relY: 0 },          // CHOH
+            { symbol: 'C', relX: 28, relY: 0 },         // CHOH
+            { symbol: 'C', relX: 55, relY: 0 },         // CH2OH
+            { symbol: 'O', relX: -75, relY: 0 },        // Aldehyde O
+            { symbol: 'O', relX: -28, relY: 25 },       // OH
+            { symbol: 'O', relX: 0, relY: 25 },         // OH
+            { symbol: 'O', relX: 28, relY: 25 },        // OH
+            { symbol: 'O', relX: 75, relY: 10 },        // Terminal OH
+            { symbol: 'H', relX: -55, relY: -20 },
+            { symbol: 'H', relX: -28, relY: -20 },
+            { symbol: 'H', relX: 0, relY: -20 },
+            { symbol: 'H', relX: 28, relY: -20 },
+            { symbol: 'H', relX: 55, relY: -20 },
+            { symbol: 'H', relX: 55, relY: 20 },
+            { symbol: 'H', relX: -18, relY: 38 },
+            { symbol: 'H', relX: 10, relY: 38 },
+            { symbol: 'H', relX: 38, relY: 38 },
+            { symbol: 'H', relX: 87, relY: 18 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 0, atom2: 5, order: 2 },
+            { atom1: 1, atom2: 6, order: 1 },
+            { atom1: 2, atom2: 7, order: 1 },
+            { atom1: 3, atom2: 8, order: 1 },
+            { atom1: 4, atom2: 9, order: 1 },
+            { atom1: 0, atom2: 10, order: 1 },
+            { atom1: 1, atom2: 11, order: 1 },
+            { atom1: 2, atom2: 12, order: 1 },
+            { atom1: 3, atom2: 13, order: 1 },
+            { atom1: 4, atom2: 14, order: 1 },
+            { atom1: 4, atom2: 15, order: 1 },
+            { atom1: 6, atom2: 16, order: 1 },
+            { atom1: 7, atom2: 17, order: 1 },
+            { atom1: 8, atom2: 18, order: 1 },
+            { atom1: 9, atom2: 19, order: 1 }
+        ],
+        description: 'Ribose - 5-carbon aldose sugar (pentose), RNA backbone'
+    },
+    'C5H10O5k': {
+        name: 'Ribulose',
+        formula: 'C5H10O5',
+        atoms: [
+            { symbol: 'C', relX: -55, relY: 0 },        // CH2OH
+            { symbol: 'C', relX: -28, relY: 0 },        // C=O
+            { symbol: 'C', relX: 0, relY: 0 },          // CHOH
+            { symbol: 'C', relX: 28, relY: 0 },         // CHOH
+            { symbol: 'C', relX: 55, relY: 0 },         // CH2OH
+            { symbol: 'O', relX: -75, relY: 10 },       // Terminal OH
+            { symbol: 'O', relX: -28, relY: -25 },      // Ketone O
+            { symbol: 'O', relX: 0, relY: 25 },         // OH
+            { symbol: 'O', relX: 28, relY: 25 },        // OH
+            { symbol: 'O', relX: 75, relY: 10 },        // Terminal OH
+            { symbol: 'H', relX: -55, relY: -20 },
+            { symbol: 'H', relX: -55, relY: 20 },
+            { symbol: 'H', relX: 0, relY: -20 },
+            { symbol: 'H', relX: 28, relY: -20 },
+            { symbol: 'H', relX: 55, relY: -20 },
+            { symbol: 'H', relX: 55, relY: 20 },
+            { symbol: 'H', relX: -87, relY: 18 },
+            { symbol: 'H', relX: 10, relY: 38 },
+            { symbol: 'H', relX: 38, relY: 38 },
+            { symbol: 'H', relX: 87, relY: 18 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 0, atom2: 5, order: 1 },
+            { atom1: 1, atom2: 6, order: 2 },
+            { atom1: 2, atom2: 7, order: 1 },
+            { atom1: 3, atom2: 8, order: 1 },
+            { atom1: 4, atom2: 9, order: 1 },
+            { atom1: 0, atom2: 10, order: 1 },
+            { atom1: 0, atom2: 11, order: 1 },
+            { atom1: 2, atom2: 12, order: 1 },
+            { atom1: 3, atom2: 13, order: 1 },
+            { atom1: 4, atom2: 14, order: 1 },
+            { atom1: 4, atom2: 15, order: 1 },
+            { atom1: 5, atom2: 16, order: 1 },
+            { atom1: 7, atom2: 17, order: 1 },
+            { atom1: 8, atom2: 18, order: 1 },
+            { atom1: 9, atom2: 19, order: 1 }
+        ],
+        description: 'Ribulose - 5-carbon ketose sugar (pentose), CO2 fixation'
+    },
+    'C6H12O6': {
+        name: 'Glucose',
+        formula: 'C6H12O6',
+        atoms: [
+            { symbol: 'C', relX: -70, relY: 0 },        // CHO
+            { symbol: 'C', relX: -42, relY: 0 },        // CHOH
+            { symbol: 'C', relX: -14, relY: 0 },        // CHOH
+            { symbol: 'C', relX: 14, relY: 0 },         // CHOH
+            { symbol: 'C', relX: 42, relY: 0 },         // CHOH
+            { symbol: 'C', relX: 70, relY: 0 },         // CH2OH
+            { symbol: 'O', relX: -90, relY: 0 },        // Aldehyde O
+            { symbol: 'O', relX: -42, relY: 25 },       // OH
+            { symbol: 'O', relX: -14, relY: 25 },       // OH
+            { symbol: 'O', relX: 14, relY: 25 },        // OH
+            { symbol: 'O', relX: 42, relY: 25 },        // OH
+            { symbol: 'O', relX: 90, relY: 10 },        // Terminal OH
+            { symbol: 'H', relX: -70, relY: -20 },
+            { symbol: 'H', relX: -42, relY: -20 },
+            { symbol: 'H', relX: -14, relY: -20 },
+            { symbol: 'H', relX: 14, relY: -20 },
+            { symbol: 'H', relX: 42, relY: -20 },
+            { symbol: 'H', relX: 70, relY: -20 },
+            { symbol: 'H', relX: 70, relY: 20 },
+            { symbol: 'H', relX: -32, relY: 38 },
+            { symbol: 'H', relX: -4, relY: 38 },
+            { symbol: 'H', relX: 24, relY: 38 },
+            { symbol: 'H', relX: 52, relY: 38 },
+            { symbol: 'H', relX: 102, relY: 18 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 4, atom2: 5, order: 1 },
+            { atom1: 0, atom2: 6, order: 2 },
+            { atom1: 1, atom2: 7, order: 1 },
+            { atom1: 2, atom2: 8, order: 1 },
+            { atom1: 3, atom2: 9, order: 1 },
+            { atom1: 4, atom2: 10, order: 1 },
+            { atom1: 5, atom2: 11, order: 1 },
+            { atom1: 0, atom2: 12, order: 1 },
+            { atom1: 1, atom2: 13, order: 1 },
+            { atom1: 2, atom2: 14, order: 1 },
+            { atom1: 3, atom2: 15, order: 1 },
+            { atom1: 4, atom2: 16, order: 1 },
+            { atom1: 5, atom2: 17, order: 1 },
+            { atom1: 5, atom2: 18, order: 1 },
+            { atom1: 7, atom2: 19, order: 1 },
+            { atom1: 8, atom2: 20, order: 1 },
+            { atom1: 9, atom2: 21, order: 1 },
+            { atom1: 10, atom2: 22, order: 1 },
+            { atom1: 11, atom2: 23, order: 1 }
+        ],
+        description: 'Glucose - 6-carbon aldose sugar (hexose), primary energy source'
+    },
+    'C6H12O6k': {
+        name: 'Fructose',
+        formula: 'C6H12O6',
+        atoms: [
+            { symbol: 'C', relX: -70, relY: 0 },        // CH2OH
+            { symbol: 'C', relX: -42, relY: 0 },        // C=O
+            { symbol: 'C', relX: -14, relY: 0 },        // CHOH
+            { symbol: 'C', relX: 14, relY: 0 },         // CHOH
+            { symbol: 'C', relX: 42, relY: 0 },         // CHOH
+            { symbol: 'C', relX: 70, relY: 0 },         // CH2OH
+            { symbol: 'O', relX: -90, relY: 10 },       // Terminal OH
+            { symbol: 'O', relX: -42, relY: -25 },      // Ketone O
+            { symbol: 'O', relX: -14, relY: 25 },       // OH
+            { symbol: 'O', relX: 14, relY: 25 },        // OH
+            { symbol: 'O', relX: 42, relY: 25 },        // OH
+            { symbol: 'O', relX: 90, relY: 10 },        // Terminal OH
+            { symbol: 'H', relX: -70, relY: -20 },
+            { symbol: 'H', relX: -70, relY: 20 },
+            { symbol: 'H', relX: -14, relY: -20 },
+            { symbol: 'H', relX: 14, relY: -20 },
+            { symbol: 'H', relX: 42, relY: -20 },
+            { symbol: 'H', relX: 70, relY: -20 },
+            { symbol: 'H', relX: 70, relY: 20 },
+            { symbol: 'H', relX: -102, relY: 18 },
+            { symbol: 'H', relX: -4, relY: 38 },
+            { symbol: 'H', relX: 24, relY: 38 },
+            { symbol: 'H', relX: 52, relY: 38 },
+            { symbol: 'H', relX: 102, relY: 18 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 3, atom2: 4, order: 1 },
+            { atom1: 4, atom2: 5, order: 1 },
+            { atom1: 0, atom2: 6, order: 1 },
+            { atom1: 1, atom2: 7, order: 2 },
+            { atom1: 2, atom2: 8, order: 1 },
+            { atom1: 3, atom2: 9, order: 1 },
+            { atom1: 4, atom2: 10, order: 1 },
+            { atom1: 5, atom2: 11, order: 1 },
+            { atom1: 0, atom2: 12, order: 1 },
+            { atom1: 0, atom2: 13, order: 1 },
+            { atom1: 2, atom2: 14, order: 1 },
+            { atom1: 3, atom2: 15, order: 1 },
+            { atom1: 4, atom2: 16, order: 1 },
+            { atom1: 5, atom2: 17, order: 1 },
+            { atom1: 5, atom2: 18, order: 1 },
+            { atom1: 6, atom2: 19, order: 1 },
+            { atom1: 8, atom2: 20, order: 1 },
+            { atom1: 9, atom2: 21, order: 1 },
+            { atom1: 10, atom2: 22, order: 1 },
+            { atom1: 11, atom2: 23, order: 1 }
+        ],
+        description: 'Fructose - 6-carbon ketose sugar (hexose), fruit sugar'
+    },
+
+    // ===== HYDROXIDES & BASES =====
+
+    'HNaO': {
+        name: 'Sodium Hydroxide',
+        formula: 'HNaO',
+        atoms: [
+            { symbol: 'Na', relX: -20, relY: 0 },
+            { symbol: 'O', relX: 10, relY: 0 },
+            { symbol: 'H', relX: 30, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 }
+        ],
+        description: 'Sodium hydroxide (lye/caustic soda) - strong base NaOH'
+    },
+    'HKO': {
+        name: 'Potassium Hydroxide',
+        formula: 'HKO',
+        atoms: [
+            { symbol: 'K', relX: -22, relY: 0 },
+            { symbol: 'O', relX: 10, relY: 0 },
+            { symbol: 'H', relX: 30, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 }
+        ],
+        description: 'Potassium hydroxide (caustic potash) - strong base KOH'
+    },
+    'CaH2O2': {
+        name: 'Calcium Hydroxide',
+        formula: 'CaH2O2',
+        atoms: [
+            { symbol: 'Ca', relX: 0, relY: 0 },
+            { symbol: 'O', relX: -25, relY: 15 },
+            { symbol: 'O', relX: 25, relY: 15 },
+            { symbol: 'H', relX: -40, relY: 25 },
+            { symbol: 'H', relX: 40, relY: 25 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 0, atom2: 2, order: 1 },
+            { atom1: 1, atom2: 3, order: 1 },
+            { atom1: 2, atom2: 4, order: 1 }
+        ],
+        description: 'Calcium hydroxide (slaked lime) - Ca(OH)2'
+    },
+    'FeH2O2': {
+        name: 'Iron(II) Hydroxide',
+        formula: 'FeH2O2',
+        atoms: [
+            { symbol: 'Fe', relX: 0, relY: 0 },
+            { symbol: 'O', relX: -25, relY: 15 },
+            { symbol: 'O', relX: 25, relY: 15 },
+            { symbol: 'H', relX: -40, relY: 25 },
+            { symbol: 'H', relX: 40, relY: 25 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 0, atom2: 2, order: 1 },
+            { atom1: 1, atom2: 3, order: 1 },
+            { atom1: 2, atom2: 4, order: 1 }
+        ],
+        description: 'Iron(II) hydroxide (ferrous hydroxide) - Fe(OH)2'
+    },
+    'FeH3O3': {
+        name: 'Iron(III) Hydroxide',
+        formula: 'FeH3O3',
+        atoms: [
+            { symbol: 'Fe', relX: 0, relY: 0 },
+            { symbol: 'O', relX: 0, relY: -25 },
+            { symbol: 'O', relX: -22, relY: 12 },
+            { symbol: 'O', relX: 22, relY: 12 },
+            { symbol: 'H', relX: 0, relY: -45 },
+            { symbol: 'H', relX: -37, relY: 22 },
+            { symbol: 'H', relX: 37, relY: 22 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 0, atom2: 2, order: 1 },
+            { atom1: 0, atom2: 3, order: 1 },
+            { atom1: 1, atom2: 4, order: 1 },
+            { atom1: 2, atom2: 5, order: 1 },
+            { atom1: 3, atom2: 6, order: 1 }
+        ],
+        description: 'Iron(III) hydroxide (ferric hydroxide) - Fe(OH)3'
+    },
+    'ClHO': {
+        name: 'Hypochlorous Acid',
+        formula: 'ClHO',
+        atoms: [
+            { symbol: 'Cl', relX: -18, relY: 0 },
+            { symbol: 'O', relX: 10, relY: 0 },
+            { symbol: 'H', relX: 28, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 }
+        ],
+        description: 'Hypochlorous acid - weak acid, disinfectant HOCl'
+    },
+    'H3O': {
+        name: 'Hydronium',
+        formula: 'H3O',
+        atoms: [
+            { symbol: 'O', relX: 0, relY: 0 },
+            { symbol: 'H', relX: 0, relY: -22 },
+            { symbol: 'H', relX: 19, relY: 11 },
+            { symbol: 'H', relX: -19, relY: 11 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 0, atom2: 2, order: 1 },
+            { atom1: 0, atom2: 3, order: 1 }
+        ],
+        description: 'Hydronium ion - protonated water H3O+'
+    },
+    'H2O2': {
+        name: 'Hydrogen Peroxide',
+        formula: 'H2O2',
+        atoms: [
+            { symbol: 'O', relX: -12, relY: 0 },
+            { symbol: 'O', relX: 12, relY: 0 },
+            { symbol: 'H', relX: -28, relY: 15 },
+            { symbol: 'H', relX: 28, relY: -15 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 0, atom2: 2, order: 1 },
+            { atom1: 1, atom2: 3, order: 1 }
+        ],
+        description: 'Hydrogen peroxide - oxidizer with O-O bond'
+    },
+
     // ===== HYDROCARBONS - ALKANES (saturated) =====
 
     'C2H6': {
