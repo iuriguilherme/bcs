@@ -187,6 +187,9 @@ class Controls {
 
             this.mouse.dragStartX = x;
             this.mouse.dragStartY = y;
+            
+            // Render immediately so view updates even when paused
+            this.viewer.render();
         }
 
         // Check for spawner resize handle hover
@@ -239,6 +242,9 @@ class Controls {
 
         const delta = -Math.sign(event.deltaY);
         this.viewer.zoom(delta, x, y);
+        
+        // Render immediately so view updates even when paused
+        this.viewer.render();
     }
 
     /**
@@ -491,7 +497,7 @@ class Controls {
     _updatePlayButton() {
         const btn = document.getElementById('playPauseBtn');
         if (btn) {
-            btn.textContent = this.simulation.running ? 'Pause' : 'Play';
+            btn.textContent = this.simulation.running ? '⏸️ Pause' : '▶️ Play';
         }
     }
 

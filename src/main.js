@@ -96,7 +96,7 @@ class App {
         const playPauseBtn = document.getElementById('playPauseBtn');
         playPauseBtn?.addEventListener('click', () => {
             this.simulation.toggle();
-            playPauseBtn.textContent = this.simulation.running ? 'Pause' : 'Play';
+            playPauseBtn.textContent = this.simulation.running ? '⏸️ Pause' : '▶️ Play';
         });
 
         // Step button

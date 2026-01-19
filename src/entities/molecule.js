@@ -50,6 +50,7 @@ class Molecule {
         this.isReshaping = false;          // Currently reshaping flag
         this.targetPositions = null;       // Cached target positions for atoms
         this.reshapingProgress = 0;        // 0 to 1 progress
+        this.geometryVerified = false;     // Set true after reshaping completes successfully
 
         // Auto-detect if this matches a monomer template
         this._detectMonomerType();
@@ -109,8 +110,14 @@ class Molecule {
      * Update derived properties
      */
     updateProperties() {
+        const oldFormula = this.formula;
         this.formula = this.calculateFormula();
         this.fingerprint = this.calculateFingerprint();
+        
+        // If formula changed, geometry needs re-verification
+        if (oldFormula && oldFormula !== this.formula) {
+            this.geometryVerified = false;
+        }
     }
 
     /**
@@ -167,10 +174,10 @@ class Molecule {
     }
 
     /**
-     * Check if molecule is stable (all valences satisfied)
-     * A molecule needs at least 2 atoms and at least 1 bond to be considered stable
+     * Check if molecule has valid valence (all valences satisfied)
+     * This is a prerequisite for stability but not sufficient alone.
      */
-    isStable() {
+    hasValidValence() {
         // Need at least 2 atoms to be a molecule
         if (this.atoms.length < 2) return false;
 
@@ -183,6 +190,40 @@ class Molecule {
                 return false;
             }
         }
+        return true;
+    }
+
+    /**
+     * Check if molecule is stable (valences satisfied AND geometry matches known template if applicable)
+     * A molecule needs at least 2 atoms, at least 1 bond, and must match its template geometry.
+     * If currently reshaping, the molecule is NOT considered stable until reshaping completes.
+     */
+    isStable() {
+        // Basic valence check first
+        if (!this.hasValidValence()) return false;
+
+        // If currently reshaping, NOT stable yet - wait for completion
+        if (this.isReshaping) return false;
+
+        // If geometry was already verified (after reshaping), skip re-check
+        if (this.geometryVerified) return true;
+
+        // Check if this formula matches a known stable template
+        if (typeof matchesStableTemplate === 'function') {
+            const template = matchesStableTemplate(this);
+            if (template) {
+                // This molecule matches a known formula - check geometry
+                if (typeof needsReshaping === 'function' && needsReshaping(this, template)) {
+                    // Geometry doesn't match template - NOT stable
+                    // Start reshaping if not already
+                    if (!this.isReshaping) {
+                        this.startReshaping(template);
+                    }
+                    return false;
+                }
+            }
+        }
+
         return true;
     }
 
@@ -224,9 +265,8 @@ class Molecule {
      * If so, initiate reshaping to the stable configuration
      */
     _checkForStableTemplate() {
-        // Only check if we're not already reshaping and not stable
+        // Only check if we're not already reshaping
         if (this.isReshaping) return;
-        if (this.isStable()) return;
 
         // Check if matchesStableTemplate function exists (from stable-molecules.js)
         if (typeof matchesStableTemplate !== 'function') return;
@@ -248,6 +288,7 @@ class Molecule {
         this.reshapingTimer = this.reshapingDuration;
         this.isReshaping = true;
         this.reshapingProgress = 0;
+        this.geometryVerified = false;  // Clear until reshaping completes
 
         // Calculate target positions
         if (typeof getTargetConfiguration === 'function') {
@@ -269,6 +310,7 @@ class Molecule {
         this.isReshaping = false;
         this.reshapingProgress = 0;
         this.targetPositions = null;
+        this.geometryVerified = false;  // Needs re-verification
     }
 
     /**
@@ -334,6 +376,7 @@ class Molecule {
         this.isReshaping = false;
         this.reshapingProgress = 1;
         this.reshapingTimer = null;
+        this.geometryVerified = true;  // Mark geometry as verified to prevent re-check loop
 
         // Update properties now that we're stable
         this.updateProperties();
@@ -341,6 +384,11 @@ class Molecule {
         // Set the name from template
         if (this.targetTemplate.name) {
             this.name = this.targetTemplate.name;
+        }
+
+        // Copy monomer flag from template if present
+        if (this.targetTemplate.isMonomer) {
+            this.isMonomer = true;
         }
     }
 
@@ -459,9 +507,10 @@ class Molecule {
     /**
      * Update all atoms in the molecule
      * @param {number} dt - Delta time
+     * @param {Environment} environment - The environment (optional, for intention-aware decay)
      * @returns {object|null} - Returns decay info if atom was released, null otherwise
      */
-    update(dt) {
+    update(dt, environment = null) {
         // If molecule is stable and abstracted, skip individual atom physics
         if (this.abstracted && this.isStable()) {
             // Just update center position based on velocity if moving
@@ -477,16 +526,16 @@ class Molecule {
             }
             // Don't decay while reshaping
         } else if (!this.isStable()) {
-            // Check if we match a stable template and should start reshaping
-            this._checkForStableTemplate();
+            // isStable() automatically starts reshaping if template match found
+            // If we're here and not reshaping, molecule is truly unstable
 
             // Handle decay for unstable molecules (only if not reshaping)
             if (!this.isReshaping) {
                 // Initialize decay timer if not set
                 if (this.decayTimer === null) {
-                    // Decay time: 500-1500 ticks depending on stability
+                    // Decay time: 100-400 ticks depending on stability (faster decay)
                     const stabilityRatio = this._calculateStabilityRatio();
-                    this.decayTimer = 500 + Math.floor(stabilityRatio * 1000);
+                    this.decayTimer = 100 + Math.floor(stabilityRatio * 300);
                     this.decayRate = 1;
                 }
 
@@ -495,18 +544,17 @@ class Molecule {
 
                 // Check if it's time to release an atom
                 if (this.decayTimer <= 0) {
-                    const releasedAtom = this._releaseWeakestAtom();
+                    const releasedAtom = this._releaseWeakestAtom(environment);
                     if (releasedAtom) {
-                        // Reset timer for next potential decay
-                        this.decayTimer = 200 + Math.floor(Math.random() * 300);
+                        // Reset timer for next potential decay (faster)
+                        this.decayTimer = 80 + Math.floor(Math.random() * 120);
                         return { type: 'decay', atom: releasedAtom };
                     }
                 }
             }
         } else {
-            // Stable molecule - reset decay timer and consider abstraction
+            // Molecule is truly stable - reset decay timer
             this.decayTimer = null;
-            this.cancelReshaping(); // Ensure reshaping state is cleared
 
             // Auto-abstract stable molecules in polymers for performance
             if (this.polymerId && !this.abstracted) {
@@ -542,36 +590,117 @@ class Molecule {
 
     /**
      * Release the atom with the weakest bond (most unsatisfied valence)
+     * If inside an intention zone, prioritize releasing atoms that are in EXCESS of the target composition
+     * @param {Environment} environment - The environment (optional)
      * @returns {Atom|null} - The released atom, or null if none released
      */
-    _releaseWeakestAtom() {
-        // Find atom with most unsatisfied valence
+    _releaseWeakestAtom(environment = null) {
+        // Check if we're inside an intention zone and get composition delta
+        let insideIntention = false;
+        let excessElements = null;  // Elements we have too many of
+        let neededElements = null;  // Elements we need more of or should keep
+        
+        if (environment) {
+            const center = this.centerOfMass;
+            for (const intention of environment.intentions.values()) {
+                if (intention.type !== 'molecule') continue;
+                if (intention.fulfilled) continue;
+                
+                const dist = center.distanceTo(intention.position);
+                if (dist < intention.radius) {
+                    insideIntention = true;
+                    // Get what we need to add/remove to match target
+                    const delta = intention.getCompositionDelta(this);
+                    if (delta) {
+                        if (Object.keys(delta.excess).length > 0) {
+                            excessElements = new Set(Object.keys(delta.excess));
+                        }
+                        // Get target composition to know which elements to KEEP
+                        const targetComp = intention.getTargetComposition();
+                        if (targetComp) {
+                            neededElements = new Set(Object.keys(targetComp));
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        
+        // If inside intention and NO excess elements, don't release anything!
+        // Let the molecule try to stabilize with the atoms it has
+        if (insideIntention && !excessElements) {
+            return null;  // Hold onto all atoms - they're all needed
+        }
+        
+        // Find atom to release
+        // Priority 1: Atoms that are in EXCESS of target composition (if inside intention)
+        // Priority 2: Weakest bonded atom that is NOT needed (if inside intention)
+        // Priority 3: Weakest bonded atom (only if NOT inside intention)
         let weakestAtom = null;
         let lowestSatisfaction = 1;
+        let bestExcessAtom = null;
+        let lowestExcessSatisfaction = 1;
+        let weakestUnneededAtom = null;
+        let lowestUnneededSatisfaction = 1;
 
         for (const atom of this.atoms) {
             if (atom.bonds.length === 0) continue; // Skip already free atoms
             const satisfaction = atom.bondCount / atom.maxBonds;
+            
+            // Track best excess atom (atoms we have too many of)
+            if (excessElements && excessElements.has(atom.symbol)) {
+                if (satisfaction < lowestExcessSatisfaction) {
+                    lowestExcessSatisfaction = satisfaction;
+                    bestExcessAtom = atom;
+                }
+            }
+            
+            // Track weakest atom that is NOT needed by the intention
+            if (insideIntention && neededElements && !neededElements.has(atom.symbol)) {
+                if (satisfaction < lowestUnneededSatisfaction) {
+                    lowestUnneededSatisfaction = satisfaction;
+                    weakestUnneededAtom = atom;
+                }
+            }
+            
+            // Also track overall weakest (only used outside intentions)
             if (satisfaction < lowestSatisfaction) {
                 lowestSatisfaction = satisfaction;
                 weakestAtom = atom;
             }
         }
+        
+        // Choose which atom to release based on priority
+        let atomToRelease = null;
+        if (bestExcessAtom) {
+            // First priority: release excess atoms
+            atomToRelease = bestExcessAtom;
+        } else if (insideIntention && weakestUnneededAtom) {
+            // Second priority (inside intention): release unneeded atoms
+            atomToRelease = weakestUnneededAtom;
+        } else if (!insideIntention && weakestAtom) {
+            // Third priority (outside intention only): release weakest
+            atomToRelease = weakestAtom;
+        }
+        // If inside intention and all atoms are needed, atomToRelease stays null
 
-        if (weakestAtom && weakestAtom.bonds.length > 0) {
+        if (atomToRelease && atomToRelease.bonds.length > 0) {
             // Break the weakest bond
-            const bondToBreak = weakestAtom.bonds[0];
+            const bondToBreak = atomToRelease.bonds[0];
             bondToBreak.break();
 
-            // Give atom some velocity away from molecule center
+            // Give atom strong velocity away from molecule center
             const center = this.centerOfMass;
-            const direction = weakestAtom.position.sub(center).normalize();
-            weakestAtom.velocity = direction.mul(2);
+            const direction = atomToRelease.position.sub(center).normalize();
+            atomToRelease.velocity = direction.mul(15);  // Much stronger push away
+
+            // Mark the atom as repelled from this molecule to prevent immediate re-bonding
+            atomToRelease.addRepulsion(this.id, 500);  // Repelled for 500 ticks (longer)
 
             // Clear molecule reference
-            weakestAtom.moleculeId = null;
+            atomToRelease.moleculeId = null;
 
-            return weakestAtom;
+            return atomToRelease;
         }
 
         return null;

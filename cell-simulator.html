@@ -163,6 +163,13 @@ body {
     border-color: var(--accent-primary);
 }
 
+.play-pause-btn {
+    width: auto;
+    padding: 0 var(--space-md);
+    font-size: 0.9rem;
+    min-width: 80px;
+}
+
 #speedSlider {
     width: 120px;
     height: 4px;
@@ -817,7 +824,7 @@ body {
                 </div>
             </div>
             <div class="sim-controls">
-                <button id="playPauseBtn" class="control-btn" title="Play/Pause">▶️</button>
+                <button id="playPauseBtn" class="control-btn play-pause-btn" title="Play/Pause">▶️ Play</button>
                 <button id="stepBtn" class="control-btn" title="Step">⏭️</button>
                 <button id="spawnerBtn" class="control-btn spawner-btn" title="Toggle Atom Spawner">⚛️</button>
                 <input type="range" id="speedSlider" min="1" max="100" value="50" title="Simulation Speed">
@@ -1596,6 +1603,99 @@ const STABLE_MOLECULES = {
             { atom1: 0, atom2: 2, order: 1 }
         ],
         description: 'Hydrogen sulfide - bent shape'
+    },
+
+    // ===== MONOMER MOLECULES (for polymer formation) =====
+
+    'C2H4': {
+        name: 'Ethylene',
+        formula: 'C2H4',
+        isMonomer: true,
+        polymerName: 'Polyethylene',
+        atoms: [
+            { symbol: 'C', relX: -15, relY: 0 },
+            { symbol: 'C', relX: 15, relY: 0 },
+            { symbol: 'H', relX: -30, relY: -15 },
+            { symbol: 'H', relX: -30, relY: 15 },
+            { symbol: 'H', relX: 30, relY: -15 },
+            { symbol: 'H', relX: 30, relY: 15 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },  // C=C double bond
+            { atom1: 0, atom2: 2, order: 1 },  // C-H
+            { atom1: 0, atom2: 3, order: 1 },  // C-H
+            { atom1: 1, atom2: 4, order: 1 },  // C-H
+            { atom1: 1, atom2: 5, order: 1 }   // C-H
+        ],
+        description: 'Ethylene - simplest alkene with C=C double bond'
+    },
+    'C2H5NO2': {
+        name: 'Glycine',
+        formula: 'C2H5NO2',
+        isMonomer: true,
+        polymerName: 'Protein',
+        atoms: [
+            { symbol: 'N', relX: -30, relY: 0 },    // Amino nitrogen
+            { symbol: 'C', relX: 0, relY: 0 },      // Alpha carbon
+            { symbol: 'C', relX: 30, relY: 0 },     // Carboxyl carbon
+            { symbol: 'O', relX: 45, relY: -15 },   // Carboxyl O (double bond)
+            { symbol: 'O', relX: 45, relY: 15 },    // Carboxyl OH
+            { symbol: 'H', relX: -45, relY: -10 },  // NH2 hydrogen
+            { symbol: 'H', relX: -45, relY: 10 },   // NH2 hydrogen
+            { symbol: 'H', relX: 0, relY: -20 },    // CH2 hydrogen
+            { symbol: 'H', relX: 0, relY: 20 },     // CH2 hydrogen
+            { symbol: 'H', relX: 60, relY: 20 }     // OH hydrogen
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },  // N-C
+            { atom1: 1, atom2: 2, order: 1 },  // C-C
+            { atom1: 2, atom2: 3, order: 2 },  // C=O
+            { atom1: 2, atom2: 4, order: 1 },  // C-O
+            { atom1: 0, atom2: 5, order: 1 },  // N-H
+            { atom1: 0, atom2: 6, order: 1 },  // N-H
+            { atom1: 1, atom2: 7, order: 1 },  // C-H
+            { atom1: 1, atom2: 8, order: 1 },  // C-H
+            { atom1: 4, atom2: 9, order: 1 }   // O-H
+        ],
+        description: 'Glycine - simplest amino acid (H2N-CH2-COOH)'
+    },
+    'C4H8O2': {
+        name: 'Butyric Acid (Fatty Acid)',
+        formula: 'C4H8O2',
+        isMonomer: true,
+        polymerName: 'Lipid Chain',
+        atoms: [
+            { symbol: 'C', relX: -45, relY: 0 },   // Methyl C
+            { symbol: 'C', relX: -15, relY: 0 },   // CH2
+            { symbol: 'C', relX: 15, relY: 0 },    // CH2
+            { symbol: 'C', relX: 45, relY: 0 },    // Carboxyl C
+            { symbol: 'O', relX: 60, relY: -15 },  // C=O
+            { symbol: 'O', relX: 60, relY: 15 },   // C-OH
+            { symbol: 'H', relX: -55, relY: -12 },
+            { symbol: 'H', relX: -55, relY: 12 },
+            { symbol: 'H', relX: -55, relY: 0 },   // CH3 H
+            { symbol: 'H', relX: -15, relY: -15 },
+            { symbol: 'H', relX: -15, relY: 15 },
+            { symbol: 'H', relX: 15, relY: -15 },
+            { symbol: 'H', relX: 15, relY: 15 },
+            { symbol: 'H', relX: 75, relY: 20 }    // OH hydrogen
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 3, atom2: 4, order: 2 },
+            { atom1: 3, atom2: 5, order: 1 },
+            { atom1: 0, atom2: 6, order: 1 },
+            { atom1: 0, atom2: 7, order: 1 },
+            { atom1: 0, atom2: 8, order: 1 },
+            { atom1: 1, atom2: 9, order: 1 },
+            { atom1: 1, atom2: 10, order: 1 },
+            { atom1: 2, atom2: 11, order: 1 },
+            { atom1: 2, atom2: 12, order: 1 },
+            { atom1: 5, atom2: 13, order: 1 }
+        ],
+        description: 'Butyric acid - short chain fatty acid (CH3-CH2-CH2-COOH)'
     }
 };
 
@@ -1841,6 +1941,9 @@ class Atom {
         this.mass = this.element.mass;
         this.radius = this.element.radius * 0.5;  // Visual radius scaled down
         this.charge = 0;  // Net charge (for ions)
+        
+        // Repulsion tracking - Map of moleculeId -> remaining ticks of repulsion
+        this.repulsions = new Map();
     }
 
     /**
@@ -1872,6 +1975,11 @@ class Atom {
 
         // Check if already bonded
         if (this.isBondedTo(other)) return false;
+        
+        // Check if this atom is repelled from the other atom's molecule
+        if (other.moleculeId && this.repulsions.has(other.moleculeId)) return false;
+        // Check if the other atom is repelled from this atom's molecule
+        if (this.moleculeId && other.repulsions.has(this.moleculeId)) return false;
 
         return true;
     }
@@ -1929,6 +2037,37 @@ class Atom {
     }
 
     /**
+     * Add a repulsion from a molecule
+     * @param {string} moleculeId - ID of the molecule to be repelled from
+     * @param {number} duration - Duration in ticks (default 200)
+     */
+    addRepulsion(moleculeId, duration = 200) {
+        this.repulsions.set(moleculeId, duration);
+    }
+
+    /**
+     * Check if this atom is repelled from a molecule
+     * @param {string} moleculeId - ID of the molecule
+     * @returns {boolean}
+     */
+    isRepelledFrom(moleculeId) {
+        return this.repulsions.has(moleculeId);
+    }
+
+    /**
+     * Update repulsion timers, removing expired ones
+     */
+    updateRepulsions() {
+        for (const [moleculeId, remaining] of this.repulsions) {
+            if (remaining <= 1) {
+                this.repulsions.delete(moleculeId);
+            } else {
+                this.repulsions.set(moleculeId, remaining - 1);
+            }
+        }
+    }
+
+    /**
      * Apply a force to this atom
      * @param {Vector2} force - Force vector
      */
@@ -1943,6 +2082,9 @@ class Atom {
      * @param {number} dt - Delta time
      */
     update(dt) {
+        // Decay repulsions
+        this.updateRepulsions();
+        
         // Verlet-style integration
         this.velocity = this.velocity.add(this.acceleration.mul(dt));
 
@@ -2178,9 +2320,23 @@ class Bond {
     }
 
     /**
-     * Break this bond
+     * Break this bond with energy release
+     * @param {boolean} addEnergy - Whether to add repulsion velocity (default true)
      */
-    break() {
+    break(addEnergy = true) {
+        // Release energy as velocity pushing atoms apart
+        if (addEnergy && this.atom1 && this.atom2) {
+            const delta = this.atom2.position.sub(this.atom1.position);
+            const dist = delta.length();
+            if (dist > 0) {
+                const direction = delta.normalize();
+                // Energy released proportional to bond strength
+                const energyFactor = 3 + this.order * 2;  // Higher order = more energy
+                this.atom1.velocity = this.atom1.velocity.add(direction.mul(-energyFactor));
+                this.atom2.velocity = this.atom2.velocity.add(direction.mul(energyFactor));
+            }
+        }
+        
         this.atom1.removeBond(this);
         this.atom2.removeBond(this);
     }
@@ -2428,6 +2584,7 @@ class Molecule {
         this.isReshaping = false;          // Currently reshaping flag
         this.targetPositions = null;       // Cached target positions for atoms
         this.reshapingProgress = 0;        // 0 to 1 progress
+        this.geometryVerified = false;     // Set true after reshaping completes successfully
 
         // Auto-detect if this matches a monomer template
         this._detectMonomerType();
@@ -2487,8 +2644,14 @@ class Molecule {
      * Update derived properties
      */
     updateProperties() {
+        const oldFormula = this.formula;
         this.formula = this.calculateFormula();
         this.fingerprint = this.calculateFingerprint();
+        
+        // If formula changed, geometry needs re-verification
+        if (oldFormula && oldFormula !== this.formula) {
+            this.geometryVerified = false;
+        }
     }
 
     /**
@@ -2545,10 +2708,10 @@ class Molecule {
     }
 
     /**
-     * Check if molecule is stable (all valences satisfied)
-     * A molecule needs at least 2 atoms and at least 1 bond to be considered stable
+     * Check if molecule has valid valence (all valences satisfied)
+     * This is a prerequisite for stability but not sufficient alone.
      */
-    isStable() {
+    hasValidValence() {
         // Need at least 2 atoms to be a molecule
         if (this.atoms.length < 2) return false;
 
@@ -2561,6 +2724,40 @@ class Molecule {
                 return false;
             }
         }
+        return true;
+    }
+
+    /**
+     * Check if molecule is stable (valences satisfied AND geometry matches known template if applicable)
+     * A molecule needs at least 2 atoms, at least 1 bond, and must match its template geometry.
+     * If currently reshaping, the molecule is NOT considered stable until reshaping completes.
+     */
+    isStable() {
+        // Basic valence check first
+        if (!this.hasValidValence()) return false;
+
+        // If currently reshaping, NOT stable yet - wait for completion
+        if (this.isReshaping) return false;
+
+        // If geometry was already verified (after reshaping), skip re-check
+        if (this.geometryVerified) return true;
+
+        // Check if this formula matches a known stable template
+        if (typeof matchesStableTemplate === 'function') {
+            const template = matchesStableTemplate(this);
+            if (template) {
+                // This molecule matches a known formula - check geometry
+                if (typeof needsReshaping === 'function' && needsReshaping(this, template)) {
+                    // Geometry doesn't match template - NOT stable
+                    // Start reshaping if not already
+                    if (!this.isReshaping) {
+                        this.startReshaping(template);
+                    }
+                    return false;
+                }
+            }
+        }
+
         return true;
     }
 
@@ -2602,9 +2799,8 @@ class Molecule {
      * If so, initiate reshaping to the stable configuration
      */
     _checkForStableTemplate() {
-        // Only check if we're not already reshaping and not stable
+        // Only check if we're not already reshaping
         if (this.isReshaping) return;
-        if (this.isStable()) return;
 
         // Check if matchesStableTemplate function exists (from stable-molecules.js)
         if (typeof matchesStableTemplate !== 'function') return;
@@ -2626,6 +2822,7 @@ class Molecule {
         this.reshapingTimer = this.reshapingDuration;
         this.isReshaping = true;
         this.reshapingProgress = 0;
+        this.geometryVerified = false;  // Clear until reshaping completes
 
         // Calculate target positions
         if (typeof getTargetConfiguration === 'function') {
@@ -2647,6 +2844,7 @@ class Molecule {
         this.isReshaping = false;
         this.reshapingProgress = 0;
         this.targetPositions = null;
+        this.geometryVerified = false;  // Needs re-verification
     }
 
     /**
@@ -2712,6 +2910,7 @@ class Molecule {
         this.isReshaping = false;
         this.reshapingProgress = 1;
         this.reshapingTimer = null;
+        this.geometryVerified = true;  // Mark geometry as verified to prevent re-check loop
 
         // Update properties now that we're stable
         this.updateProperties();
@@ -2719,6 +2918,11 @@ class Molecule {
         // Set the name from template
         if (this.targetTemplate.name) {
             this.name = this.targetTemplate.name;
+        }
+
+        // Copy monomer flag from template if present
+        if (this.targetTemplate.isMonomer) {
+            this.isMonomer = true;
         }
     }
 
@@ -2837,9 +3041,10 @@ class Molecule {
     /**
      * Update all atoms in the molecule
      * @param {number} dt - Delta time
+     * @param {Environment} environment - The environment (optional, for intention-aware decay)
      * @returns {object|null} - Returns decay info if atom was released, null otherwise
      */
-    update(dt) {
+    update(dt, environment = null) {
         // If molecule is stable and abstracted, skip individual atom physics
         if (this.abstracted && this.isStable()) {
             // Just update center position based on velocity if moving
@@ -2855,16 +3060,16 @@ class Molecule {
             }
             // Don't decay while reshaping
         } else if (!this.isStable()) {
-            // Check if we match a stable template and should start reshaping
-            this._checkForStableTemplate();
+            // isStable() automatically starts reshaping if template match found
+            // If we're here and not reshaping, molecule is truly unstable
 
             // Handle decay for unstable molecules (only if not reshaping)
             if (!this.isReshaping) {
                 // Initialize decay timer if not set
                 if (this.decayTimer === null) {
-                    // Decay time: 500-1500 ticks depending on stability
+                    // Decay time: 100-400 ticks depending on stability (faster decay)
                     const stabilityRatio = this._calculateStabilityRatio();
-                    this.decayTimer = 500 + Math.floor(stabilityRatio * 1000);
+                    this.decayTimer = 100 + Math.floor(stabilityRatio * 300);
                     this.decayRate = 1;
                 }
 
@@ -2873,18 +3078,17 @@ class Molecule {
 
                 // Check if it's time to release an atom
                 if (this.decayTimer <= 0) {
-                    const releasedAtom = this._releaseWeakestAtom();
+                    const releasedAtom = this._releaseWeakestAtom(environment);
                     if (releasedAtom) {
-                        // Reset timer for next potential decay
-                        this.decayTimer = 200 + Math.floor(Math.random() * 300);
+                        // Reset timer for next potential decay (faster)
+                        this.decayTimer = 80 + Math.floor(Math.random() * 120);
                         return { type: 'decay', atom: releasedAtom };
                     }
                 }
             }
         } else {
-            // Stable molecule - reset decay timer and consider abstraction
+            // Molecule is truly stable - reset decay timer
             this.decayTimer = null;
-            this.cancelReshaping(); // Ensure reshaping state is cleared
 
             // Auto-abstract stable molecules in polymers for performance
             if (this.polymerId && !this.abstracted) {
@@ -2920,36 +3124,117 @@ class Molecule {
 
     /**
      * Release the atom with the weakest bond (most unsatisfied valence)
+     * If inside an intention zone, prioritize releasing atoms that are in EXCESS of the target composition
+     * @param {Environment} environment - The environment (optional)
      * @returns {Atom|null} - The released atom, or null if none released
      */
-    _releaseWeakestAtom() {
-        // Find atom with most unsatisfied valence
+    _releaseWeakestAtom(environment = null) {
+        // Check if we're inside an intention zone and get composition delta
+        let insideIntention = false;
+        let excessElements = null;  // Elements we have too many of
+        let neededElements = null;  // Elements we need more of or should keep
+        
+        if (environment) {
+            const center = this.centerOfMass;
+            for (const intention of environment.intentions.values()) {
+                if (intention.type !== 'molecule') continue;
+                if (intention.fulfilled) continue;
+                
+                const dist = center.distanceTo(intention.position);
+                if (dist < intention.radius) {
+                    insideIntention = true;
+                    // Get what we need to add/remove to match target
+                    const delta = intention.getCompositionDelta(this);
+                    if (delta) {
+                        if (Object.keys(delta.excess).length > 0) {
+                            excessElements = new Set(Object.keys(delta.excess));
+                        }
+                        // Get target composition to know which elements to KEEP
+                        const targetComp = intention.getTargetComposition();
+                        if (targetComp) {
+                            neededElements = new Set(Object.keys(targetComp));
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        
+        // If inside intention and NO excess elements, don't release anything!
+        // Let the molecule try to stabilize with the atoms it has
+        if (insideIntention && !excessElements) {
+            return null;  // Hold onto all atoms - they're all needed
+        }
+        
+        // Find atom to release
+        // Priority 1: Atoms that are in EXCESS of target composition (if inside intention)
+        // Priority 2: Weakest bonded atom that is NOT needed (if inside intention)
+        // Priority 3: Weakest bonded atom (only if NOT inside intention)
         let weakestAtom = null;
         let lowestSatisfaction = 1;
+        let bestExcessAtom = null;
+        let lowestExcessSatisfaction = 1;
+        let weakestUnneededAtom = null;
+        let lowestUnneededSatisfaction = 1;
 
         for (const atom of this.atoms) {
             if (atom.bonds.length === 0) continue; // Skip already free atoms
             const satisfaction = atom.bondCount / atom.maxBonds;
+            
+            // Track best excess atom (atoms we have too many of)
+            if (excessElements && excessElements.has(atom.symbol)) {
+                if (satisfaction < lowestExcessSatisfaction) {
+                    lowestExcessSatisfaction = satisfaction;
+                    bestExcessAtom = atom;
+                }
+            }
+            
+            // Track weakest atom that is NOT needed by the intention
+            if (insideIntention && neededElements && !neededElements.has(atom.symbol)) {
+                if (satisfaction < lowestUnneededSatisfaction) {
+                    lowestUnneededSatisfaction = satisfaction;
+                    weakestUnneededAtom = atom;
+                }
+            }
+            
+            // Also track overall weakest (only used outside intentions)
             if (satisfaction < lowestSatisfaction) {
                 lowestSatisfaction = satisfaction;
                 weakestAtom = atom;
             }
         }
+        
+        // Choose which atom to release based on priority
+        let atomToRelease = null;
+        if (bestExcessAtom) {
+            // First priority: release excess atoms
+            atomToRelease = bestExcessAtom;
+        } else if (insideIntention && weakestUnneededAtom) {
+            // Second priority (inside intention): release unneeded atoms
+            atomToRelease = weakestUnneededAtom;
+        } else if (!insideIntention && weakestAtom) {
+            // Third priority (outside intention only): release weakest
+            atomToRelease = weakestAtom;
+        }
+        // If inside intention and all atoms are needed, atomToRelease stays null
 
-        if (weakestAtom && weakestAtom.bonds.length > 0) {
+        if (atomToRelease && atomToRelease.bonds.length > 0) {
             // Break the weakest bond
-            const bondToBreak = weakestAtom.bonds[0];
+            const bondToBreak = atomToRelease.bonds[0];
             bondToBreak.break();
 
-            // Give atom some velocity away from molecule center
+            // Give atom strong velocity away from molecule center
             const center = this.centerOfMass;
-            const direction = weakestAtom.position.sub(center).normalize();
-            weakestAtom.velocity = direction.mul(2);
+            const direction = atomToRelease.position.sub(center).normalize();
+            atomToRelease.velocity = direction.mul(15);  // Much stronger push away
+
+            // Mark the atom as repelled from this molecule to prevent immediate re-bonding
+            atomToRelease.addRepulsion(this.id, 500);  // Repelled for 500 ticks (longer)
 
             // Clear molecule reference
-            weakestAtom.moleculeId = null;
+            atomToRelease.moleculeId = null;
 
-            return weakestAtom;
+            return atomToRelease;
         }
 
         return null;
@@ -4104,6 +4389,92 @@ class Intention {
     }
 
     /**
+     * Get the target element composition for molecule intentions
+     * @returns {Object} - Map of element symbol to count, e.g., { C: 2, H: 4 }
+     */
+    getTargetComposition() {
+        if (this.type !== 'molecule') return null;
+        
+        const composition = {};
+        
+        if (this.blueprint.atomData) {
+            for (const atom of this.blueprint.atomData) {
+                composition[atom.symbol] = (composition[atom.symbol] || 0) + 1;
+            }
+        }
+        
+        return composition;
+    }
+
+    /**
+     * Get the element composition for polymer intentions (from monomer template)
+     * @returns {Set} - Set of element symbols needed for the monomer
+     */
+    getMonomerElements() {
+        if (this.type !== 'polymer') return null;
+        
+        const requirements = this.getRequirements();
+        const elements = new Set();
+        
+        // Get elements from monomer template's atomLayout
+        if (requirements.monomerTemplate && requirements.monomerTemplate.atomLayout) {
+            for (const atom of requirements.monomerTemplate.atomLayout) {
+                elements.add(atom.symbol);
+            }
+        }
+        
+        // Fallback to requiredElements if no atomLayout
+        if (elements.size === 0 && requirements.requiredElements) {
+            for (const el of requirements.requiredElements) {
+                elements.add(el);
+            }
+        }
+        
+        return elements;
+    }
+
+    /**
+     * Calculate what changes a molecule needs to become the target molecule
+     * @param {Molecule} molecule - The molecule to compare
+     * @returns {Object} - { needed: { H: 2 }, excess: { O: 1 }, isMatch: false }
+     */
+    getCompositionDelta(molecule) {
+        if (this.type !== 'molecule') return null;
+        
+        const target = this.getTargetComposition();
+        if (!target) return null;
+        
+        // Get current molecule composition
+        const current = {};
+        for (const atom of molecule.atoms) {
+            current[atom.symbol] = (current[atom.symbol] || 0) + 1;
+        }
+        
+        const needed = {};  // Atoms we need to add
+        const excess = {};  // Atoms we need to remove
+        
+        // Check what's needed (in target but not enough in current)
+        for (const [symbol, count] of Object.entries(target)) {
+            const have = current[symbol] || 0;
+            if (have < count) {
+                needed[symbol] = count - have;
+            }
+        }
+        
+        // Check what's in excess (in current but not needed or too many)
+        for (const [symbol, count] of Object.entries(current)) {
+            const want = target[symbol] || 0;
+            if (count > want) {
+                excess[symbol] = count - want;
+            }
+        }
+        
+        const isMatch = Object.keys(needed).length === 0 && Object.keys(excess).length === 0;
+        
+        return { needed, excess, isMatch };
+    }
+
+    /**
      * Get required components based on blueprint
      */
     getRequirements() {
@@ -4181,6 +4552,9 @@ class Intention {
         if (!requirements) return;
 
         if (requirements.type === 'atoms') {
+            const targetComp = this.getTargetComposition();
+            const neededElements = targetComp ? new Set(Object.keys(targetComp)) : null;
+            
             // Attract free atoms AND atoms in unstable molecules
             for (const atom of environment.atoms.values()) {
                 // Check if atom is in a stable molecule - skip those
@@ -4192,13 +4566,22 @@ class Intention {
                 const dist = atom.position.distanceTo(this.position);
                 if (dist < this.radius && dist > 5) {
                     const direction = this.position.sub(atom.position).normalize();
-                    const force = direction.mul(this.attractionForce * (1 - dist / this.radius));
-                    atom.applyForce(force);
-
-                    // Track gathered atoms
-                    if (dist < this.radius * 0.3) {
-                        this.gatheredComponents.add(atom.id);
+                    let forceMagnitude = this.attractionForce * (1 - dist / this.radius);
+                    
+                    // Smart attraction: attract needed elements, repel unneeded
+                    if (neededElements) {
+                        if (neededElements.has(atom.symbol)) {
+                            // This element is needed - stronger attraction
+                            forceMagnitude *= 1.5;
+                        } else {
+                            // This element is NOT in the target - repel away fast
+                            forceMagnitude *= -1.5;  // Negative = strong repulsion
+                        }
                     }
+                    
+                    const force = direction.mul(forceMagnitude);
+                    atom.applyForce(force);
+                    // Note: gatheredComponents is now managed in progress calculation
                 }
             }
 
@@ -4215,6 +4598,29 @@ class Intention {
                     mol.applyForce(force);
                 }
             }
+
+            // Repel only fully stable molecules that don't match the target formula
+            // Unstable molecules with useful atoms should NOT be repelled - let them transform
+            const targetFormula = this.blueprint ? this.blueprint.formula : null;
+            for (const mol of environment.molecules.values()) {
+                // Skip molecules that are still reshaping (let them finish)
+                if (mol.isReshaping) continue;
+                
+                // If this molecule IS the target formula, don't repel it
+                if (targetFormula && mol.formula === targetFormula) continue;
+                
+                // Only repel STABLE molecules - unstable molecules may still transform
+                if (!mol.isStable()) continue;
+                
+                const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
+                const dist = center.distanceTo(this.position);
+                if (dist < this.radius && dist > 10) {
+                    const direction = this.position.sub(center).normalize();
+                    // Strong repulsion for unrelated stable molecules
+                    const repelForce = direction.mul(-this.attractionForce * 1.5 * (1 - dist / this.radius));
+                    mol.applyForce(repelForce);
+                }
+            }
         } else if (requirements.type === 'molecules') {
             // Attract molecules (that aren't in polymers)
             for (const mol of environment.molecules.values()) {
@@ -4227,36 +4633,60 @@ class Intention {
                     const direction = this.position.sub(center).normalize();
                     const force = direction.mul(this.attractionForce * (1 - dist / this.radius));
                     mol.applyForce(force);
-
-                    // Track gathered molecules
-                    if (dist < this.radius * 0.4) {
-                        this.gatheredComponents.add(mol.id);
-                    }
+                    // Note: gatheredComponents is now managed in progress calculation
                 }
             }
         } else if (requirements.type === 'monomers') {
-            // NEW: Attract only molecules that match the required monomer formula
+            // Attract only molecules that match the required monomer formula
             const requiredFormula = requirements.monomerFormula;
+            const monomerElements = this.getMonomerElements();
+
+            // Repel free atoms that are not part of the monomer formula
+            for (const atom of environment.atoms.values()) {
+                // Skip atoms in molecules
+                if (atom.moleculeId) continue;
+                
+                const dist = atom.position.distanceTo(this.position);
+                if (dist < this.radius && dist > 5) {
+                    const direction = this.position.sub(atom.position).normalize();
+                    
+                    if (monomerElements && monomerElements.has(atom.symbol)) {
+                        // This element is part of the monomer - attract it
+                        const force = direction.mul(this.attractionForce * 0.8 * (1 - dist / this.radius));
+                        atom.applyForce(force);
+                    } else {
+                        // This element is NOT part of the monomer - repel it fast
+                        const repelForce = direction.mul(-this.attractionForce * 1.5 * (1 - dist / this.radius));
+                        atom.applyForce(repelForce);
+                    }
+                }
+            }
 
             for (const mol of environment.molecules.values()) {
                 // Skip molecules already in polymers
                 if (mol.polymerId) continue;
 
-                // Only attract molecules that ARE the right monomer type
-                if (requiredFormula && mol.formula !== requiredFormula) continue;
-                if (!mol.isMonomer) continue; // Must be a designated monomer
-
                 const center = mol.getCenter();
                 const dist = center.distanceTo(this.position);
+                
+                // Check if this is the right monomer type
+                const isCorrectMonomer = mol.isMonomer && 
+                    (!requiredFormula || mol.formula === requiredFormula);
+                
                 if (dist < this.radius && dist > 10) {
                     const direction = this.position.sub(center).normalize();
-                    const force = direction.mul(this.attractionForce * (1 - dist / this.radius));
-                    mol.applyForce(force);
-
-                    // Track gathered monomers
-                    if (dist < this.radius * 0.4) {
-                        this.gatheredComponents.add(mol.id);
+                    
+                    if (isCorrectMonomer) {
+                        // Attract correct monomers
+                        const force = direction.mul(this.attractionForce * (1 - dist / this.radius));
+                        mol.applyForce(force);
+                    } else if (mol.isStable()) {
+                        // Only repel STABLE molecules that are NOT the required monomer
+                        // Unstable molecules may still transform into the needed monomer
+                        const repelForce = direction.mul(-this.attractionForce * 1.5 * (1 - dist / this.radius));
+                        mol.applyForce(repelForce);
                     }
+                    // Note: gatheredComponents is now managed in progress calculation
                 }
             }
         } else if (requirements.type === 'polymers') {
@@ -4270,10 +4700,7 @@ class Intention {
                     for (const mol of polymer.molecules) {
                         mol.applyForce(direction.mul(this.attractionForce * 0.5));
                     }
-
-                    if (dist < this.radius * 0.5) {
-                        this.gatheredComponents.add(polymer.id);
-                    }
+                    // Note: gatheredComponents is now managed in progress calculation
                 }
             }
         }
@@ -4281,19 +4708,32 @@ class Intention {
         // Update progress based on components in/near the zone
         const requirements2 = this.getRequirements();
         if (requirements2.type === 'atoms' && requirements2.count) {
-            // Count all atoms in zone (both free and in small molecules)
-            let atomsInZone = 0;
+            // Count only RELEVANT atoms in zone (matching target composition)
+            const targetComp = this.getTargetComposition();
+            const neededElements = targetComp ? new Set(Object.keys(targetComp)) : null;
+            
+            let relevantAtomsInZone = 0;
+            // Clear and rebuild gatheredComponents each frame
+            this.gatheredComponents.clear();
+            
             for (const atom of environment.atoms.values()) {
                 const dist = atom.position.distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
-                    atomsInZone++;
+                    // Only count atoms that are relevant to the target molecule
+                    if (!neededElements || neededElements.has(atom.symbol)) {
+                        relevantAtomsInZone++;
+                        this.gatheredComponents.add(atom.id);
+                    }
                 }
             }
-            this.progress = Math.min(1, atomsInZone / requirements2.count);
+            this.progress = Math.min(1, relevantAtomsInZone / requirements2.count);
         } else if (requirements2.type === 'monomers' && requirements2.count) {
             // Count matching monomers in zone
             let monomersInZone = 0;
             const requiredFormula = requirements2.monomerFormula;
+            
+            // Clear and rebuild gatheredComponents each frame
+            this.gatheredComponents.clear();
 
             for (const mol of environment.molecules.values()) {
                 if (mol.polymerId) continue;
@@ -4303,11 +4743,15 @@ class Intention {
                 const dist = mol.getCenter().distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
                     monomersInZone++;
+                    this.gatheredComponents.add(mol.id);
                 }
             }
             this.progress = Math.min(1, monomersInZone / requirements2.count);
         } else if (requirements2.count) {
-            this.progress = Math.min(1, this.gatheredComponents.size / requirements2.count);
+            // For other types, also rebuild gatheredComponents
+            this.gatheredComponents.clear();
+            // Progress will be updated by the specific type handler
+            this.progress = 0;
         }
     }
 
@@ -4330,6 +4774,25 @@ class Intention {
                 // IMPORTANT: Skip molecules that existed before this intention was created
                 if (this.excludedMoleculeIds.has(mol.id)) continue;
 
+                // CRITICAL: Molecule must be STABLE before we count it as complete
+                // This ensures the molecule has finished reshaping and won't become unstable
+                if (!mol.isStable()) continue;
+
+                // CRITICAL: Molecule must not be in the middle of reshaping
+                // Wait for it to complete its transformation to the stable form
+                if (mol.isReshaping) continue;
+
+                // CRITICAL: Verify molecule has correct geometry for known templates
+                // If a stable template exists for this formula, ensure molecule matches it
+                if (typeof matchesStableTemplate === 'function' && typeof needsReshaping === 'function') {
+                    const template = matchesStableTemplate(mol);
+                    if (template && needsReshaping(mol, template)) {
+                        // Molecule has wrong geometry - trigger reshaping and wait
+                        mol.startReshaping(template);
+                        continue;
+                    }
+                }
+
                 const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
                 const dist = center.distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
@@ -4337,17 +4800,17 @@ class Intention {
                     // This prevents unrelated molecules from fulfilling the intention
                     const blueprintFormula = this.blueprint.formula;
                     if (blueprintFormula && mol.formula === blueprintFormula) {
-                        // Mark intention as fulfilled - correct molecule formed!
+                        // Mark intention as fulfilled - correct stable molecule formed!
                         this.createdEntity = mol;
                         this.fulfilled = true;
-                        console.log(`Intention fulfilled: Molecule ${mol.formula} matches blueprint`);
+                        console.log(`Intention fulfilled: Stable molecule ${mol.formula} matches blueprint`);
                         return;
                     }
                     // If no formula in blueprint, fall back to atom count check (legacy)
                     else if (!blueprintFormula && mol.atoms.length === requirements.count) {
                         this.createdEntity = mol;
                         this.fulfilled = true;
-                        console.log(`Intention fulfilled: New molecule ${mol.formula} formed (atom count match)`);
+                        console.log(`Intention fulfilled: New stable molecule ${mol.formula} formed (atom count match)`);
                         return;
                     }
                 }
@@ -4473,10 +4936,11 @@ class Intention {
             return; // Don't fulfill - wrong molecule formed
         }
 
-        this.createdEntity = molecule;
-        this.fulfilled = true;
-
-        console.log(`Intention fulfilled: Created molecule ${molecule.formula}`);
+        // CRITICAL: Do NOT fulfill here!
+        // We just created bonds - the molecule may not be stable yet.
+        // The _checkCompletion loop above will verify stability and fulfill.
+        // Just log that molecule was formed - completion check will handle the rest.
+        console.log(`Intention: Created molecule ${molecule.formula}, waiting for stability...`);
     }
 
     /**
@@ -6866,6 +7330,83 @@ class Environment {
     }
 
     /**
+     * Get the molecule intention that an atom is inside (if any)
+     * @param {Atom} atom - The atom to check
+     * @returns {Intention|null} - The intention the atom is inside, or null
+     */
+    getIntentionForAtom(atom) {
+        for (const intention of this.intentions.values()) {
+            if (intention.type !== 'molecule') continue;
+            if (intention.fulfilled) continue;
+            
+            const dist = atom.position.distanceTo(intention.position);
+            if (dist < intention.radius) {
+                return intention;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Check if an atom's element is relevant to a molecule intention
+     * @param {Atom} atom - The atom to check
+     * @param {Intention} intention - The intention to check against
+     * @returns {boolean} - True if the atom's element is needed by the intention
+     */
+    isAtomRelevantToIntention(atom, intention) {
+        if (!intention || intention.type !== 'molecule') return false;
+        
+        const targetComp = intention.getTargetComposition();
+        if (!targetComp) return false;
+        
+        // Check if this atom's element is in the target composition
+        return targetComp[atom.symbol] !== undefined && targetComp[atom.symbol] > 0;
+    }
+
+    /**
+     * Check if an atom would help an unstable molecule inside an intention reach its target
+     * @param {Atom} freeAtom - The free atom being considered for bonding
+     * @param {Atom} moleculeAtom - An atom that's part of a molecule inside an intention
+     * @param {Intention} intention - The intention the molecule is inside
+     * @returns {string} - 'needed', 'excess', or 'neutral'
+     */
+    getAtomBondingPriority(freeAtom, moleculeAtom, intention) {
+        if (!intention || intention.type !== 'molecule') return 'neutral';
+        if (!moleculeAtom.moleculeId) return 'neutral';
+        
+        const molecule = this.molecules.get(moleculeAtom.moleculeId);
+        if (!molecule) return 'neutral';
+        
+        // Get the composition delta for this molecule
+        const delta = intention.getCompositionDelta(molecule);
+        if (!delta) return 'neutral';
+        
+        // If the molecule already matches the target composition,
+        // it should try harder not to bond but can still do so
+        if (delta.isMatch) {
+            return 'stabilizing';  // Reduced bonding, but not blocked
+        }
+        
+        // Check if the free atom's element is needed
+        if (delta.needed[freeAtom.symbol]) {
+            return 'needed';
+        }
+        
+        // Check if the free atom's element is already in excess
+        if (delta.excess[freeAtom.symbol]) {
+            return 'excess';
+        }
+        
+        // Check if adding this atom would create excess
+        const targetComp = intention.getTargetComposition();
+        if (!targetComp[freeAtom.symbol]) {
+            return 'excess';  // Not in target at all
+        }
+        
+        return 'neutral';
+    }
+
+    /**
      * Update all intentions - attract components and check completion
      * @param {number} dt - Delta time
      */
@@ -7057,6 +7598,16 @@ class Environment {
                     const force = delta.normalize().mul(repulsionStrength * overlap);
                     atom1.applyForce(force);
                 }
+                // Molecule repulsion: push atoms away from molecules they were released from
+                else if (atom2.moleculeId && atom1.isRepelledFrom(atom2.moleculeId)) {
+                    // Strong repulsion force away from the molecule's atoms
+                    const repelRadius = 150;
+                    if (dist < repelRadius) {
+                        const factor = 1 - dist / repelRadius;
+                        const force = delta.normalize().mul(repulsionStrength * factor * 1.5);
+                        atom1.applyForce(force);
+                    }
+                }
                 // Slight attraction for non-bonded atoms with available valence
                 else if (dist < attractionRadius &&
                     !atom1.isBondedTo(atom2) &&
@@ -7090,13 +7641,66 @@ class Environment {
                 if (atom1 === atom2) continue;
                 if (atom1.isBondedTo(atom2)) continue;
                 if (atom2.availableValence === 0) continue;
+                
+                // Check for active repulsion (used by molecule decay to prevent rebonding)
+                // Repulsion map stores molecule IDs that released this atom
+                if (atom1.repulsions && atom2.moleculeId && atom1.repulsions.has(atom2.moleculeId)) continue;
+                if (atom2.repulsions && atom1.moleculeId && atom2.repulsions.has(atom1.moleculeId)) continue;
 
                 const dist = atom1.position.distanceTo(atom2.position);
                 const bondDist = (atom1.radius + atom2.radius) * 1.5;
 
                 if (dist < bondDist) {
-                    // Probability increases as atoms get closer
-                    const prob = 1 - (dist / bondDist);
+                    // Base probability increases as atoms get closer
+                    let prob = 1 - (dist / bondDist);
+                    
+                    // Check if either atom is inside a molecule intention
+                    const intention1 = this.getIntentionForAtom(atom1);
+                    const intention2 = this.getIntentionForAtom(atom2);
+                    
+                    // If atoms are in different intentions, heavily reduce bonding
+                    if (intention1 && intention2 && intention1.id !== intention2.id) {
+                        prob *= 0.05; // 95% reduction for cross-intention bonds
+                    }
+                    // If one or both atoms are in an intention
+                    else if (intention1 || intention2) {
+                        const intention = intention1 || intention2;
+                        
+                        // Check if one atom is in a molecule - use smart priority
+                        const atom1InMolecule = atom1.moleculeId && this.molecules.has(atom1.moleculeId);
+                        const atom2InMolecule = atom2.moleculeId && this.molecules.has(atom2.moleculeId);
+                        
+                        if (atom1InMolecule || atom2InMolecule) {
+                            // One atom is in a molecule, the other is potentially free
+                            const moleculeAtom = atom1InMolecule ? atom1 : atom2;
+                            const freeAtom = atom1InMolecule ? atom2 : atom1;
+                            
+                            const priority = this.getAtomBondingPriority(freeAtom, moleculeAtom, intention);
+                            
+                            if (priority === 'needed') {
+                                // This atom is needed by the molecule to reach target - boost!
+                                prob *= 2.0;
+                            } else if (priority === 'excess') {
+                                // This atom would make the molecule further from target - reduce
+                                prob *= 0.05;
+                            } else if (priority === 'stabilizing') {
+                                // Molecule has right composition, trying to stabilize - reduce but allow
+                                prob *= 0.15;
+                            }
+                            // 'neutral' keeps normal probability
+                        } else {
+                            // Neither in a molecule yet - use simple relevance check
+                            const atom1Relevant = this.isAtomRelevantToIntention(atom1, intention);
+                            const atom2Relevant = this.isAtomRelevantToIntention(atom2, intention);
+                            
+                            if (atom1Relevant && atom2Relevant) {
+                                prob *= 1.5;
+                            } else if (!atom1Relevant || !atom2Relevant) {
+                                prob *= 0.1;
+                            }
+                        }
+                    }
+                    
                     if (Math.random() < prob * 0.3) {
                         const bond = tryFormBond(atom1, atom2, 1);
                         if (bond) {
@@ -7304,7 +7908,7 @@ class Environment {
 
         // Update molecules (handles decay for unstable molecules)
         for (const molecule of this.molecules.values()) {
-            molecule.update(dt);
+            molecule.update(dt, this);
         }
 
         // Update molecule registry (detects new molecules, cleans broken ones)
@@ -10179,6 +10783,9 @@ class Controls {
 
             this.mouse.dragStartX = x;
             this.mouse.dragStartY = y;
+            
+            // Render immediately so view updates even when paused
+            this.viewer.render();
         }
 
         // Check for spawner resize handle hover
@@ -10231,6 +10838,9 @@ class Controls {
 
         const delta = -Math.sign(event.deltaY);
         this.viewer.zoom(delta, x, y);
+        
+        // Render immediately so view updates even when paused
+        this.viewer.render();
     }
 
     /**
@@ -10483,7 +11093,7 @@ class Controls {
     _updatePlayButton() {
         const btn = document.getElementById('playPauseBtn');
         if (btn) {
-            btn.textContent = this.simulation.running ? 'Pause' : 'Play';
+            btn.textContent = this.simulation.running ? '⏸️ Pause' : '▶️ Play';
         }
     }
 
@@ -11557,7 +12167,7 @@ class App {
         const playPauseBtn = document.getElementById('playPauseBtn');
         playPauseBtn?.addEventListener('click', () => {
             this.simulation.toggle();
-            playPauseBtn.textContent = this.simulation.running ? 'Pause' : 'Play';
+            playPauseBtn.textContent = this.simulation.running ? '⏸️ Pause' : '▶️ Play';
         });
 
         // Step button

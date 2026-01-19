@@ -82,6 +82,92 @@ class Intention {
     }
 
     /**
+     * Get the target element composition for molecule intentions
+     * @returns {Object} - Map of element symbol to count, e.g., { C: 2, H: 4 }
+     */
+    getTargetComposition() {
+        if (this.type !== 'molecule') return null;
+        
+        const composition = {};
+        
+        if (this.blueprint.atomData) {
+            for (const atom of this.blueprint.atomData) {
+                composition[atom.symbol] = (composition[atom.symbol] || 0) + 1;
+            }
+        }
+        
+        return composition;
+    }
+
+    /**
+     * Get the element composition for polymer intentions (from monomer template)
+     * @returns {Set} - Set of element symbols needed for the monomer
+     */
+    getMonomerElements() {
+        if (this.type !== 'polymer') return null;
+        
+        const requirements = this.getRequirements();
+        const elements = new Set();
+        
+        // Get elements from monomer template's atomLayout
+        if (requirements.monomerTemplate && requirements.monomerTemplate.atomLayout) {
+            for (const atom of requirements.monomerTemplate.atomLayout) {
+                elements.add(atom.symbol);
+            }
+        }
+        
+        // Fallback to requiredElements if no atomLayout
+        if (elements.size === 0 && requirements.requiredElements) {
+            for (const el of requirements.requiredElements) {
+                elements.add(el);
+            }
+        }
+        
+        return elements;
+    }
+
+    /**
+     * Calculate what changes a molecule needs to become the target molecule
+     * @param {Molecule} molecule - The molecule to compare
+     * @returns {Object} - { needed: { H: 2 }, excess: { O: 1 }, isMatch: false }
+     */
+    getCompositionDelta(molecule) {
+        if (this.type !== 'molecule') return null;
+        
+        const target = this.getTargetComposition();
+        if (!target) return null;
+        
+        // Get current molecule composition
+        const current = {};
+        for (const atom of molecule.atoms) {
+            current[atom.symbol] = (current[atom.symbol] || 0) + 1;
+        }
+        
+        const needed = {};  // Atoms we need to add
+        const excess = {};  // Atoms we need to remove
+        
+        // Check what's needed (in target but not enough in current)
+        for (const [symbol, count] of Object.entries(target)) {
+            const have = current[symbol] || 0;
+            if (have < count) {
+                needed[symbol] = count - have;
+            }
+        }
+        
+        // Check what's in excess (in current but not needed or too many)
+        for (const [symbol, count] of Object.entries(current)) {
+            const want = target[symbol] || 0;
+            if (count > want) {
+                excess[symbol] = count - want;
+            }
+        }
+        
+        const isMatch = Object.keys(needed).length === 0 && Object.keys(excess).length === 0;
+        
+        return { needed, excess, isMatch };
+    }
+
+    /**
      * Get required components based on blueprint
      */
     getRequirements() {
@@ -159,6 +245,9 @@ class Intention {
         if (!requirements) return;
 
         if (requirements.type === 'atoms') {
+            const targetComp = this.getTargetComposition();
+            const neededElements = targetComp ? new Set(Object.keys(targetComp)) : null;
+            
             // Attract free atoms AND atoms in unstable molecules
             for (const atom of environment.atoms.values()) {
                 // Check if atom is in a stable molecule - skip those
@@ -170,13 +259,22 @@ class Intention {
                 const dist = atom.position.distanceTo(this.position);
                 if (dist < this.radius && dist > 5) {
                     const direction = this.position.sub(atom.position).normalize();
-                    const force = direction.mul(this.attractionForce * (1 - dist / this.radius));
-                    atom.applyForce(force);
-
-                    // Track gathered atoms
-                    if (dist < this.radius * 0.3) {
-                        this.gatheredComponents.add(atom.id);
+                    let forceMagnitude = this.attractionForce * (1 - dist / this.radius);
+                    
+                    // Smart attraction: attract needed elements, repel unneeded
+                    if (neededElements) {
+                        if (neededElements.has(atom.symbol)) {
+                            // This element is needed - stronger attraction
+                            forceMagnitude *= 1.5;
+                        } else {
+                            // This element is NOT in the target - repel away fast
+                            forceMagnitude *= -1.5;  // Negative = strong repulsion
+                        }
                     }
+                    
+                    const force = direction.mul(forceMagnitude);
+                    atom.applyForce(force);
+                    // Note: gatheredComponents is now managed in progress calculation
                 }
             }
 
@@ -193,6 +291,29 @@ class Intention {
                     mol.applyForce(force);
                 }
             }
+
+            // Repel only fully stable molecules that don't match the target formula
+            // Unstable molecules with useful atoms should NOT be repelled - let them transform
+            const targetFormula = this.blueprint ? this.blueprint.formula : null;
+            for (const mol of environment.molecules.values()) {
+                // Skip molecules that are still reshaping (let them finish)
+                if (mol.isReshaping) continue;
+                
+                // If this molecule IS the target formula, don't repel it
+                if (targetFormula && mol.formula === targetFormula) continue;
+                
+                // Only repel STABLE molecules - unstable molecules may still transform
+                if (!mol.isStable()) continue;
+                
+                const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
+                const dist = center.distanceTo(this.position);
+                if (dist < this.radius && dist > 10) {
+                    const direction = this.position.sub(center).normalize();
+                    // Strong repulsion for unrelated stable molecules
+                    const repelForce = direction.mul(-this.attractionForce * 1.5 * (1 - dist / this.radius));
+                    mol.applyForce(repelForce);
+                }
+            }
         } else if (requirements.type === 'molecules') {
             // Attract molecules (that aren't in polymers)
             for (const mol of environment.molecules.values()) {
@@ -205,36 +326,60 @@ class Intention {
                     const direction = this.position.sub(center).normalize();
                     const force = direction.mul(this.attractionForce * (1 - dist / this.radius));
                     mol.applyForce(force);
-
-                    // Track gathered molecules
-                    if (dist < this.radius * 0.4) {
-                        this.gatheredComponents.add(mol.id);
-                    }
+                    // Note: gatheredComponents is now managed in progress calculation
                 }
             }
         } else if (requirements.type === 'monomers') {
-            // NEW: Attract only molecules that match the required monomer formula
+            // Attract only molecules that match the required monomer formula
             const requiredFormula = requirements.monomerFormula;
+            const monomerElements = this.getMonomerElements();
+
+            // Repel free atoms that are not part of the monomer formula
+            for (const atom of environment.atoms.values()) {
+                // Skip atoms in molecules
+                if (atom.moleculeId) continue;
+                
+                const dist = atom.position.distanceTo(this.position);
+                if (dist < this.radius && dist > 5) {
+                    const direction = this.position.sub(atom.position).normalize();
+                    
+                    if (monomerElements && monomerElements.has(atom.symbol)) {
+                        // This element is part of the monomer - attract it
+                        const force = direction.mul(this.attractionForce * 0.8 * (1 - dist / this.radius));
+                        atom.applyForce(force);
+                    } else {
+                        // This element is NOT part of the monomer - repel it fast
+                        const repelForce = direction.mul(-this.attractionForce * 1.5 * (1 - dist / this.radius));
+                        atom.applyForce(repelForce);
+                    }
+                }
+            }
 
             for (const mol of environment.molecules.values()) {
                 // Skip molecules already in polymers
                 if (mol.polymerId) continue;
 
-                // Only attract molecules that ARE the right monomer type
-                if (requiredFormula && mol.formula !== requiredFormula) continue;
-                if (!mol.isMonomer) continue; // Must be a designated monomer
-
                 const center = mol.getCenter();
                 const dist = center.distanceTo(this.position);
+                
+                // Check if this is the right monomer type
+                const isCorrectMonomer = mol.isMonomer && 
+                    (!requiredFormula || mol.formula === requiredFormula);
+                
                 if (dist < this.radius && dist > 10) {
                     const direction = this.position.sub(center).normalize();
-                    const force = direction.mul(this.attractionForce * (1 - dist / this.radius));
-                    mol.applyForce(force);
-
-                    // Track gathered monomers
-                    if (dist < this.radius * 0.4) {
-                        this.gatheredComponents.add(mol.id);
+                    
+                    if (isCorrectMonomer) {
+                        // Attract correct monomers
+                        const force = direction.mul(this.attractionForce * (1 - dist / this.radius));
+                        mol.applyForce(force);
+                    } else if (mol.isStable()) {
+                        // Only repel STABLE molecules that are NOT the required monomer
+                        // Unstable molecules may still transform into the needed monomer
+                        const repelForce = direction.mul(-this.attractionForce * 1.5 * (1 - dist / this.radius));
+                        mol.applyForce(repelForce);
                     }
+                    // Note: gatheredComponents is now managed in progress calculation
                 }
             }
         } else if (requirements.type === 'polymers') {
@@ -248,10 +393,7 @@ class Intention {
                     for (const mol of polymer.molecules) {
                         mol.applyForce(direction.mul(this.attractionForce * 0.5));
                     }
-
-                    if (dist < this.radius * 0.5) {
-                        this.gatheredComponents.add(polymer.id);
-                    }
+                    // Note: gatheredComponents is now managed in progress calculation
                 }
             }
         }
@@ -259,19 +401,32 @@ class Intention {
         // Update progress based on components in/near the zone
         const requirements2 = this.getRequirements();
         if (requirements2.type === 'atoms' && requirements2.count) {
-            // Count all atoms in zone (both free and in small molecules)
-            let atomsInZone = 0;
+            // Count only RELEVANT atoms in zone (matching target composition)
+            const targetComp = this.getTargetComposition();
+            const neededElements = targetComp ? new Set(Object.keys(targetComp)) : null;
+            
+            let relevantAtomsInZone = 0;
+            // Clear and rebuild gatheredComponents each frame
+            this.gatheredComponents.clear();
+            
             for (const atom of environment.atoms.values()) {
                 const dist = atom.position.distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
-                    atomsInZone++;
+                    // Only count atoms that are relevant to the target molecule
+                    if (!neededElements || neededElements.has(atom.symbol)) {
+                        relevantAtomsInZone++;
+                        this.gatheredComponents.add(atom.id);
+                    }
                 }
             }
-            this.progress = Math.min(1, atomsInZone / requirements2.count);
+            this.progress = Math.min(1, relevantAtomsInZone / requirements2.count);
         } else if (requirements2.type === 'monomers' && requirements2.count) {
             // Count matching monomers in zone
             let monomersInZone = 0;
             const requiredFormula = requirements2.monomerFormula;
+            
+            // Clear and rebuild gatheredComponents each frame
+            this.gatheredComponents.clear();
 
             for (const mol of environment.molecules.values()) {
                 if (mol.polymerId) continue;
@@ -281,11 +436,15 @@ class Intention {
                 const dist = mol.getCenter().distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
                     monomersInZone++;
+                    this.gatheredComponents.add(mol.id);
                 }
             }
             this.progress = Math.min(1, monomersInZone / requirements2.count);
         } else if (requirements2.count) {
-            this.progress = Math.min(1, this.gatheredComponents.size / requirements2.count);
+            // For other types, also rebuild gatheredComponents
+            this.gatheredComponents.clear();
+            // Progress will be updated by the specific type handler
+            this.progress = 0;
         }
     }
 
@@ -308,6 +467,25 @@ class Intention {
                 // IMPORTANT: Skip molecules that existed before this intention was created
                 if (this.excludedMoleculeIds.has(mol.id)) continue;
 
+                // CRITICAL: Molecule must be STABLE before we count it as complete
+                // This ensures the molecule has finished reshaping and won't become unstable
+                if (!mol.isStable()) continue;
+
+                // CRITICAL: Molecule must not be in the middle of reshaping
+                // Wait for it to complete its transformation to the stable form
+                if (mol.isReshaping) continue;
+
+                // CRITICAL: Verify molecule has correct geometry for known templates
+                // If a stable template exists for this formula, ensure molecule matches it
+                if (typeof matchesStableTemplate === 'function' && typeof needsReshaping === 'function') {
+                    const template = matchesStableTemplate(mol);
+                    if (template && needsReshaping(mol, template)) {
+                        // Molecule has wrong geometry - trigger reshaping and wait
+                        mol.startReshaping(template);
+                        continue;
+                    }
+                }
+
                 const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
                 const dist = center.distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
@@ -315,17 +493,17 @@ class Intention {
                     // This prevents unrelated molecules from fulfilling the intention
                     const blueprintFormula = this.blueprint.formula;
                     if (blueprintFormula && mol.formula === blueprintFormula) {
-                        // Mark intention as fulfilled - correct molecule formed!
+                        // Mark intention as fulfilled - correct stable molecule formed!
                         this.createdEntity = mol;
                         this.fulfilled = true;
-                        console.log(`Intention fulfilled: Molecule ${mol.formula} matches blueprint`);
+                        console.log(`Intention fulfilled: Stable molecule ${mol.formula} matches blueprint`);
                         return;
                     }
                     // If no formula in blueprint, fall back to atom count check (legacy)
                     else if (!blueprintFormula && mol.atoms.length === requirements.count) {
                         this.createdEntity = mol;
                         this.fulfilled = true;
-                        console.log(`Intention fulfilled: New molecule ${mol.formula} formed (atom count match)`);
+                        console.log(`Intention fulfilled: New stable molecule ${mol.formula} formed (atom count match)`);
                         return;
                     }
                 }
@@ -451,10 +629,11 @@ class Intention {
             return; // Don't fulfill - wrong molecule formed
         }
 
-        this.createdEntity = molecule;
-        this.fulfilled = true;
-
-        console.log(`Intention fulfilled: Created molecule ${molecule.formula}`);
+        // CRITICAL: Do NOT fulfill here!
+        // We just created bonds - the molecule may not be stable yet.
+        // The _checkCompletion loop above will verify stability and fulfill.
+        // Just log that molecule was formed - completion check will handle the rest.
+        console.log(`Intention: Created molecule ${molecule.formula}, waiting for stability...`);
     }
 
     /**

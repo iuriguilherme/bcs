@@ -155,6 +155,13 @@ body {
     border-color: var(--accent-primary);
 }
 
+.play-pause-btn {
+    width: auto;
+    padding: 0 var(--space-md);
+    font-size: 0.9rem;
+    min-width: 80px;
+}
+
 #speedSlider {
     width: 120px;
     height: 4px;

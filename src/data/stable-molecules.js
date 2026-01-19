@@ -141,6 +141,99 @@ const STABLE_MOLECULES = {
             { atom1: 0, atom2: 2, order: 1 }
         ],
         description: 'Hydrogen sulfide - bent shape'
+    },
+
+    // ===== MONOMER MOLECULES (for polymer formation) =====
+
+    'C2H4': {
+        name: 'Ethylene',
+        formula: 'C2H4',
+        isMonomer: true,
+        polymerName: 'Polyethylene',
+        atoms: [
+            { symbol: 'C', relX: -15, relY: 0 },
+            { symbol: 'C', relX: 15, relY: 0 },
+            { symbol: 'H', relX: -30, relY: -15 },
+            { symbol: 'H', relX: -30, relY: 15 },
+            { symbol: 'H', relX: 30, relY: -15 },
+            { symbol: 'H', relX: 30, relY: 15 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },  // C=C double bond
+            { atom1: 0, atom2: 2, order: 1 },  // C-H
+            { atom1: 0, atom2: 3, order: 1 },  // C-H
+            { atom1: 1, atom2: 4, order: 1 },  // C-H
+            { atom1: 1, atom2: 5, order: 1 }   // C-H
+        ],
+        description: 'Ethylene - simplest alkene with C=C double bond'
+    },
+    'C2H5NO2': {
+        name: 'Glycine',
+        formula: 'C2H5NO2',
+        isMonomer: true,
+        polymerName: 'Protein',
+        atoms: [
+            { symbol: 'N', relX: -30, relY: 0 },    // Amino nitrogen
+            { symbol: 'C', relX: 0, relY: 0 },      // Alpha carbon
+            { symbol: 'C', relX: 30, relY: 0 },     // Carboxyl carbon
+            { symbol: 'O', relX: 45, relY: -15 },   // Carboxyl O (double bond)
+            { symbol: 'O', relX: 45, relY: 15 },    // Carboxyl OH
+            { symbol: 'H', relX: -45, relY: -10 },  // NH2 hydrogen
+            { symbol: 'H', relX: -45, relY: 10 },   // NH2 hydrogen
+            { symbol: 'H', relX: 0, relY: -20 },    // CH2 hydrogen
+            { symbol: 'H', relX: 0, relY: 20 },     // CH2 hydrogen
+            { symbol: 'H', relX: 60, relY: 20 }     // OH hydrogen
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },  // N-C
+            { atom1: 1, atom2: 2, order: 1 },  // C-C
+            { atom1: 2, atom2: 3, order: 2 },  // C=O
+            { atom1: 2, atom2: 4, order: 1 },  // C-O
+            { atom1: 0, atom2: 5, order: 1 },  // N-H
+            { atom1: 0, atom2: 6, order: 1 },  // N-H
+            { atom1: 1, atom2: 7, order: 1 },  // C-H
+            { atom1: 1, atom2: 8, order: 1 },  // C-H
+            { atom1: 4, atom2: 9, order: 1 }   // O-H
+        ],
+        description: 'Glycine - simplest amino acid (H2N-CH2-COOH)'
+    },
+    'C4H8O2': {
+        name: 'Butyric Acid (Fatty Acid)',
+        formula: 'C4H8O2',
+        isMonomer: true,
+        polymerName: 'Lipid Chain',
+        atoms: [
+            { symbol: 'C', relX: -45, relY: 0 },   // Methyl C
+            { symbol: 'C', relX: -15, relY: 0 },   // CH2
+            { symbol: 'C', relX: 15, relY: 0 },    // CH2
+            { symbol: 'C', relX: 45, relY: 0 },    // Carboxyl C
+            { symbol: 'O', relX: 60, relY: -15 },  // C=O
+            { symbol: 'O', relX: 60, relY: 15 },   // C-OH
+            { symbol: 'H', relX: -55, relY: -12 },
+            { symbol: 'H', relX: -55, relY: 12 },
+            { symbol: 'H', relX: -55, relY: 0 },   // CH3 H
+            { symbol: 'H', relX: -15, relY: -15 },
+            { symbol: 'H', relX: -15, relY: 15 },
+            { symbol: 'H', relX: 15, relY: -15 },
+            { symbol: 'H', relX: 15, relY: 15 },
+            { symbol: 'H', relX: 75, relY: 20 }    // OH hydrogen
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },
+            { atom1: 1, atom2: 2, order: 1 },
+            { atom1: 2, atom2: 3, order: 1 },
+            { atom1: 3, atom2: 4, order: 2 },
+            { atom1: 3, atom2: 5, order: 1 },
+            { atom1: 0, atom2: 6, order: 1 },
+            { atom1: 0, atom2: 7, order: 1 },
+            { atom1: 0, atom2: 8, order: 1 },
+            { atom1: 1, atom2: 9, order: 1 },
+            { atom1: 1, atom2: 10, order: 1 },
+            { atom1: 2, atom2: 11, order: 1 },
+            { atom1: 2, atom2: 12, order: 1 },
+            { atom1: 5, atom2: 13, order: 1 }
+        ],
+        description: 'Butyric acid - short chain fatty acid (CH3-CH2-CH2-COOH)'
     }
 };
 

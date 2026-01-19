@@ -37,6 +37,9 @@ class Atom {
         this.mass = this.element.mass;
         this.radius = this.element.radius * 0.5;  // Visual radius scaled down
         this.charge = 0;  // Net charge (for ions)
+        
+        // Repulsion tracking - Map of moleculeId -> remaining ticks of repulsion
+        this.repulsions = new Map();
     }
 
     /**
@@ -68,6 +71,11 @@ class Atom {
 
         // Check if already bonded
         if (this.isBondedTo(other)) return false;
+        
+        // Check if this atom is repelled from the other atom's molecule
+        if (other.moleculeId && this.repulsions.has(other.moleculeId)) return false;
+        // Check if the other atom is repelled from this atom's molecule
+        if (this.moleculeId && other.repulsions.has(this.moleculeId)) return false;
 
         return true;
     }
@@ -125,6 +133,37 @@ class Atom {
     }
 
     /**
+     * Add a repulsion from a molecule
+     * @param {string} moleculeId - ID of the molecule to be repelled from
+     * @param {number} duration - Duration in ticks (default 200)
+     */
+    addRepulsion(moleculeId, duration = 200) {
+        this.repulsions.set(moleculeId, duration);
+    }
+
+    /**
+     * Check if this atom is repelled from a molecule
+     * @param {string} moleculeId - ID of the molecule
+     * @returns {boolean}
+     */
+    isRepelledFrom(moleculeId) {
+        return this.repulsions.has(moleculeId);
+    }
+
+    /**
+     * Update repulsion timers, removing expired ones
+     */
+    updateRepulsions() {
+        for (const [moleculeId, remaining] of this.repulsions) {
+            if (remaining <= 1) {
+                this.repulsions.delete(moleculeId);
+            } else {
+                this.repulsions.set(moleculeId, remaining - 1);
+            }
+        }
+    }
+
+    /**
      * Apply a force to this atom
      * @param {Vector2} force - Force vector
      */
@@ -139,6 +178,9 @@ class Atom {
      * @param {number} dt - Delta time
      */
     update(dt) {
+        // Decay repulsions
+        this.updateRepulsions();
+        
         // Verlet-style integration
         this.velocity = this.velocity.add(this.acceleration.mul(dt));
 

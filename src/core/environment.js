@@ -327,6 +327,83 @@ class Environment {
     }
 
     /**
+     * Get the molecule intention that an atom is inside (if any)
+     * @param {Atom} atom - The atom to check
+     * @returns {Intention|null} - The intention the atom is inside, or null
+     */
+    getIntentionForAtom(atom) {
+        for (const intention of this.intentions.values()) {
+            if (intention.type !== 'molecule') continue;
+            if (intention.fulfilled) continue;
+            
+            const dist = atom.position.distanceTo(intention.position);
+            if (dist < intention.radius) {
+                return intention;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Check if an atom's element is relevant to a molecule intention
+     * @param {Atom} atom - The atom to check
+     * @param {Intention} intention - The intention to check against
+     * @returns {boolean} - True if the atom's element is needed by the intention
+     */
+    isAtomRelevantToIntention(atom, intention) {
+        if (!intention || intention.type !== 'molecule') return false;
+        
+        const targetComp = intention.getTargetComposition();
+        if (!targetComp) return false;
+        
+        // Check if this atom's element is in the target composition
+        return targetComp[atom.symbol] !== undefined && targetComp[atom.symbol] > 0;
+    }
+
+    /**
+     * Check if an atom would help an unstable molecule inside an intention reach its target
+     * @param {Atom} freeAtom - The free atom being considered for bonding
+     * @param {Atom} moleculeAtom - An atom that's part of a molecule inside an intention
+     * @param {Intention} intention - The intention the molecule is inside
+     * @returns {string} - 'needed', 'excess', or 'neutral'
+     */
+    getAtomBondingPriority(freeAtom, moleculeAtom, intention) {
+        if (!intention || intention.type !== 'molecule') return 'neutral';
+        if (!moleculeAtom.moleculeId) return 'neutral';
+        
+        const molecule = this.molecules.get(moleculeAtom.moleculeId);
+        if (!molecule) return 'neutral';
+        
+        // Get the composition delta for this molecule
+        const delta = intention.getCompositionDelta(molecule);
+        if (!delta) return 'neutral';
+        
+        // If the molecule already matches the target composition,
+        // it should try harder not to bond but can still do so
+        if (delta.isMatch) {
+            return 'stabilizing';  // Reduced bonding, but not blocked
+        }
+        
+        // Check if the free atom's element is needed
+        if (delta.needed[freeAtom.symbol]) {
+            return 'needed';
+        }
+        
+        // Check if the free atom's element is already in excess
+        if (delta.excess[freeAtom.symbol]) {
+            return 'excess';
+        }
+        
+        // Check if adding this atom would create excess
+        const targetComp = intention.getTargetComposition();
+        if (!targetComp[freeAtom.symbol]) {
+            return 'excess';  // Not in target at all
+        }
+        
+        return 'neutral';
+    }
+
+    /**
      * Update all intentions - attract components and check completion
      * @param {number} dt - Delta time
      */
@@ -518,6 +595,16 @@ class Environment {
                     const force = delta.normalize().mul(repulsionStrength * overlap);
                     atom1.applyForce(force);
                 }
+                // Molecule repulsion: push atoms away from molecules they were released from
+                else if (atom2.moleculeId && atom1.isRepelledFrom(atom2.moleculeId)) {
+                    // Strong repulsion force away from the molecule's atoms
+                    const repelRadius = 150;
+                    if (dist < repelRadius) {
+                        const factor = 1 - dist / repelRadius;
+                        const force = delta.normalize().mul(repulsionStrength * factor * 1.5);
+                        atom1.applyForce(force);
+                    }
+                }
                 // Slight attraction for non-bonded atoms with available valence
                 else if (dist < attractionRadius &&
                     !atom1.isBondedTo(atom2) &&
@@ -551,13 +638,66 @@ class Environment {
                 if (atom1 === atom2) continue;
                 if (atom1.isBondedTo(atom2)) continue;
                 if (atom2.availableValence === 0) continue;
+                
+                // Check for active repulsion (used by molecule decay to prevent rebonding)
+                // Repulsion map stores molecule IDs that released this atom
+                if (atom1.repulsions && atom2.moleculeId && atom1.repulsions.has(atom2.moleculeId)) continue;
+                if (atom2.repulsions && atom1.moleculeId && atom2.repulsions.has(atom1.moleculeId)) continue;
 
                 const dist = atom1.position.distanceTo(atom2.position);
                 const bondDist = (atom1.radius + atom2.radius) * 1.5;
 
                 if (dist < bondDist) {
-                    // Probability increases as atoms get closer
-                    const prob = 1 - (dist / bondDist);
+                    // Base probability increases as atoms get closer
+                    let prob = 1 - (dist / bondDist);
+                    
+                    // Check if either atom is inside a molecule intention
+                    const intention1 = this.getIntentionForAtom(atom1);
+                    const intention2 = this.getIntentionForAtom(atom2);
+                    
+                    // If atoms are in different intentions, heavily reduce bonding
+                    if (intention1 && intention2 && intention1.id !== intention2.id) {
+                        prob *= 0.05; // 95% reduction for cross-intention bonds
+                    }
+                    // If one or both atoms are in an intention
+                    else if (intention1 || intention2) {
+                        const intention = intention1 || intention2;
+                        
+                        // Check if one atom is in a molecule - use smart priority
+                        const atom1InMolecule = atom1.moleculeId && this.molecules.has(atom1.moleculeId);
+                        const atom2InMolecule = atom2.moleculeId && this.molecules.has(atom2.moleculeId);
+                        
+                        if (atom1InMolecule || atom2InMolecule) {
+                            // One atom is in a molecule, the other is potentially free
+                            const moleculeAtom = atom1InMolecule ? atom1 : atom2;
+                            const freeAtom = atom1InMolecule ? atom2 : atom1;
+                            
+                            const priority = this.getAtomBondingPriority(freeAtom, moleculeAtom, intention);
+                            
+                            if (priority === 'needed') {
+                                // This atom is needed by the molecule to reach target - boost!
+                                prob *= 2.0;
+                            } else if (priority === 'excess') {
+                                // This atom would make the molecule further from target - reduce
+                                prob *= 0.05;
+                            } else if (priority === 'stabilizing') {
+                                // Molecule has right composition, trying to stabilize - reduce but allow
+                                prob *= 0.15;
+                            }
+                            // 'neutral' keeps normal probability
+                        } else {
+                            // Neither in a molecule yet - use simple relevance check
+                            const atom1Relevant = this.isAtomRelevantToIntention(atom1, intention);
+                            const atom2Relevant = this.isAtomRelevantToIntention(atom2, intention);
+                            
+                            if (atom1Relevant && atom2Relevant) {
+                                prob *= 1.5;
+                            } else if (!atom1Relevant || !atom2Relevant) {
+                                prob *= 0.1;
+                            }
+                        }
+                    }
+                    
                     if (Math.random() < prob * 0.3) {
                         const bond = tryFormBond(atom1, atom2, 1);
                         if (bond) {
@@ -765,7 +905,7 @@ class Environment {
 
         // Update molecules (handles decay for unstable molecules)
         for (const molecule of this.molecules.values()) {
-            molecule.update(dt);
+            molecule.update(dt, this);
         }
 
         // Update molecule registry (detects new molecules, cleans broken ones)

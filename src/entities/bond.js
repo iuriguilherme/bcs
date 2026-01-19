@@ -92,9 +92,23 @@ class Bond {
     }
 
     /**
-     * Break this bond
+     * Break this bond with energy release
+     * @param {boolean} addEnergy - Whether to add repulsion velocity (default true)
      */
-    break() {
+    break(addEnergy = true) {
+        // Release energy as velocity pushing atoms apart
+        if (addEnergy && this.atom1 && this.atom2) {
+            const delta = this.atom2.position.sub(this.atom1.position);
+            const dist = delta.length();
+            if (dist > 0) {
+                const direction = delta.normalize();
+                // Energy released proportional to bond strength
+                const energyFactor = 3 + this.order * 2;  // Higher order = more energy
+                this.atom1.velocity = this.atom1.velocity.add(direction.mul(-energyFactor));
+                this.atom2.velocity = this.atom2.velocity.add(direction.mul(energyFactor));
+            }
+        }
+        
         this.atom1.removeBond(this);
         this.atom2.removeBond(this);
     }
