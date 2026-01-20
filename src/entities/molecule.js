@@ -113,7 +113,7 @@ class Molecule {
         const oldFormula = this.formula;
         this.formula = this.calculateFormula();
         this.fingerprint = this.calculateFingerprint();
-        
+
         // If formula changed, geometry needs re-verification
         if (oldFormula && oldFormula !== this.formula) {
             this.geometryVerified = false;
@@ -480,7 +480,7 @@ class Molecule {
             if (atom1 && atom2) {
                 // Create new bond with correct order
                 const bond = new Bond(atom1, atom2, order);
-                
+
                 if (typeof Debug !== 'undefined') {
                     Debug.logBond(`CREATE order:${order}`, bond, this);
                 }
@@ -631,13 +631,13 @@ class Molecule {
         let insideIntention = false;
         let excessElements = null;  // Elements we have too many of
         let neededElements = null;  // Elements we need more of or should keep
-        
+
         if (environment) {
             const center = this.centerOfMass;
             for (const intention of environment.intentions.values()) {
                 if (intention.type !== 'molecule') continue;
                 if (intention.fulfilled) continue;
-                
+
                 const dist = center.distanceTo(intention.position);
                 if (dist < intention.radius) {
                     insideIntention = true;
@@ -657,13 +657,13 @@ class Molecule {
                 }
             }
         }
-        
+
         // If inside intention and NO excess elements, don't release anything!
         // Let the molecule try to stabilize with the atoms it has
         if (insideIntention && !excessElements) {
             return null;  // Hold onto all atoms - they're all needed
         }
-        
+
         // Find atom to release
         // Priority 1: Atoms that are in EXCESS of target composition (if inside intention)
         // Priority 2: Weakest bonded atom that is NOT needed (if inside intention)
@@ -678,7 +678,7 @@ class Molecule {
         for (const atom of this.atoms) {
             if (atom.bonds.length === 0) continue; // Skip already free atoms
             const satisfaction = atom.bondCount / atom.maxBonds;
-            
+
             // Track best excess atom (atoms we have too many of)
             if (excessElements && excessElements.has(atom.symbol)) {
                 if (satisfaction < lowestExcessSatisfaction) {
@@ -686,7 +686,7 @@ class Molecule {
                     bestExcessAtom = atom;
                 }
             }
-            
+
             // Track weakest atom that is NOT needed by the intention
             if (insideIntention && neededElements && !neededElements.has(atom.symbol)) {
                 if (satisfaction < lowestUnneededSatisfaction) {
@@ -694,14 +694,14 @@ class Molecule {
                     weakestUnneededAtom = atom;
                 }
             }
-            
+
             // Also track overall weakest (only used outside intentions)
             if (satisfaction < lowestSatisfaction) {
                 lowestSatisfaction = satisfaction;
                 weakestAtom = atom;
             }
         }
-        
+
         // Choose which atom to release based on priority
         let atomToRelease = null;
         if (bestExcessAtom) {
@@ -857,6 +857,10 @@ class Molecule {
 
     /**
      * Render at molecule level (simplified view)
+     * Uses different colors based on stability:
+     * - Stable: Green gradient (solid)
+     * - Unstable: Red-orange gradient (pulsing)
+     * - Reshaping: Yellow gradient (with progress indicator)
      */
     renderSimplified(ctx, scale = 1, offset = { x: 0, y: 0 }) {
         const center = this.centerOfMass;
@@ -871,6 +875,31 @@ class Molecule {
         }
         const screenRadius = Math.max(20, maxDist * scale);
 
+        // Determine stability state and colors
+        const isStable = this.isStable();
+        const isReshaping = this.isReshaping;
+
+        let colorInner, colorOuter, strokeColor;
+        let pulseMultiplier = 1;
+
+        if (isReshaping) {
+            // Reshaping: Yellow/gold gradient
+            colorInner = 'rgba(234, 179, 8, 0.7)';   // yellow-500
+            colorOuter = 'rgba(202, 138, 4, 0.4)';   // yellow-600
+            strokeColor = 'rgba(234, 179, 8, 0.8)';
+        } else if (isStable) {
+            // Stable: Green gradient
+            colorInner = 'rgba(34, 197, 94, 0.6)';   // green-500
+            colorOuter = 'rgba(22, 163, 74, 0.3)';   // green-600
+            strokeColor = 'rgba(34, 197, 94, 0.7)';
+        } else {
+            // Unstable: Red-orange gradient with pulse
+            pulseMultiplier = 0.7 + Math.sin(Date.now() / 200) * 0.3;
+            colorInner = `rgba(249, 115, 22, ${0.6 * pulseMultiplier})`;  // orange-500
+            colorOuter = `rgba(239, 68, 68, ${0.3 * pulseMultiplier})`;   // red-500
+            strokeColor = `rgba(249, 115, 22, ${0.7 * pulseMultiplier})`;
+        }
+
         // Draw molecule blob
         ctx.beginPath();
         ctx.arc(screenX, screenY, screenRadius, 0, Math.PI * 2);
@@ -883,20 +912,44 @@ class Molecule {
             screenY,
             screenRadius
         );
-        gradient.addColorStop(0, 'rgba(139, 92, 246, 0.6)');
-        gradient.addColorStop(1, 'rgba(99, 102, 241, 0.3)');
+        gradient.addColorStop(0, colorInner);
+        gradient.addColorStop(1, colorOuter);
 
         ctx.fillStyle = gradient;
         ctx.fill();
 
+        // Stroke style based on state
         if (this.selected) {
-            ctx.strokeStyle = '#6366f1';
+            ctx.strokeStyle = isStable ? '#22c55e' : '#f97316';
             ctx.lineWidth = 3;
+            ctx.setLineDash([]);
+        } else if (!isStable && !isReshaping) {
+            // Unstable molecules get dashed stroke
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
         } else {
-            ctx.strokeStyle = 'rgba(139, 92, 246, 0.5)';
+            ctx.strokeStyle = strokeColor;
             ctx.lineWidth = 1;
+            ctx.setLineDash([]);
         }
         ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw decay indicator for unstable molecules
+        if (!isStable && !isReshaping && this.decayTimer !== null) {
+            const decayProgress = this.decayTimer / (100 + 300); // Approximate max decay time
+            const decayRadius = screenRadius + 5;
+
+            // Draw decay arc (depleting)
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, decayRadius,
+                -Math.PI / 2,
+                -Math.PI / 2 + (decayProgress * Math.PI * 2));
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
 
         // Draw formula label
         if (screenRadius > 15) {
@@ -906,7 +959,22 @@ class Molecule {
             ctx.textBaseline = 'middle';
             ctx.fillText(this.formula, screenX, screenY);
         }
+
+        // Draw stability indicator icon
+        if (screenRadius > 25) {
+            const iconY = screenY + screenRadius * 0.5;
+            ctx.font = `${Math.max(8, screenRadius * 0.25)}px sans-serif`;
+            ctx.textAlign = 'center';
+            if (isReshaping) {
+                ctx.fillText('⟳', screenX, iconY);
+            } else if (isStable) {
+                ctx.fillText('✓', screenX, iconY);
+            } else {
+                ctx.fillText('!', screenX, iconY);
+            }
+        }
     }
+
 
     /**
      * Render bounding box for selection

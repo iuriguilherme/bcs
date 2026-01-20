@@ -1,6 +1,6 @@
 /**
  * Build script to bundle cell-simulator.html from source files
- * Usage: deno run --allow-read --allow-write build.ts
+ * Usage: deno run --allow-read --allow-write --allow-run build.ts
  */
 
 const sourceDir = './src';
@@ -38,8 +38,34 @@ const scriptOrder = [
     'src/main.js'
 ];
 
+/**
+ * Get the current version from git tags
+ * Returns the latest tag or 'dev' if no tags found
+ */
+async function getVersion(): Promise<string> {
+    try {
+        const command = new Deno.Command('git', {
+            args: ['describe', '--tags', '--abbrev=0'],
+            stdout: 'piped',
+            stderr: 'piped',
+        });
+        const { code, stdout } = await command.output();
+        if (code === 0) {
+            const version = new TextDecoder().decode(stdout).trim();
+            return version || 'dev';
+        }
+    } catch (e) {
+        console.warn('Could not get git version:', e.message);
+    }
+    return 'dev';
+}
+
 async function build() {
     console.log('Building index.html (production bundle)...');
+
+    // Get version from git
+    const version = await getVersion();
+    console.log(`  Version: ${version}`);
 
     // Read dev.html as template
     const devContent = await Deno.readTextFile(devHtml);
@@ -88,6 +114,7 @@ ${cssContent}
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
+// Version: ${version}
 // Generated: ${new Date().toISOString()}
 // ============================================
 
@@ -96,10 +123,15 @@ ${allScripts}
 </body>
 </html>`;
 
+    // Replace version placeholder
+    bundledHtml = bundledHtml.replaceAll('{{VERSION}}', version);
+
     // Write output
     await Deno.writeTextFile(outputFile, bundledHtml);
     console.log(`\nBuild complete: ${outputFile}`);
+    console.log(`Version: ${version}`);
     console.log(`Total size: ${(bundledHtml.length / 1024).toFixed(1)} KB`);
 }
 
 build().catch(console.error);
+

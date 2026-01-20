@@ -89,6 +89,26 @@ body {
     text-shadow: var(--shadow-glow);
 }
 
+.version-link {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-decoration: none;
+    border: 1px solid var(--border-subtle);
+    margin-left: var(--space-sm);
+    transition: var(--transition-fast);
+    -webkit-text-fill-color: var(--text-secondary);
+}
+
+.version-link:hover {
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+    -webkit-text-fill-color: var(--accent-primary);
+}
+
 .level-indicator {
     display: flex;
     align-items: center;
@@ -129,7 +149,8 @@ body {
 .level-btn.active {
     background: var(--accent-primary);
     opacity: 1;
-    box-shadow: var(--shadow-glow);
+    outline: 2px solid var(--accent-secondary);
+    outline-offset: 1px;
 }
 
 .sim-controls {
@@ -178,7 +199,7 @@ body {
     background: var(--accent-primary);
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: var(--shadow-glow);
+    border: 2px solid var(--accent-secondary);
 }
 
 /* Main Content */
@@ -259,7 +280,10 @@ body {
 
 .atom-btn.selected {
     border-color: var(--accent-primary);
-    box-shadow: var(--shadow-glow);
+    background: var(--accent-primary);
+    color: white;
+    outline: 2px solid var(--accent-secondary);
+    outline-offset: 2px;
 }
 
 .atom-btn .symbol {
@@ -458,6 +482,31 @@ body {
     background: var(--text-secondary);
 }
 
+/* Accessibility: Focus States */
+.atom-btn:focus-visible,
+.palette-btn:focus-visible,
+.atom-pool-btn:focus-visible,
+.level-btn:focus-visible,
+.tool-btn:focus-visible,
+.control-btn:focus-visible,
+.tab-btn:focus-visible,
+.catalogue-item:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
 /* Animations */
 @keyframes pulse {
 
@@ -533,7 +582,10 @@ body {
 
 .palette-btn.selected {
     border-color: var(--accent-primary);
-    box-shadow: var(--shadow-glow);
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: white;
+    outline: 2px solid rgba(255, 255, 255, 0.3);
+    outline-offset: 2px;
 }
 
 .palette-btn .symbol {
@@ -611,16 +663,9 @@ body {
 .spawner-btn.active {
     background: var(--success);
     border-color: var(--success);
-    animation: pulse-glow 2s ease-in-out infinite;
-}
-
-@keyframes pulse-glow {
-    0%, 100% {
-        box-shadow: 0 0 5px rgba(16, 185, 129, 0.3);
-    }
-    50% {
-        box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
-    }
+    color: white;
+    outline: 2px solid rgba(255, 255, 255, 0.4);
+    outline-offset: 2px;
 }
 
 /* Modal Styles */
@@ -778,7 +823,10 @@ body {
 .atom-pool-btn.selected {
     opacity: 1;
     border-color: var(--success);
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+    background: var(--success);
+    color: white;
+    outline: 2px solid rgba(255, 255, 255, 0.4);
+    outline-offset: 1px;
 }
 
 .btn-primary {

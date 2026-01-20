@@ -13,7 +13,8 @@
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim</h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/{{VERSION}}"
+                    class="version-link" target="_blank">{{VERSION}}</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -119,7 +120,7 @@
                     <div class="form-group">
                         <label>Spawn Zone Size:</label>
                         <div class="zone-size-inputs">
-                            <input type="number" id="zoneWidth" value="400" min="50"> × 
+                            <input type="number" id="zoneWidth" value="400" min="50"> ×
                             <input type="number" id="zoneHeight" value="400" min="50"> px
                         </div>
                         <span class="form-hint">Drag zone borders on canvas to resize visually</span>

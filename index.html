@@ -97,6 +97,26 @@ body {
     text-shadow: var(--shadow-glow);
 }
 
+.version-link {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-decoration: none;
+    border: 1px solid var(--border-subtle);
+    margin-left: var(--space-sm);
+    transition: var(--transition-fast);
+    -webkit-text-fill-color: var(--text-secondary);
+}
+
+.version-link:hover {
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+    -webkit-text-fill-color: var(--accent-primary);
+}
+
 .level-indicator {
     display: flex;
     align-items: center;
@@ -137,7 +157,8 @@ body {
 .level-btn.active {
     background: var(--accent-primary);
     opacity: 1;
-    box-shadow: var(--shadow-glow);
+    outline: 2px solid var(--accent-secondary);
+    outline-offset: 1px;
 }
 
 .sim-controls {
@@ -186,7 +207,7 @@ body {
     background: var(--accent-primary);
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: var(--shadow-glow);
+    border: 2px solid var(--accent-secondary);
 }
 
 /* Main Content */
@@ -267,7 +288,10 @@ body {
 
 .atom-btn.selected {
     border-color: var(--accent-primary);
-    box-shadow: var(--shadow-glow);
+    background: var(--accent-primary);
+    color: white;
+    outline: 2px solid var(--accent-secondary);
+    outline-offset: 2px;
 }
 
 .atom-btn .symbol {
@@ -466,6 +490,31 @@ body {
     background: var(--text-secondary);
 }
 
+/* Accessibility: Focus States */
+.atom-btn:focus-visible,
+.palette-btn:focus-visible,
+.atom-pool-btn:focus-visible,
+.level-btn:focus-visible,
+.tool-btn:focus-visible,
+.control-btn:focus-visible,
+.tab-btn:focus-visible,
+.catalogue-item:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
 /* Animations */
 @keyframes pulse {
 
@@ -541,7 +590,10 @@ body {
 
 .palette-btn.selected {
     border-color: var(--accent-primary);
-    box-shadow: var(--shadow-glow);
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: white;
+    outline: 2px solid rgba(255, 255, 255, 0.3);
+    outline-offset: 2px;
 }
 
 .palette-btn .symbol {
@@ -619,16 +671,9 @@ body {
 .spawner-btn.active {
     background: var(--success);
     border-color: var(--success);
-    animation: pulse-glow 2s ease-in-out infinite;
-}
-
-@keyframes pulse-glow {
-    0%, 100% {
-        box-shadow: 0 0 5px rgba(16, 185, 129, 0.3);
-    }
-    50% {
-        box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
-    }
+    color: white;
+    outline: 2px solid rgba(255, 255, 255, 0.4);
+    outline-offset: 2px;
 }
 
 /* Modal Styles */
@@ -786,7 +831,10 @@ body {
 .atom-pool-btn.selected {
     opacity: 1;
     border-color: var(--success);
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+    background: var(--success);
+    color: white;
+    outline: 2px solid rgba(255, 255, 255, 0.4);
+    outline-offset: 1px;
 }
 
 .btn-primary {
@@ -811,7 +859,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim</h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.16.0"
+                    class="version-link" target="_blank">v0.16.0</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -917,7 +966,7 @@ body {
                     <div class="form-group">
                         <label>Spawn Zone Size:</label>
                         <div class="zone-size-inputs">
-                            <input type="number" id="zoneWidth" value="400" min="50"> × 
+                            <input type="number" id="zoneWidth" value="400" min="50"> ×
                             <input type="number" id="zoneHeight" value="400" min="50"> px
                         </div>
                         <span class="form-hint">Drag zone borders on canvas to resize visually</span>
@@ -960,7 +1009,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Generated: 2026-01-20T01:17:00.902Z
+// Version: v0.16.0
+// Generated: 2026-01-20T18:15:34.694Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -4136,7 +4186,7 @@ class Molecule {
         const oldFormula = this.formula;
         this.formula = this.calculateFormula();
         this.fingerprint = this.calculateFingerprint();
-        
+
         // If formula changed, geometry needs re-verification
         if (oldFormula && oldFormula !== this.formula) {
             this.geometryVerified = false;
@@ -4503,7 +4553,7 @@ class Molecule {
             if (atom1 && atom2) {
                 // Create new bond with correct order
                 const bond = new Bond(atom1, atom2, order);
-                
+
                 if (typeof Debug !== 'undefined') {
                     Debug.logBond(`CREATE order:${order}`, bond, this);
                 }
@@ -4654,13 +4704,13 @@ class Molecule {
         let insideIntention = false;
         let excessElements = null;  // Elements we have too many of
         let neededElements = null;  // Elements we need more of or should keep
-        
+
         if (environment) {
             const center = this.centerOfMass;
             for (const intention of environment.intentions.values()) {
                 if (intention.type !== 'molecule') continue;
                 if (intention.fulfilled) continue;
-                
+
                 const dist = center.distanceTo(intention.position);
                 if (dist < intention.radius) {
                     insideIntention = true;
@@ -4680,13 +4730,13 @@ class Molecule {
                 }
             }
         }
-        
+
         // If inside intention and NO excess elements, don't release anything!
         // Let the molecule try to stabilize with the atoms it has
         if (insideIntention && !excessElements) {
             return null;  // Hold onto all atoms - they're all needed
         }
-        
+
         // Find atom to release
         // Priority 1: Atoms that are in EXCESS of target composition (if inside intention)
         // Priority 2: Weakest bonded atom that is NOT needed (if inside intention)
@@ -4701,7 +4751,7 @@ class Molecule {
         for (const atom of this.atoms) {
             if (atom.bonds.length === 0) continue; // Skip already free atoms
             const satisfaction = atom.bondCount / atom.maxBonds;
-            
+
             // Track best excess atom (atoms we have too many of)
             if (excessElements && excessElements.has(atom.symbol)) {
                 if (satisfaction < lowestExcessSatisfaction) {
@@ -4709,7 +4759,7 @@ class Molecule {
                     bestExcessAtom = atom;
                 }
             }
-            
+
             // Track weakest atom that is NOT needed by the intention
             if (insideIntention && neededElements && !neededElements.has(atom.symbol)) {
                 if (satisfaction < lowestUnneededSatisfaction) {
@@ -4717,14 +4767,14 @@ class Molecule {
                     weakestUnneededAtom = atom;
                 }
             }
-            
+
             // Also track overall weakest (only used outside intentions)
             if (satisfaction < lowestSatisfaction) {
                 lowestSatisfaction = satisfaction;
                 weakestAtom = atom;
             }
         }
-        
+
         // Choose which atom to release based on priority
         let atomToRelease = null;
         if (bestExcessAtom) {
@@ -4880,6 +4930,10 @@ class Molecule {
 
     /**
      * Render at molecule level (simplified view)
+     * Uses different colors based on stability:
+     * - Stable: Green gradient (solid)
+     * - Unstable: Red-orange gradient (pulsing)
+     * - Reshaping: Yellow gradient (with progress indicator)
      */
     renderSimplified(ctx, scale = 1, offset = { x: 0, y: 0 }) {
         const center = this.centerOfMass;
@@ -4894,6 +4948,31 @@ class Molecule {
         }
         const screenRadius = Math.max(20, maxDist * scale);
 
+        // Determine stability state and colors
+        const isStable = this.isStable();
+        const isReshaping = this.isReshaping;
+
+        let colorInner, colorOuter, strokeColor;
+        let pulseMultiplier = 1;
+
+        if (isReshaping) {
+            // Reshaping: Yellow/gold gradient
+            colorInner = 'rgba(234, 179, 8, 0.7)';   // yellow-500
+            colorOuter = 'rgba(202, 138, 4, 0.4)';   // yellow-600
+            strokeColor = 'rgba(234, 179, 8, 0.8)';
+        } else if (isStable) {
+            // Stable: Green gradient
+            colorInner = 'rgba(34, 197, 94, 0.6)';   // green-500
+            colorOuter = 'rgba(22, 163, 74, 0.3)';   // green-600
+            strokeColor = 'rgba(34, 197, 94, 0.7)';
+        } else {
+            // Unstable: Red-orange gradient with pulse
+            pulseMultiplier = 0.7 + Math.sin(Date.now() / 200) * 0.3;
+            colorInner = `rgba(249, 115, 22, ${0.6 * pulseMultiplier})`;  // orange-500
+            colorOuter = `rgba(239, 68, 68, ${0.3 * pulseMultiplier})`;   // red-500
+            strokeColor = `rgba(249, 115, 22, ${0.7 * pulseMultiplier})`;
+        }
+
         // Draw molecule blob
         ctx.beginPath();
         ctx.arc(screenX, screenY, screenRadius, 0, Math.PI * 2);
@@ -4906,20 +4985,44 @@ class Molecule {
             screenY,
             screenRadius
         );
-        gradient.addColorStop(0, 'rgba(139, 92, 246, 0.6)');
-        gradient.addColorStop(1, 'rgba(99, 102, 241, 0.3)');
+        gradient.addColorStop(0, colorInner);
+        gradient.addColorStop(1, colorOuter);
 
         ctx.fillStyle = gradient;
         ctx.fill();
 
+        // Stroke style based on state
         if (this.selected) {
-            ctx.strokeStyle = '#6366f1';
+            ctx.strokeStyle = isStable ? '#22c55e' : '#f97316';
             ctx.lineWidth = 3;
+            ctx.setLineDash([]);
+        } else if (!isStable && !isReshaping) {
+            // Unstable molecules get dashed stroke
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
         } else {
-            ctx.strokeStyle = 'rgba(139, 92, 246, 0.5)';
+            ctx.strokeStyle = strokeColor;
             ctx.lineWidth = 1;
+            ctx.setLineDash([]);
         }
         ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw decay indicator for unstable molecules
+        if (!isStable && !isReshaping && this.decayTimer !== null) {
+            const decayProgress = this.decayTimer / (100 + 300); // Approximate max decay time
+            const decayRadius = screenRadius + 5;
+
+            // Draw decay arc (depleting)
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, decayRadius,
+                -Math.PI / 2,
+                -Math.PI / 2 + (decayProgress * Math.PI * 2));
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
 
         // Draw formula label
         if (screenRadius > 15) {
@@ -4929,7 +5032,22 @@ class Molecule {
             ctx.textBaseline = 'middle';
             ctx.fillText(this.formula, screenX, screenY);
         }
+
+        // Draw stability indicator icon
+        if (screenRadius > 25) {
+            const iconY = screenY + screenRadius * 0.5;
+            ctx.font = `${Math.max(8, screenRadius * 0.25)}px sans-serif`;
+            ctx.textAlign = 'center';
+            if (isReshaping) {
+                ctx.fillText('⟳', screenX, iconY);
+            } else if (isStable) {
+                ctx.fillText('✓', screenX, iconY);
+            } else {
+                ctx.fillText('!', screenX, iconY);
+            }
+        }
     }
+
 
     /**
      * Render bounding box for selection
@@ -12338,7 +12456,7 @@ class Controls {
             const scale = this.viewer.camera.zoom;
             const offset = this.viewer.getOffset();
             const resizeEdge = spawner.getResizeHandleAt(x, y, scale, offset);
-            
+
             if (resizeEdge) {
                 spawner.startResize(resizeEdge, x, y);
                 this.viewer.canvas.style.cursor = spawner.getCursorForEdge(resizeEdge);
@@ -12389,7 +12507,7 @@ class Controls {
 
             this.mouse.dragStartX = x;
             this.mouse.dragStartY = y;
-            
+
             // Render immediately so view updates even when paused
             this.viewer.render();
         }
@@ -12399,7 +12517,7 @@ class Controls {
             const scale = this.viewer.camera.zoom;
             const offset = this.viewer.getOffset();
             const resizeEdge = spawner.getResizeHandleAt(x, y, scale, offset);
-            
+
             if (resizeEdge) {
                 this.viewer.canvas.style.cursor = spawner.getCursorForEdge(resizeEdge);
                 return;
@@ -12418,14 +12536,14 @@ class Controls {
         const spawner = window.cellApp?.atomSpawner;
         if (spawner && spawner.resizing) {
             spawner.endResize();
-            
+
             // Update modal inputs if open
             const widthInput = document.getElementById('zoneWidth');
             const heightInput = document.getElementById('zoneHeight');
             if (widthInput) widthInput.value = Math.round(spawner.zone.width);
             if (heightInput) heightInput.value = Math.round(spawner.zone.height);
         }
-        
+
         this.mouse.down = false;
         this.mouse.dragging = false;
 
@@ -12444,7 +12562,7 @@ class Controls {
 
         const delta = -Math.sign(event.deltaY);
         this.viewer.zoom(delta, x, y);
-        
+
         // Render immediately so view updates even when paused
         this.viewer.render();
     }
@@ -12453,6 +12571,17 @@ class Controls {
      * Handle key down
      */
     _onKeyDown(event) {
+        // Ignore keyboard shortcuts when typing in input fields
+        const activeElement = document.activeElement;
+        const isTyping = activeElement && (
+            activeElement.tagName === 'INPUT' ||
+            activeElement.tagName === 'TEXTAREA' ||
+            activeElement.isContentEditable
+        );
+        if (isTyping) {
+            return;
+        }
+
         this.keys.add(event.key);
 
         // Number keys for abstraction level
@@ -12998,8 +13127,8 @@ class Controls {
         // Get monomer info
         let monomerInfo = '';
         if (template.monomerId) {
-            const monomerTemplate = typeof getMonomerTemplate === 'function' 
-                ? getMonomerTemplate(template.monomerId) 
+            const monomerTemplate = typeof getMonomerTemplate === 'function'
+                ? getMonomerTemplate(template.monomerId)
                 : null;
             if (monomerTemplate) {
                 monomerInfo = `
