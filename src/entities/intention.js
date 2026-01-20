@@ -21,6 +21,7 @@ class Intention {
         // Attraction properties
         this.radius = this._getRadiusByType();
         this.attractionForce = 3.0; // Strong attraction force
+        this.repulsionForce = 8.0; // Very strong repulsion to push away unwanted entities quickly
 
         // Progress tracking
         this.progress = 0;
@@ -250,10 +251,15 @@ class Intention {
             
             // Attract free atoms AND atoms in unstable molecules
             for (const atom of environment.atoms.values()) {
-                // Check if atom is in a stable molecule - skip those
+                // Check if atom is in a molecule
                 if (atom.moleculeId) {
                     const mol = environment.molecules.get(atom.moleculeId);
-                    if (mol && mol.isStable()) continue; // Skip atoms in stable molecules
+                    if (mol) {
+                        // Skip atoms in stable molecules - they're done
+                        if (mol.isStable()) continue;
+                        // CRITICAL: Skip atoms in reshaping molecules - don't disturb geometry
+                        if (mol.isReshaping) continue;
+                    }
                 }
 
                 const dist = atom.position.distanceTo(this.position);
@@ -267,8 +273,12 @@ class Intention {
                             // This element is needed - stronger attraction
                             forceMagnitude *= 1.5;
                         } else {
-                            // This element is NOT in the target - repel away fast
-                            forceMagnitude *= -1.5;  // Negative = strong repulsion
+                            // This element is NOT in the target - repel away FAST
+                            // Use strong repulsion with minimum force to ensure it works even with overlapping intentions
+                            const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
+                            const repelForce = direction.mul(-repelStrength);
+                            atom.applyForce(repelForce);
+                            continue; // Skip normal force application
                         }
                     }
                     
@@ -279,8 +289,13 @@ class Intention {
             }
 
             // Also attract unstable molecules as a whole (moves all their atoms)
+            // BUT: Don't move molecules that are currently reshaping - let them finish!
             for (const mol of environment.molecules.values()) {
-                if (mol.isStable()) continue; // Skip stable molecules
+                // Skip stable molecules - they don't need attraction
+                if (mol.isStable()) continue;
+                
+                // CRITICAL: Skip molecules that are reshaping - moving them will break geometry
+                if (mol.isReshaping) continue;
 
                 const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
                 const dist = center.distanceTo(this.position);
@@ -309,8 +324,10 @@ class Intention {
                 const dist = center.distanceTo(this.position);
                 if (dist < this.radius && dist > 10) {
                     const direction = this.position.sub(center).normalize();
-                    // Strong repulsion for unrelated stable molecules
-                    const repelForce = direction.mul(-this.attractionForce * 1.5 * (1 - dist / this.radius));
+                    // Very strong repulsion for unrelated stable molecules
+                    // Use minimum force to ensure repulsion works even with overlapping intentions
+                    const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
+                    const repelForce = direction.mul(-repelStrength);
                     mol.applyForce(repelForce);
                 }
             }
@@ -349,7 +366,8 @@ class Intention {
                         atom.applyForce(force);
                     } else {
                         // This element is NOT part of the monomer - repel it fast
-                        const repelForce = direction.mul(-this.attractionForce * 1.5 * (1 - dist / this.radius));
+                        const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
+                        const repelForce = direction.mul(-repelStrength);
                         atom.applyForce(repelForce);
                     }
                 }
@@ -376,7 +394,8 @@ class Intention {
                     } else if (mol.isStable()) {
                         // Only repel STABLE molecules that are NOT the required monomer
                         // Unstable molecules may still transform into the needed monomer
-                        const repelForce = direction.mul(-this.attractionForce * 1.5 * (1 - dist / this.radius));
+                        const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
+                        const repelForce = direction.mul(-repelStrength);
                         mol.applyForce(repelForce);
                     }
                     // Note: gatheredComponents is now managed in progress calculation
@@ -475,14 +494,17 @@ class Intention {
                 // Wait for it to complete its transformation to the stable form
                 if (mol.isReshaping) continue;
 
-                // CRITICAL: Verify molecule has correct geometry for known templates
-                // If a stable template exists for this formula, ensure molecule matches it
-                if (typeof matchesStableTemplate === 'function' && typeof needsReshaping === 'function') {
-                    const template = matchesStableTemplate(mol);
-                    if (template && needsReshaping(mol, template)) {
-                        // Molecule has wrong geometry - trigger reshaping and wait
-                        mol.startReshaping(template);
-                        continue;
+                // If geometry is already verified, trust it - don't re-check
+                // This prevents constant re-triggering of reshaping
+                if (!mol.geometryVerified) {
+                    // Only check geometry for molecules that haven't been verified yet
+                    if (typeof matchesStableTemplate === 'function' && typeof needsReshaping === 'function') {
+                        const template = matchesStableTemplate(mol);
+                        if (template && needsReshaping(mol, template)) {
+                            // Molecule has wrong geometry - trigger reshaping and wait
+                            mol.startReshaping(template);
+                            continue;
+                        }
                     }
                 }
 

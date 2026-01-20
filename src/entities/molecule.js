@@ -200,7 +200,14 @@ class Molecule {
      */
     isStable() {
         // Basic valence check first
-        if (!this.hasValidValence()) return false;
+        if (!this.hasValidValence()) {
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('molecules', this)) {
+                Debug.logMolecule('molecules', 'isStable=FALSE (invalid valence)', this, {
+                    atoms: this.atoms.map(a => `${a.symbol}:${a.bondCount}/${a.maxBonds}`)
+                });
+            }
+            return false;
+        }
 
         // If currently reshaping, NOT stable yet - wait for completion
         if (this.isReshaping) return false;
@@ -215,6 +222,12 @@ class Molecule {
                 // This molecule matches a known formula - check geometry
                 if (typeof needsReshaping === 'function' && needsReshaping(this, template)) {
                     // Geometry doesn't match template - NOT stable
+                    if (typeof Debug !== 'undefined' && Debug.shouldLog('reshape', this)) {
+                        Debug.logMolecule('reshape', 'isStable=FALSE (needs reshaping)', this, {
+                            template: template.name,
+                            geometryVerified: this.geometryVerified
+                        });
+                    }
                     // Start reshaping if not already
                     if (!this.isReshaping) {
                         this.startReshaping(template);
@@ -290,26 +303,34 @@ class Molecule {
         this.reshapingProgress = 0;
         this.geometryVerified = false;  // Clear until reshaping completes
 
-        // Calculate target positions
+        // Calculate target positions and atom-to-template mapping
         if (typeof getTargetConfiguration === 'function') {
-            this.targetPositions = getTargetConfiguration(this, template);
+            const config = getTargetConfiguration(this, template);
+            this.targetPositions = config.targetPositions;
+            this.atomToTemplateIndex = config.atomToTemplateIndex;  // Store mapping for bond restructuring
         }
 
-        console.log(`Molecule ${this.formula} starting reshape to ${template.name}`);
+        if (typeof Debug !== 'undefined') {
+            Debug.logMolecule('reshape', `START → ${template.name}`, this, {
+                mappingSize: this.atomToTemplateIndex?.size,
+                templateBonds: template.bonds?.length
+            });
+        }
     }
 
     /**
      * Cancel the reshaping process (e.g., when molecule composition changes)
      */
     cancelReshaping() {
-        if (this.isReshaping) {
-            console.log(`Molecule ${this.formula} reshaping cancelled`);
+        if (this.isReshaping && typeof Debug !== 'undefined') {
+            Debug.logMolecule('reshape', 'CANCELLED', this);
         }
         this.targetTemplate = null;
         this.reshapingTimer = null;
         this.isReshaping = false;
         this.reshapingProgress = 0;
         this.targetPositions = null;
+        this.atomToTemplateIndex = null;  // Clear the mapping
         this.geometryVerified = false;  // Needs re-verification
     }
 
@@ -361,7 +382,13 @@ class Molecule {
             return;
         }
 
-        console.log(`Molecule ${this.formula} completing reshape to ${this.targetTemplate.name}`);
+        if (typeof Debug !== 'undefined') {
+            Debug.logMolecule('reshape', `COMPLETING → ${this.targetTemplate.name}`, this, {
+                atomCount: this.atoms.length,
+                currentBonds: this.bonds.length,
+                templateBonds: this.targetTemplate.bonds?.length
+            });
+        }
 
         // Snap atoms to final positions
         for (const [atom, targetPos] of this.targetPositions) {
@@ -390,90 +417,95 @@ class Molecule {
         if (this.targetTemplate.isMonomer) {
             this.isMonomer = true;
         }
+
+        // Final state log
+        if (typeof Debug !== 'undefined') {
+            Debug.logMolecule('reshape', 'FINISHED - Now stable', this, {
+                finalBonds: this.bonds.length,
+                isStableNow: this.hasValidValence(),
+                geometryVerified: this.geometryVerified,
+                atomValences: this.atoms.map(a => `${a.symbol}:${a.bondCount}/${a.maxBonds}`)
+            });
+        }
     }
 
     /**
      * Restructure bonds to match the target template
      * This breaks all existing bonds and creates new ones per the template
+     * Uses the atomToTemplateIndex mapping computed when reshaping started
      */
     _restructureBonds() {
         if (!this.targetTemplate || !this.targetTemplate.bonds) return;
 
         const templateBonds = this.targetTemplate.bonds;
-        const templateAtoms = this.targetTemplate.atoms;
 
-        // Step 1: Build a map of atom -> template index based on target positions
-        const atomToTemplateIndex = new Map();
-        const templateIndexToAtom = new Map();
-
-        if (this.targetPositions) {
-            const center = this.centerOfMass;
-            for (let i = 0; i < templateAtoms.length; i++) {
-                const tAtom = templateAtoms[i];
-                const tPos = new Vector2(center.x + tAtom.relX, center.y + tAtom.relY);
-
-                // Find the molecule atom closest to this template position
-                let closestAtom = null;
-                let closestDist = Infinity;
-
-                for (const [atom, targetPos] of this.targetPositions) {
-                    if (atom.symbol === tAtom.symbol && !templateIndexToAtom.has(i)) {
-                        const dist = targetPos.distanceTo(tPos);
-                        if (dist < closestDist) {
-                            // Check if this atom isn't already assigned to another template index
-                            let alreadyAssigned = false;
-                            for (const [existingAtom, existingIdx] of atomToTemplateIndex) {
-                                if (existingAtom === atom) {
-                                    alreadyAssigned = true;
-                                    break;
-                                }
-                            }
-                            if (!alreadyAssigned) {
-                                closestDist = dist;
-                                closestAtom = atom;
-                            }
-                        }
-                    }
-                }
-
-                if (closestAtom) {
-                    atomToTemplateIndex.set(closestAtom, i);
-                    templateIndexToAtom.set(i, closestAtom);
-                }
+        // Use the stored mapping from startReshaping() - this is the SAME mapping
+        // that was used to calculate target positions, ensuring consistency
+        if (!this.atomToTemplateIndex || this.atomToTemplateIndex.size === 0) {
+            if (typeof Debug !== 'undefined') {
+                Debug.logMolecule('reshape', 'ERROR: No atom-to-template mapping', this);
             }
+            return;
         }
 
-        console.log(`Atom mapping: ${atomToTemplateIndex.size} atoms mapped to template`);
+        // Build reverse mapping: template index -> atom
+        const templateIndexToAtom = new Map();
+        for (const [atom, templateIndex] of this.atomToTemplateIndex) {
+            templateIndexToAtom.set(templateIndex, atom);
+        }
 
-        // Step 2: Break ALL existing bonds in this molecule
+        if (typeof Debug !== 'undefined') {
+            Debug.logMolecule('reshape', 'Restructuring bonds', this, {
+                mappedAtoms: this.atomToTemplateIndex.size,
+                templateAtoms: this.targetTemplate.atoms?.length
+            });
+        }
+
+        // Step 1: Break ALL existing bonds in this molecule
+        // Use break(false) to not add repulsion energy - we're restructuring, not decaying
         const bondsToBreak = [...this.bonds]; // Copy since we're modifying
         for (const bond of bondsToBreak) {
-            console.log(`Breaking bond: ${bond.atom1.symbol}-${bond.atom2.symbol}`);
-            bond.break();
+            if (typeof Debug !== 'undefined') {
+                Debug.logBond('BREAK (restructure)', bond, this);
+            }
+            bond.break(false);  // No energy release during restructure
         }
 
-        // Step 3: Create new bonds exactly per template
+        // Step 2: Create new bonds exactly per template
         for (const tBond of templateBonds) {
             const atom1 = templateIndexToAtom.get(tBond.atom1);
             const atom2 = templateIndexToAtom.get(tBond.atom2);
             const order = tBond.order || 1;
 
             if (atom1 && atom2) {
-                console.log(`Creating bond: ${atom1.symbol}-${atom2.symbol} order ${order}`);
-
                 // Create new bond with correct order
                 const bond = new Bond(atom1, atom2, order);
+                
+                if (typeof Debug !== 'undefined') {
+                    Debug.logBond(`CREATE order:${order}`, bond, this);
+                }
 
                 // Note: Bond constructor automatically adds itself to atoms
-                // and the Environment will pick it up on next updateMolecules
+                // and the Environment will pick it up via syncBonds
             } else {
-                console.warn(`Could not create bond: atom1=${!!atom1}, atom2=${!!atom2}`);
+                if (typeof Debug !== 'undefined') {
+                    Debug.logMolecule('reshape', `ERROR: Could not create bond indices ${tBond.atom1}-${tBond.atom2}`, this, {
+                        hasAtom1: !!atom1,
+                        hasAtom2: !!atom2
+                    });
+                }
             }
         }
 
-        // Step 4: Verify the new bonds are correct
+        // Step 3: Verify the new bonds are correct
         const newBonds = this.bonds;
-        console.log(`Molecule now has ${newBonds.length} bonds (template specifies ${templateBonds.length})`);
+        if (typeof Debug !== 'undefined') {
+            Debug.logMolecule('reshape', 'RESTRUCTURE COMPLETE', this, {
+                newBondCount: newBonds.length,
+                templateBondCount: templateBonds.length,
+                match: newBonds.length === templateBonds.length
+            });
+        }
     }
 
     /**

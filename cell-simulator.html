@@ -968,6 +968,141 @@ body {
  * Helper functions used throughout the simulation
  */
 
+/**
+ * Debug System
+ * Toggle verbose logging via console: Debug.enable() / Debug.disable()
+ * Filter by molecule ID: Debug.watchMolecule('molecule-id')
+ * Filter by formula: Debug.watchFormula('H2O')
+ */
+const Debug = {
+    enabled: false,
+    watchedMoleculeId: null,
+    watchedFormula: null,
+    categories: {
+        reshape: true,
+        bonds: true,
+        molecules: true,
+        sync: false,  // Very verbose, off by default
+        decay: true,
+        intentions: true
+    },
+
+    enable() {
+        this.enabled = true;
+        console.log('%c[Debug] Verbose logging ENABLED', 'color: #00ff00; font-weight: bold');
+        console.log('  Debug.disable() - Turn off');
+        console.log('  Debug.watchMolecule(id) - Filter by molecule ID');
+        console.log('  Debug.watchFormula("H2O") - Filter by formula');
+        console.log('  Debug.clearWatch() - Clear filters');
+        console.log('  Debug.category("sync", true) - Enable/disable category');
+    },
+
+    disable() {
+        this.enabled = false;
+        console.log('%c[Debug] Verbose logging DISABLED', 'color: #ff6600; font-weight: bold');
+    },
+
+    watchMolecule(id) {
+        this.watchedMoleculeId = id;
+        this.enabled = true;
+        console.log(`%c[Debug] Watching molecule: ${id}`, 'color: #00ffff; font-weight: bold');
+    },
+
+    watchFormula(formula) {
+        this.watchedFormula = formula;
+        this.enabled = true;
+        console.log(`%c[Debug] Watching formula: ${formula}`, 'color: #00ffff; font-weight: bold');
+    },
+
+    clearWatch() {
+        this.watchedMoleculeId = null;
+        this.watchedFormula = null;
+        console.log('%c[Debug] Watch filters cleared', 'color: #ffff00');
+    },
+
+    category(name, enabled) {
+        if (this.categories.hasOwnProperty(name)) {
+            this.categories[name] = enabled;
+            console.log(`%c[Debug] Category '${name}' ${enabled ? 'ENABLED' : 'DISABLED'}`, 'color: #ffff00');
+        } else {
+            console.log(`Available categories: ${Object.keys(this.categories).join(', ')}`);
+        }
+    },
+
+    shouldLog(category, molecule = null) {
+        if (!this.enabled) return false;
+        if (!this.categories[category]) return false;
+        if (this.watchedMoleculeId && molecule) {
+            if (molecule.id !== this.watchedMoleculeId) return false;
+        }
+        if (this.watchedFormula && molecule) {
+            if (molecule.formula !== this.watchedFormula) return false;
+        }
+        return true;
+    },
+
+    logMolecule(category, action, molecule, extra = {}) {
+        if (!this.shouldLog(category, molecule)) return;
+
+        const id = molecule.id.substring(0, 8);
+        const formula = molecule.formula || '?';
+        const atomCount = molecule.atoms?.length || 0;
+        const bondCount = molecule.bonds?.length || 0;
+        // Don't call isStable() here - it would cause infinite recursion
+        const reshaping = molecule.isReshaping ? 'RESHAPING' : '';
+        const verified = molecule.geometryVerified ? 'VERIFIED' : '';
+
+        let msg = `[${category.toUpperCase()}] ${action} | ${formula} (${id}) | atoms:${atomCount} bonds:${bondCount} | ${reshaping} ${verified}`;
+        if (Object.keys(extra).length > 0) {
+            msg += ` | ${JSON.stringify(extra)}`;
+        }
+
+        const color = {
+            reshape: '#ff00ff',
+            bonds: '#00ff00',
+            molecules: '#00ffff',
+            sync: '#888888',
+            decay: '#ff6600',
+            intentions: '#ffff00'
+        }[category] || '#ffffff';
+
+        console.log(`%c${msg}`, `color: ${color}`);
+    },
+
+    logBond(action, bond, molecule = null, extra = {}) {
+        if (!this.shouldLog('bonds', molecule)) return;
+
+        const atom1 = `${bond.atom1?.symbol || '?'}(${bond.atom1?.id?.substring(0, 6) || '?'})`;
+        const atom2 = `${bond.atom2?.symbol || '?'}(${bond.atom2?.id?.substring(0, 6) || '?'})`;
+        const molId = molecule ? molecule.id.substring(0, 8) : 'none';
+
+        let msg = `[BOND] ${action} | ${atom1} --${bond.order || 1}-- ${atom2} | mol:${molId}`;
+        if (Object.keys(extra).length > 0) {
+            msg += ` | ${JSON.stringify(extra)}`;
+        }
+        console.log(`%c${msg}`, 'color: #00ff00');
+    },
+
+    dumpMolecule(molecule) {
+        console.group(`%c[DUMP] Molecule ${molecule.formula} (${molecule.id})`, 'color: #ff00ff; font-weight: bold');
+        console.log('ID:', molecule.id);
+        console.log('Formula:', molecule.formula);
+        console.log('Atoms:', molecule.atoms?.length, molecule.atoms?.map(a => `${a.symbol}(${a.id.substring(0,6)})`));
+        console.log('Bonds:', molecule.bonds?.length, molecule.bonds?.map(b => `${b.atom1?.symbol}-${b.atom2?.symbol} o${b.order}`));
+        console.log('isStable():', molecule.isStable?.());
+        console.log('hasValidValence():', molecule.hasValidValence?.());
+        console.log('isReshaping:', molecule.isReshaping);
+        console.log('geometryVerified:', molecule.geometryVerified);
+        console.log('reshapingTimer:', molecule.reshapingTimer);
+        console.log('targetTemplate:', molecule.targetTemplate?.name);
+        console.log('atomToTemplateIndex size:', molecule.atomToTemplateIndex?.size);
+        console.log('Atom valences:', molecule.atoms?.map(a => `${a.symbol}: ${a.bondCount}/${a.maxBonds} (avail:${a.availableValence})`));
+        console.groupEnd();
+    }
+};
+
+window.Debug = Debug;
+
 const Utils = {
     /**
      * Generate a unique ID
@@ -1619,188 +1754,9 @@ const STABLE_MOLECULES = {
         ],
         description: 'Dicarbon - found in carbon vapor and comets'
     },
-    'C3': {
-        name: 'Tricarbon',
-        formula: 'C3',
-        atoms: [
-            { symbol: 'C', relX: -25, relY: 0 },
-            { symbol: 'C', relX: 0, relY: 0 },
-            { symbol: 'C', relX: 25, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 2 }
-        ],
-        description: 'Tricarbon - linear molecule found in space'
-    },
-    'C4': {
-        name: 'Tetracarbon',
-        formula: 'C4',
-        atoms: [
-            { symbol: 'C', relX: -35, relY: 0 },
-            { symbol: 'C', relX: -12, relY: 0 },
-            { symbol: 'C', relX: 12, relY: 0 },
-            { symbol: 'C', relX: 35, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 2 },
-            { atom1: 2, atom2: 3, order: 2 }
-        ],
-        description: 'Tetracarbon - linear carbon chain (cumulene form)'
-    },
-    'C5': {
-        name: 'Pentacarbon',
-        formula: 'C5',
-        atoms: [
-            { symbol: 'C', relX: -45, relY: 0 },
-            { symbol: 'C', relX: -22, relY: 0 },
-            { symbol: 'C', relX: 0, relY: 0 },
-            { symbol: 'C', relX: 22, relY: 0 },
-            { symbol: 'C', relX: 45, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 2 },
-            { atom1: 2, atom2: 3, order: 2 },
-            { atom1: 3, atom2: 4, order: 2 }
-        ],
-        description: 'Pentacarbon - linear carbon chain'
-    },
-    'C6lin': {
-        name: 'Hexacarbon (Linear)',
-        formula: 'C6',
-        atoms: [
-            { symbol: 'C', relX: -55, relY: 0 },
-            { symbol: 'C', relX: -33, relY: 0 },
-            { symbol: 'C', relX: -11, relY: 0 },
-            { symbol: 'C', relX: 11, relY: 0 },
-            { symbol: 'C', relX: 33, relY: 0 },
-            { symbol: 'C', relX: 55, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 2 },
-            { atom1: 2, atom2: 3, order: 2 },
-            { atom1: 3, atom2: 4, order: 2 },
-            { atom1: 4, atom2: 5, order: 2 }
-        ],
-        description: 'Hexacarbon linear chain (cumulene)'
-    },
-    'C6ring': {
-        name: 'Hexacarbon (Ring)',
-        formula: 'C6',
-        atoms: [
-            // Hexagonal ring
-            { symbol: 'C', relX: 0, relY: -25 },
-            { symbol: 'C', relX: 22, relY: -12 },
-            { symbol: 'C', relX: 22, relY: 12 },
-            { symbol: 'C', relX: 0, relY: 25 },
-            { symbol: 'C', relX: -22, relY: 12 },
-            { symbol: 'C', relX: -22, relY: -12 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 1 },
-            { atom1: 2, atom2: 3, order: 2 },
-            { atom1: 3, atom2: 4, order: 1 },
-            { atom1: 4, atom2: 5, order: 2 },
-            { atom1: 5, atom2: 0, order: 1 }
-        ],
-        description: 'Hexacarbon ring - cyclic carbon cluster'
-    },
-    'C8': {
-        name: 'Cyclooctacarbon',
-        formula: 'C8',
-        atoms: [
-            // Octagonal ring
-            { symbol: 'C', relX: 0, relY: -30 },
-            { symbol: 'C', relX: 21, relY: -21 },
-            { symbol: 'C', relX: 30, relY: 0 },
-            { symbol: 'C', relX: 21, relY: 21 },
-            { symbol: 'C', relX: 0, relY: 30 },
-            { symbol: 'C', relX: -21, relY: 21 },
-            { symbol: 'C', relX: -30, relY: 0 },
-            { symbol: 'C', relX: -21, relY: -21 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 1 },
-            { atom1: 2, atom2: 3, order: 2 },
-            { atom1: 3, atom2: 4, order: 1 },
-            { atom1: 4, atom2: 5, order: 2 },
-            { atom1: 5, atom2: 6, order: 1 },
-            { atom1: 6, atom2: 7, order: 2 },
-            { atom1: 7, atom2: 0, order: 1 }
-        ],
-        description: 'Cyclooctacarbon - stable 8-carbon ring'
-    },
-    'C10': {
-        name: 'Cyclodecacarbon',
-        formula: 'C10',
-        atoms: [
-            // Decagonal ring (36° apart)
-            { symbol: 'C', relX: 0, relY: -35 },
-            { symbol: 'C', relX: 20, relY: -28 },
-            { symbol: 'C', relX: 33, relY: -11 },
-            { symbol: 'C', relX: 33, relY: 11 },
-            { symbol: 'C', relX: 20, relY: 28 },
-            { symbol: 'C', relX: 0, relY: 35 },
-            { symbol: 'C', relX: -20, relY: 28 },
-            { symbol: 'C', relX: -33, relY: 11 },
-            { symbol: 'C', relX: -33, relY: -11 },
-            { symbol: 'C', relX: -20, relY: -28 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 1 },
-            { atom1: 2, atom2: 3, order: 2 },
-            { atom1: 3, atom2: 4, order: 1 },
-            { atom1: 4, atom2: 5, order: 2 },
-            { atom1: 5, atom2: 6, order: 1 },
-            { atom1: 6, atom2: 7, order: 2 },
-            { atom1: 7, atom2: 8, order: 1 },
-            { atom1: 8, atom2: 9, order: 2 },
-            { atom1: 9, atom2: 0, order: 1 }
-        ],
-        description: 'Cyclodecacarbon - 10-carbon ring (detected in space)'
-    },
-    'C12': {
-        name: 'Cyclododecacarbon',
-        formula: 'C12',
-        atoms: [
-            // Dodecagonal ring (30° apart)
-            { symbol: 'C', relX: 0, relY: -40 },
-            { symbol: 'C', relX: 20, relY: -35 },
-            { symbol: 'C', relX: 35, relY: -20 },
-            { symbol: 'C', relX: 40, relY: 0 },
-            { symbol: 'C', relX: 35, relY: 20 },
-            { symbol: 'C', relX: 20, relY: 35 },
-            { symbol: 'C', relX: 0, relY: 40 },
-            { symbol: 'C', relX: -20, relY: 35 },
-            { symbol: 'C', relX: -35, relY: 20 },
-            { symbol: 'C', relX: -40, relY: 0 },
-            { symbol: 'C', relX: -35, relY: -20 },
-            { symbol: 'C', relX: -20, relY: -35 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 1 },
-            { atom1: 2, atom2: 3, order: 2 },
-            { atom1: 3, atom2: 4, order: 1 },
-            { atom1: 4, atom2: 5, order: 2 },
-            { atom1: 5, atom2: 6, order: 1 },
-            { atom1: 6, atom2: 7, order: 2 },
-            { atom1: 7, atom2: 8, order: 1 },
-            { atom1: 8, atom2: 9, order: 2 },
-            { atom1: 9, atom2: 10, order: 1 },
-            { atom1: 10, atom2: 11, order: 2 },
-            { atom1: 11, atom2: 0, order: 1 }
-        ],
-        description: 'Cyclododecacarbon - 12-carbon ring'
-    },
 
     // ===== CARBON-OXYGEN COMPOUNDS =====
+    // Note: Pure carbon allotropes (C3-C12) removed - they have unsatisfied valences
 
     'C3O2': {
         name: 'Carbon Suboxide',
@@ -1820,58 +1776,7 @@ const STABLE_MOLECULES = {
         ],
         description: 'Carbon suboxide - linear O=C=C=C=O'
     },
-    'C2O': {
-        name: 'Dicarbon Monoxide',
-        formula: 'C2O',
-        atoms: [
-            { symbol: 'C', relX: -22, relY: 0 },
-            { symbol: 'C', relX: 0, relY: 0 },
-            { symbol: 'O', relX: 22, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 3 },
-            { atom1: 1, atom2: 2, order: 1 }
-        ],
-        description: 'Dicarbon monoxide - detected in space (C≡C-O)'
-    },
-    'C4O': {
-        name: 'Tetracarbon Monoxide',
-        formula: 'C4O',
-        atoms: [
-            { symbol: 'C', relX: -40, relY: 0 },
-            { symbol: 'C', relX: -20, relY: 0 },
-            { symbol: 'C', relX: 0, relY: 0 },
-            { symbol: 'C', relX: 20, relY: 0 },
-            { symbol: 'O', relX: 40, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 3 },
-            { atom1: 1, atom2: 2, order: 1 },
-            { atom1: 2, atom2: 3, order: 3 },
-            { atom1: 3, atom2: 4, order: 1 }
-        ],
-        description: 'Tetracarbon monoxide - interstellar molecule'
-    },
-    'C5O': {
-        name: 'Pentacarbon Monoxide',
-        formula: 'C5O',
-        atoms: [
-            { symbol: 'C', relX: -50, relY: 0 },
-            { symbol: 'C', relX: -25, relY: 0 },
-            { symbol: 'C', relX: 0, relY: 0 },
-            { symbol: 'C', relX: 25, relY: 0 },
-            { symbol: 'C', relX: 50, relY: 0 },
-            { symbol: 'O', relX: 72, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 3 },
-            { atom1: 1, atom2: 2, order: 1 },
-            { atom1: 2, atom2: 3, order: 3 },
-            { atom1: 3, atom2: 4, order: 1 },
-            { atom1: 4, atom2: 5, order: 3 }
-        ],
-        description: 'Pentacarbon monoxide - carbon chain oxide'
-    },
+    // Note: C2O, C4O, C5O removed - end carbons have unsatisfied valence
     'C2O2': {
         name: 'Ethylenedione',
         formula: 'C2O2',
@@ -1930,56 +1835,7 @@ const STABLE_MOLECULES = {
         ],
         description: 'Pentatetraenedione - O=C=C=C=C=C=O'
     },
-    'CO3': {
-        name: 'Carbonate Radical',
-        formula: 'CO3',
-        atoms: [
-            { symbol: 'C', relX: 0, relY: 0 },
-            { symbol: 'O', relX: 0, relY: -25 },
-            { symbol: 'O', relX: -22, relY: 12 },
-            { symbol: 'O', relX: 22, relY: 12 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 0, atom2: 2, order: 1 },
-            { atom1: 0, atom2: 3, order: 1 }
-        ],
-        description: 'Carbonate radical - trigonal planar CO3'
-    },
-    'C2O3': {
-        name: 'Oxalic Anhydride',
-        formula: 'C2O3',
-        atoms: [
-            { symbol: 'O', relX: -35, relY: -15 },
-            { symbol: 'C', relX: -15, relY: 0 },
-            { symbol: 'O', relX: 0, relY: 15 },
-            { symbol: 'C', relX: 15, relY: 0 },
-            { symbol: 'O', relX: 35, relY: -15 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 1 },
-            { atom1: 2, atom2: 3, order: 1 },
-            { atom1: 3, atom2: 4, order: 2 }
-        ],
-        description: 'Oxalic anhydride - cyclic C2O3'
-    },
-    'C3O': {
-        name: 'Tricarbon Monoxide',
-        formula: 'C3O',
-        atoms: [
-            { symbol: 'C', relX: -30, relY: 0 },
-            { symbol: 'C', relX: -10, relY: 0 },
-            { symbol: 'C', relX: 10, relY: 0 },
-            { symbol: 'O', relX: 30, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 2 },
-            { atom1: 2, atom2: 3, order: 2 }
-        ],
-        description: 'Tricarbon monoxide - interstellar molecule C=C=C=O'
-    },
+    // Note: CO3, C2O3, C3O removed - have unsatisfied valence (radicals/ions)
 
     // ===== SIMPLE CARBOHYDRATES =====
 
@@ -2438,22 +2294,7 @@ const STABLE_MOLECULES = {
         ],
         description: 'Hypochlorous acid - weak acid, disinfectant HOCl'
     },
-    'H3O': {
-        name: 'Hydronium',
-        formula: 'H3O',
-        atoms: [
-            { symbol: 'O', relX: 0, relY: 0 },
-            { symbol: 'H', relX: 0, relY: -22 },
-            { symbol: 'H', relX: 19, relY: 11 },
-            { symbol: 'H', relX: -19, relY: 11 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 1 },
-            { atom1: 0, atom2: 2, order: 1 },
-            { atom1: 0, atom2: 3, order: 1 }
-        ],
-        description: 'Hydronium ion - protonated water H3O+'
-    },
+    // H3O (Hydronium) removed - it's an ion (O has 3 bonds but valence is 2)
     'H2O2': {
         name: 'Hydrogen Peroxide',
         formula: 'H2O2',
@@ -3209,11 +3050,12 @@ function matchesStableTemplate(molecule) {
  * This maps the molecule's atoms to the template atoms by element type
  * @param {Molecule} molecule - The molecule to reshape
  * @param {Object} template - The stable template
- * @returns {Map<Atom, Vector2>} Map of atom -> target position
+ * @returns {Object} Object with targetPositions (Map<Atom, Vector2>) and atomToTemplateIndex (Map<Atom, number>)
  */
 function getTargetConfiguration(molecule, template) {
     const center = molecule.centerOfMass;
     const targetPositions = new Map();
+    const atomToTemplateIndex = new Map();  // Track which template index each atom maps to
 
     // Group molecule atoms by symbol
     const atomsBySymbol = {};
@@ -3276,11 +3118,13 @@ function getTargetConfiguration(molecule, template) {
                     center.x + tPos.relX,
                     center.y + tPos.relY
                 ));
+                // Store the original template index for this atom
+                atomToTemplateIndex.set(atom, tPos.index);
             }
         }
     }
 
-    return targetPositions;
+    return { targetPositions, atomToTemplateIndex };
 }
 
 /**
@@ -3302,12 +3146,17 @@ function getTemplateBonds(template) {
 function needsReshaping(molecule, template) {
     if (!molecule || !template) return false;
 
+    const debugEnabled = typeof Debug !== 'undefined' && Debug.verbose;
+
     // Check if bond orders match template
     const templateBonds = template.bonds;
     const moleculeBonds = molecule.bonds;
 
     // If bond count doesn't match, definitely needs reshaping
     if (moleculeBonds.length !== templateBonds.length) {
+        if (debugEnabled) {
+            console.log(`[needsReshaping] ${molecule.formula}: bond count mismatch - molecule:${moleculeBonds.length} vs template:${templateBonds.length}`);
+        }
         return true;
     }
 
@@ -3325,6 +3174,9 @@ function needsReshaping(molecule, template) {
 
             if (symbols[0] === tSymbols[0] && symbols[1] === tSymbols[1]) {
                 if (bond.order !== tBond.order) {
+                    if (debugEnabled) {
+                        console.log(`[needsReshaping] ${molecule.formula}: bond order mismatch - ${symbols.join('-')} has order ${bond.order} vs template ${tBond.order}`);
+                    }
                     return true; // Bond order mismatch
                 }
                 foundMatch = true;
@@ -3333,21 +3185,31 @@ function needsReshaping(molecule, template) {
         }
 
         if (!foundMatch) {
+            if (debugEnabled) {
+                console.log(`[needsReshaping] ${molecule.formula}: bond ${symbols.join('-')} not found in template`);
+            }
             return true; // Bond not found in template
         }
     }
 
     // Check if atom positions are significantly different from template
-    const targetPositions = getTargetConfiguration(molecule, template);
+    const config = getTargetConfiguration(molecule, template);
+    const targetPositions = config.targetPositions;
     const threshold = 15; // Pixels - if any atom is more than this far from target
 
     for (const [atom, targetPos] of targetPositions) {
         const dist = atom.position.distanceTo(targetPos);
         if (dist > threshold) {
+            if (debugEnabled) {
+                console.log(`[needsReshaping] ${molecule.formula}: atom ${atom.symbol} position off by ${dist.toFixed(1)}px (threshold ${threshold})`);
+            }
             return true;
         }
     }
 
+    if (debugEnabled) {
+        console.log(`[needsReshaping] ${molecule.formula}: NO reshaping needed - all checks passed`);
+    }
     return false;
 }
 
@@ -4104,12 +3966,20 @@ class Molecule {
      */
     updateProperties() {
         const oldFormula = this.formula;
+        const oldVerified = this.geometryVerified;
         this.formula = this.calculateFormula();
         this.fingerprint = this.calculateFingerprint();
         
         // If formula changed, geometry needs re-verification
         if (oldFormula && oldFormula !== this.formula) {
             this.geometryVerified = false;
+            if (typeof Debug !== 'undefined' && Debug.verbose) {
+                Debug.logMolecule('reshape', 'VERIFIED RESET (formula changed)', this, {
+                    oldFormula,
+                    newFormula: this.formula,
+                    wasVerified: oldVerified
+                });
+            }
         }
     }
 
@@ -4193,26 +4063,55 @@ class Molecule {
      */
     isStable() {
         // Basic valence check first
-        if (!this.hasValidValence()) return false;
+        if (!this.hasValidValence()) {
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('molecules', this)) {
+                Debug.logMolecule('molecules', 'isStable=FALSE (invalid valence)', this, {
+                    atoms: this.atoms.map(a => `${a.symbol}:${a.bondCount}/${a.maxBonds}`)
+                });
+            }
+            return false;
+        }
 
         // If currently reshaping, NOT stable yet - wait for completion
         if (this.isReshaping) return false;
 
         // If geometry was already verified (after reshaping), skip re-check
-        if (this.geometryVerified) return true;
+        if (this.geometryVerified) {
+            if (typeof Debug !== 'undefined' && Debug.verbose) {
+                Debug.logMolecule('reshape', 'isStable=TRUE (geometryVerified)', this);
+            }
+            return true;
+        }
 
         // Check if this formula matches a known stable template
         if (typeof matchesStableTemplate === 'function') {
             const template = matchesStableTemplate(this);
             if (template) {
                 // This molecule matches a known formula - check geometry
-                if (typeof needsReshaping === 'function' && needsReshaping(this, template)) {
-                    // Geometry doesn't match template - NOT stable
-                    // Start reshaping if not already
-                    if (!this.isReshaping) {
-                        this.startReshaping(template);
+                if (typeof needsReshaping === 'function') {
+                    const needsIt = needsReshaping(this, template);
+                    if (typeof Debug !== 'undefined' && Debug.verbose) {
+                        Debug.logMolecule('reshape', `needsReshaping=${needsIt}`, this, {
+                            template: template.name,
+                            moleculeBonds: this.bonds.length,
+                            templateBonds: template.bonds?.length,
+                            geometryVerified: this.geometryVerified
+                        });
                     }
-                    return false;
+                    if (needsIt) {
+                        // Geometry doesn't match template - NOT stable
+                        if (typeof Debug !== 'undefined' && Debug.shouldLog('reshape', this)) {
+                            Debug.logMolecule('reshape', 'isStable=FALSE (needs reshaping)', this, {
+                                template: template.name,
+                                geometryVerified: this.geometryVerified
+                            });
+                        }
+                        // Start reshaping if not already
+                        if (!this.isReshaping) {
+                            this.startReshaping(template);
+                        }
+                        return false;
+                    }
                 }
             }
         }
@@ -4283,26 +4182,38 @@ class Molecule {
         this.reshapingProgress = 0;
         this.geometryVerified = false;  // Clear until reshaping completes
 
-        // Calculate target positions
+        // Calculate target positions and atom-to-template mapping
         if (typeof getTargetConfiguration === 'function') {
-            this.targetPositions = getTargetConfiguration(this, template);
+            const config = getTargetConfiguration(this, template);
+            this.targetPositions = config.targetPositions;
+            this.atomToTemplateIndex = config.atomToTemplateIndex;  // Store mapping for bond restructuring
         }
 
-        console.log(`Molecule ${this.formula} starting reshape to ${template.name}`);
+        if (typeof Debug !== 'undefined') {
+            Debug.logMolecule('reshape', `START → ${template.name}`, this, {
+                mappingSize: this.atomToTemplateIndex?.size,
+                templateBonds: template.bonds?.length
+            });
+            // Log stack trace to see WHO is calling startReshaping
+            if (Debug.verbose) {
+                console.trace('startReshaping called from:');
+            }
+        }
     }
 
     /**
      * Cancel the reshaping process (e.g., when molecule composition changes)
      */
     cancelReshaping() {
-        if (this.isReshaping) {
-            console.log(`Molecule ${this.formula} reshaping cancelled`);
+        if (this.isReshaping && typeof Debug !== 'undefined') {
+            Debug.logMolecule('reshape', 'CANCELLED', this);
         }
         this.targetTemplate = null;
         this.reshapingTimer = null;
         this.isReshaping = false;
         this.reshapingProgress = 0;
         this.targetPositions = null;
+        this.atomToTemplateIndex = null;  // Clear the mapping
         this.geometryVerified = false;  // Needs re-verification
     }
 
@@ -4350,11 +4261,19 @@ class Molecule {
      */
     applyStableConfiguration() {
         if (!this.targetTemplate || !this.targetPositions) {
+            if (typeof Debug !== 'undefined') {
+                Debug.logMolecule('reshape', 'ABORT - no template/positions', this);
+            }
             this.cancelReshaping();
             return;
         }
 
-        console.log(`Molecule ${this.formula} completing reshape to ${this.targetTemplate.name}`);
+        if (typeof Debug !== 'undefined') {
+            Debug.logMolecule('reshape', `COMPLETING → ${this.targetTemplate.name}`, this, {
+                targetPositions: this.targetPositions?.size,
+                atomMapping: this.atomToTemplateIndex?.size
+            });
+        }
 
         // Snap atoms to final positions
         for (const [atom, targetPos] of this.targetPositions) {
@@ -4383,90 +4302,92 @@ class Molecule {
         if (this.targetTemplate.isMonomer) {
             this.isMonomer = true;
         }
+
+        if (typeof Debug !== 'undefined') {
+            Debug.logMolecule('reshape', 'COMPLETED', this, {
+                geometryVerified: this.geometryVerified,
+                bondsAfter: this.bonds.length
+            });
+        }
     }
 
     /**
      * Restructure bonds to match the target template
      * This breaks all existing bonds and creates new ones per the template
+     * Uses the atomToTemplateIndex mapping computed when reshaping started
      */
     _restructureBonds() {
         if (!this.targetTemplate || !this.targetTemplate.bonds) return;
 
         const templateBonds = this.targetTemplate.bonds;
-        const templateAtoms = this.targetTemplate.atoms;
 
-        // Step 1: Build a map of atom -> template index based on target positions
-        const atomToTemplateIndex = new Map();
-        const templateIndexToAtom = new Map();
-
-        if (this.targetPositions) {
-            const center = this.centerOfMass;
-            for (let i = 0; i < templateAtoms.length; i++) {
-                const tAtom = templateAtoms[i];
-                const tPos = new Vector2(center.x + tAtom.relX, center.y + tAtom.relY);
-
-                // Find the molecule atom closest to this template position
-                let closestAtom = null;
-                let closestDist = Infinity;
-
-                for (const [atom, targetPos] of this.targetPositions) {
-                    if (atom.symbol === tAtom.symbol && !templateIndexToAtom.has(i)) {
-                        const dist = targetPos.distanceTo(tPos);
-                        if (dist < closestDist) {
-                            // Check if this atom isn't already assigned to another template index
-                            let alreadyAssigned = false;
-                            for (const [existingAtom, existingIdx] of atomToTemplateIndex) {
-                                if (existingAtom === atom) {
-                                    alreadyAssigned = true;
-                                    break;
-                                }
-                            }
-                            if (!alreadyAssigned) {
-                                closestDist = dist;
-                                closestAtom = atom;
-                            }
-                        }
-                    }
-                }
-
-                if (closestAtom) {
-                    atomToTemplateIndex.set(closestAtom, i);
-                    templateIndexToAtom.set(i, closestAtom);
-                }
+        // Use the stored mapping from startReshaping() - this is the SAME mapping
+        // that was used to calculate target positions, ensuring consistency
+        if (!this.atomToTemplateIndex || this.atomToTemplateIndex.size === 0) {
+            if (typeof Debug !== 'undefined') {
+                Debug.logMolecule('bonds', 'ERROR - no atom mapping for restructure', this);
             }
+            return;
         }
 
-        console.log(`Atom mapping: ${atomToTemplateIndex.size} atoms mapped to template`);
+        // Build reverse mapping: template index -> atom
+        const templateIndexToAtom = new Map();
+        for (const [atom, templateIndex] of this.atomToTemplateIndex) {
+            templateIndexToAtom.set(templateIndex, atom);
+        }
 
-        // Step 2: Break ALL existing bonds in this molecule
+        if (typeof Debug !== 'undefined') {
+            Debug.logMolecule('bonds', 'RESTRUCTURING', this, {
+                atomsMapped: this.atomToTemplateIndex.size,
+                bondsToCreate: templateBonds.length,
+                bondsToBreak: this.bonds.length
+            });
+        }
+
+        // Step 1: Break ALL existing bonds in this molecule
+        // Use break(false) to not add repulsion energy - we're restructuring, not decaying
         const bondsToBreak = [...this.bonds]; // Copy since we're modifying
         for (const bond of bondsToBreak) {
-            console.log(`Breaking bond: ${bond.atom1.symbol}-${bond.atom2.symbol}`);
-            bond.break();
+            if (typeof Debug !== 'undefined' && Debug.verbose) {
+                Debug.logBond('break', bond, 'restructure (no energy)');
+            }
+            bond.break(false);  // No energy release during restructure
         }
 
-        // Step 3: Create new bonds exactly per template
+        // Step 2: Create new bonds exactly per template
         for (const tBond of templateBonds) {
             const atom1 = templateIndexToAtom.get(tBond.atom1);
             const atom2 = templateIndexToAtom.get(tBond.atom2);
             const order = tBond.order || 1;
 
             if (atom1 && atom2) {
-                console.log(`Creating bond: ${atom1.symbol}-${atom2.symbol} order ${order}`);
-
                 // Create new bond with correct order
                 const bond = new Bond(atom1, atom2, order);
-
+                if (typeof Debug !== 'undefined' && Debug.verbose) {
+                    Debug.logBond('create', bond, `order ${order} (restructure)`);
+                }
                 // Note: Bond constructor automatically adds itself to atoms
-                // and the Environment will pick it up on next updateMolecules
+                // and the Environment will pick it up via syncBonds
             } else {
-                console.warn(`Could not create bond: atom1=${!!atom1}, atom2=${!!atom2}`);
+                if (typeof Debug !== 'undefined') {
+                    Debug.logMolecule('bonds', 'ERROR creating bond', this, {
+                        templateIdx: `${tBond.atom1}-${tBond.atom2}`,
+                        atom1Found: !!atom1,
+                        atom2Found: !!atom2
+                    });
+                }
             }
         }
 
-        // Step 4: Verify the new bonds are correct
+        // Step 3: Verify the new bonds are correct
         const newBonds = this.bonds;
-        console.log(`Molecule now has ${newBonds.length} bonds (template specifies ${templateBonds.length})`);
+        if (typeof Debug !== 'undefined') {
+            Debug.logMolecule('bonds', 'RESTRUCTURE DONE', this, {
+                newBonds: newBonds.length,
+                templateBonds: templateBonds.length,
+                match: newBonds.length === templateBonds.length
+            });
+        }
     }
 
     /**
@@ -5787,6 +5708,7 @@ class Intention {
         // Attraction properties
         this.radius = this._getRadiusByType();
         this.attractionForce = 3.0; // Strong attraction force
+        this.repulsionForce = 8.0; // Very strong repulsion to push away unwanted entities quickly
 
         // Progress tracking
         this.progress = 0;
@@ -6016,10 +5938,15 @@ class Intention {
             
             // Attract free atoms AND atoms in unstable molecules
             for (const atom of environment.atoms.values()) {
-                // Check if atom is in a stable molecule - skip those
+                // Check if atom is in a molecule
                 if (atom.moleculeId) {
                     const mol = environment.molecules.get(atom.moleculeId);
-                    if (mol && mol.isStable()) continue; // Skip atoms in stable molecules
+                    if (mol) {
+                        // Skip atoms in stable molecules - they're done
+                        if (mol.isStable()) continue;
+                        // CRITICAL: Skip atoms in reshaping molecules - don't disturb geometry
+                        if (mol.isReshaping) continue;
+                    }
                 }
 
                 const dist = atom.position.distanceTo(this.position);
@@ -6033,8 +5960,12 @@ class Intention {
                             // This element is needed - stronger attraction
                             forceMagnitude *= 1.5;
                         } else {
-                            // This element is NOT in the target - repel away fast
-                            forceMagnitude *= -1.5;  // Negative = strong repulsion
+                            // This element is NOT in the target - repel away FAST
+                            // Use strong repulsion with minimum force to ensure it works even with overlapping intentions
+                            const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
+                            const repelForce = direction.mul(-repelStrength);
+                            atom.applyForce(repelForce);
+                            continue; // Skip normal force application
                         }
                     }
                     
@@ -6045,8 +5976,13 @@ class Intention {
             }
 
             // Also attract unstable molecules as a whole (moves all their atoms)
+            // BUT: Don't move molecules that are currently reshaping - let them finish!
             for (const mol of environment.molecules.values()) {
-                if (mol.isStable()) continue; // Skip stable molecules
+                // Skip stable molecules - they don't need attraction
+                if (mol.isStable()) continue;
+                
+                // CRITICAL: Skip molecules that are reshaping - moving them will break geometry
+                if (mol.isReshaping) continue;
 
                 const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
                 const dist = center.distanceTo(this.position);
@@ -6075,8 +6011,10 @@ class Intention {
                 const dist = center.distanceTo(this.position);
                 if (dist < this.radius && dist > 10) {
                     const direction = this.position.sub(center).normalize();
-                    // Strong repulsion for unrelated stable molecules
-                    const repelForce = direction.mul(-this.attractionForce * 1.5 * (1 - dist / this.radius));
+                    // Very strong repulsion for unrelated stable molecules
+                    // Use minimum force to ensure repulsion works even with overlapping intentions
+                    const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
+                    const repelForce = direction.mul(-repelStrength);
                     mol.applyForce(repelForce);
                 }
             }
@@ -6115,7 +6053,8 @@ class Intention {
                         atom.applyForce(force);
                     } else {
                         // This element is NOT part of the monomer - repel it fast
-                        const repelForce = direction.mul(-this.attractionForce * 1.5 * (1 - dist / this.radius));
+                        const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
+                        const repelForce = direction.mul(-repelStrength);
                         atom.applyForce(repelForce);
                     }
                 }
@@ -6142,7 +6081,8 @@ class Intention {
                     } else if (mol.isStable()) {
                         // Only repel STABLE molecules that are NOT the required monomer
                         // Unstable molecules may still transform into the needed monomer
-                        const repelForce = direction.mul(-this.attractionForce * 1.5 * (1 - dist / this.radius));
+                        const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
+                        const repelForce = direction.mul(-repelStrength);
                         mol.applyForce(repelForce);
                     }
                     // Note: gatheredComponents is now managed in progress calculation
@@ -6241,14 +6181,17 @@ class Intention {
                 // Wait for it to complete its transformation to the stable form
                 if (mol.isReshaping) continue;
 
-                // CRITICAL: Verify molecule has correct geometry for known templates
-                // If a stable template exists for this formula, ensure molecule matches it
-                if (typeof matchesStableTemplate === 'function' && typeof needsReshaping === 'function') {
-                    const template = matchesStableTemplate(mol);
-                    if (template && needsReshaping(mol, template)) {
-                        // Molecule has wrong geometry - trigger reshaping and wait
-                        mol.startReshaping(template);
-                        continue;
+                // If geometry is already verified, trust it - don't re-check
+                // This prevents constant re-triggering of reshaping
+                if (!mol.geometryVerified) {
+                    // Only check geometry for molecules that haven't been verified yet
+                    if (typeof matchesStableTemplate === 'function' && typeof needsReshaping === 'function') {
+                        const template = matchesStableTemplate(mol);
+                        if (template && needsReshaping(mol, template)) {
+                            // Molecule has wrong geometry - trigger reshaping and wait
+                            mol.startReshaping(template);
+                            continue;
+                        }
                     }
                 }
 
@@ -8556,14 +8499,25 @@ class Environment {
 
     /**
      * Synchronize bonds between environment.bonds and atom.bonds
-     * This cleans up stale/broken bonds and ensures consistency.
-     * 
-     * environment.bonds is the SOURCE OF TRUTH.
-     * After sync, atom.bonds will exactly match what's in environment.bonds.
+     * This is BIDIRECTIONAL:
+     * 1. Adds bonds from atom.bonds that aren't in environment.bonds (e.g., from reshaping)
+     * 2. Removes bonds from environment.bonds that atoms no longer have
      */
     syncBonds() {
-        // Step 1: Remove broken bonds from environment.bonds
-        // A bond is "broken" if either atom no longer references it
+        // Step 1: Discover NEW bonds that exist in atom.bonds but not in environment.bonds
+        // This happens when molecules reshape and create new bonds via Bond constructor
+        const knownBondIds = new Set(this.bonds.keys());
+        for (const atom of this.atoms.values()) {
+            for (const bond of atom.bonds) {
+                if (!knownBondIds.has(bond.id)) {
+                    // This is a new bond - add it to environment.bonds
+                    this.bonds.set(bond.id, bond);
+                    knownBondIds.add(bond.id);
+                }
+            }
+        }
+        
+        // Step 2: Remove broken/orphaned bonds from environment.bonds
         const bondsToRemove = [];
         for (const [bondId, bond] of this.bonds) {
             // Check if bond is orphaned (atoms don't exist in environment)
@@ -8588,13 +8542,12 @@ class Environment {
             this.bonds.delete(bondId);
         }
         
-        // Step 2: Rebuild atom.bonds arrays from environment.bonds (source of truth)
-        // First clear all atom bonds
+        // Step 3: Ensure atom.bonds arrays are consistent with environment.bonds
+        // Rebuild atom.bonds from environment.bonds to ensure both sides match
         for (const atom of this.atoms.values()) {
             atom.bonds = [];
         }
         
-        // Then rebuild from environment.bonds
         for (const bond of this.bonds.values()) {
             if (bond.atom1 && bond.atom2) {
                 if (!bond.atom1.bonds.includes(bond)) {

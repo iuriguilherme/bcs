@@ -3,6 +3,160 @@
  * Helper functions used throughout the simulation
  */
 
+/**
+ * Debug System
+ * Toggle verbose logging via console: Debug.enable() / Debug.disable()
+ * Filter by molecule ID: Debug.watchMolecule('molecule-id')
+ * Filter by formula: Debug.watchFormula('H2O')
+ */
+const Debug = {
+    enabled: false,
+    watchedMoleculeId: null,
+    watchedFormula: null,
+    categories: {
+        reshape: true,
+        bonds: true,
+        molecules: true,
+        sync: false,  // Very verbose, off by default
+        decay: true,
+        intentions: true
+    },
+
+    enable() {
+        this.enabled = true;
+        console.log('%c[Debug] Verbose logging ENABLED', 'color: #00ff00; font-weight: bold');
+        console.log('  Debug.disable() - Turn off');
+        console.log('  Debug.watchMolecule(id) - Filter by molecule ID');
+        console.log('  Debug.watchFormula("H2O") - Filter by formula');
+        console.log('  Debug.clearWatch() - Clear filters');
+        console.log('  Debug.category("sync", true) - Enable/disable category');
+    },
+
+    disable() {
+        this.enabled = false;
+        console.log('%c[Debug] Verbose logging DISABLED', 'color: #ff6600; font-weight: bold');
+    },
+
+    watchMolecule(id) {
+        this.watchedMoleculeId = id;
+        this.enabled = true;
+        console.log(`%c[Debug] Watching molecule: ${id}`, 'color: #00ffff; font-weight: bold');
+    },
+
+    watchFormula(formula) {
+        this.watchedFormula = formula;
+        this.enabled = true;
+        console.log(`%c[Debug] Watching formula: ${formula}`, 'color: #00ffff; font-weight: bold');
+    },
+
+    clearWatch() {
+        this.watchedMoleculeId = null;
+        this.watchedFormula = null;
+        console.log('%c[Debug] Watch filters cleared', 'color: #ffff00');
+    },
+
+    category(name, enabled) {
+        if (this.categories.hasOwnProperty(name)) {
+            this.categories[name] = enabled;
+            console.log(`%c[Debug] Category '${name}' ${enabled ? 'ENABLED' : 'DISABLED'}`, 'color: #ffff00');
+        } else {
+            console.log(`Available categories: ${Object.keys(this.categories).join(', ')}`);
+        }
+    },
+
+    /**
+     * Check if we should log for this molecule
+     */
+    shouldLog(category, molecule = null) {
+        if (!this.enabled) return false;
+        if (!this.categories[category]) return false;
+        
+        // If watching specific molecule/formula, filter
+        if (this.watchedMoleculeId && molecule) {
+            if (molecule.id !== this.watchedMoleculeId) return false;
+        }
+        if (this.watchedFormula && molecule) {
+            if (molecule.formula !== this.watchedFormula) return false;
+        }
+        return true;
+    },
+
+    /**
+     * Log molecule-related message with rich context
+     */
+    logMolecule(category, action, molecule, extra = {}) {
+        if (!this.shouldLog(category, molecule)) return;
+
+        const id = molecule.id.substring(0, 8);  // Short ID
+        const formula = molecule.formula || '?';
+        const atomCount = molecule.atoms?.length || 0;
+        const bondCount = molecule.bonds?.length || 0;
+        // Don't call isStable() here - it would cause infinite recursion
+        const reshaping = molecule.isReshaping ? 'RESHAPING' : '';
+        const verified = molecule.geometryVerified ? 'VERIFIED' : '';
+
+        let msg = `[${category.toUpperCase()}] ${action} | ${formula} (${id}) | atoms:${atomCount} bonds:${bondCount} | ${reshaping} ${verified}`;
+        
+        if (Object.keys(extra).length > 0) {
+            msg += ` | ${JSON.stringify(extra)}`;
+        }
+
+        const color = {
+            reshape: '#ff00ff',
+            bonds: '#00ff00',
+            molecules: '#00ffff',
+            sync: '#888888',
+            decay: '#ff6600',
+            intentions: '#ffff00'
+        }[category] || '#ffffff';
+
+        console.log(`%c${msg}`, `color: ${color}`);
+    },
+
+    /**
+     * Log bond-related message
+     */
+    logBond(action, bond, molecule = null, extra = {}) {
+        if (!this.shouldLog('bonds', molecule)) return;
+
+        const atom1 = `${bond.atom1?.symbol || '?'}(${bond.atom1?.id?.substring(0, 6) || '?'})`;
+        const atom2 = `${bond.atom2?.symbol || '?'}(${bond.atom2?.id?.substring(0, 6) || '?'})`;
+        const molId = molecule ? molecule.id.substring(0, 8) : 'none';
+
+        let msg = `[BOND] ${action} | ${atom1} --${bond.order || 1}-- ${atom2} | mol:${molId}`;
+        
+        if (Object.keys(extra).length > 0) {
+            msg += ` | ${JSON.stringify(extra)}`;
+        }
+
+        console.log(`%c${msg}`, 'color: #00ff00');
+    },
+
+    /**
+     * Log state dump for a molecule (detailed)
+     */
+    dumpMolecule(molecule) {
+        console.group(`%c[DUMP] Molecule ${molecule.formula} (${molecule.id})`, 'color: #ff00ff; font-weight: bold');
+        console.log('ID:', molecule.id);
+        console.log('Formula:', molecule.formula);
+        console.log('Name:', molecule.name);
+        console.log('Atoms:', molecule.atoms?.length, molecule.atoms?.map(a => `${a.symbol}(${a.id.substring(0,6)})`));
+        console.log('Bonds:', molecule.bonds?.length, molecule.bonds?.map(b => `${b.atom1?.symbol}-${b.atom2?.symbol} o${b.order}`));
+        console.log('isStable():', molecule.isStable?.());
+        console.log('hasValidValence():', molecule.hasValidValence?.());
+        console.log('isReshaping:', molecule.isReshaping);
+        console.log('geometryVerified:', molecule.geometryVerified);
+        console.log('reshapingTimer:', molecule.reshapingTimer);
+        console.log('targetTemplate:', molecule.targetTemplate?.name);
+        console.log('atomToTemplateIndex size:', molecule.atomToTemplateIndex?.size);
+        console.log('Atom valences:', molecule.atoms?.map(a => `${a.symbol}: ${a.bondCount}/${a.maxBonds} (avail:${a.availableValence})`));
+        console.groupEnd();
+    }
+};
+
+// Make Debug available globally
+window.Debug = Debug;
+
 const Utils = {
     /**
      * Generate a unique ID

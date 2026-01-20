@@ -413,6 +413,92 @@ if (mol.formula === targetFormula) continue;  // Don't repel target
 2. **Only repel stable unrelated molecules** - unstable ones may still become the target
 3. **Attract needed atoms** - repel atoms not in target composition
 
+### Bug #12: Bonds Lost After Reshaping (2026-01)
+
+**Problem**: After a molecule completed reshaping (e.g., H2, H2O), the newly created bonds were lost and atoms would be freed. The console showed "completing reshape" followed by the molecule immediately becoming unstable and decaying.
+
+**Root Cause**: Two issues:
+
+1. **syncBonds was one-way**: The `syncBonds()` method only removed bonds from `environment.bonds` that atoms didn't have, and rebuilt `atom.bonds` from `environment.bonds`. But when `_restructureBonds()` created new bonds via `new Bond()`, they were added to `atom.bonds` (via Bond constructor) but NOT to `environment.bonds`. On the next frame, `syncBonds()` would clear `atom.bonds` and rebuild from `environment.bonds` (which didn't have the new bonds), causing them to be lost.
+
+2. **Bond breaking added velocity**: When `_restructureBonds()` called `bond.break()` to remove old bonds, it added repulsion velocity to atoms (the default behavior). This happened AFTER `applyStableConfiguration()` had set velocities to zero, causing atoms to fly apart.
+
+**Fix Applied**:
+
+1. **Made syncBonds bidirectional** - discover new bonds in atom.bonds and add to environment.bonds:
+```javascript
+syncBonds() {
+    // Step 1: Discover NEW bonds that exist in atom.bonds but not in environment.bonds
+    const knownBondIds = new Set(this.bonds.keys());
+    for (const atom of this.atoms.values()) {
+        for (const bond of atom.bonds) {
+            if (!knownBondIds.has(bond.id)) {
+                this.bonds.set(bond.id, bond);
+                knownBondIds.add(bond.id);
+            }
+        }
+    }
+    
+    // Step 2: Remove broken/orphaned bonds from environment.bonds
+    // ... existing removal logic ...
+    
+    // Step 3: Ensure atom.bonds arrays are consistent with environment.bonds
+    // ... existing rebuild logic ...
+}
+```
+
+2. **Break bonds without energy during restructure**:
+```javascript
+// In _restructureBonds():
+bond.break(false);  // No energy release during restructure
+```
+
+**Key Insight**: Bond synchronization must be bidirectional. New bonds created anywhere (reshaping, intentions, etc.) must be discovered and added to `environment.bonds`, not just removed.
+
+### Bug #13: Reshape Loop Due to Inconsistent Atom Mapping (2026-01)
+
+**Problem**: Molecules like C2H2 (Acetylene) would complete reshaping, then immediately start reshaping again in an infinite loop. Console showed "completing reshape" followed immediately by "starting reshape".
+
+**Root Cause**: The `_restructureBonds()` method was recalculating the atom-to-template-index mapping by comparing distances, which could give different results than what `getTargetConfiguration()` calculated when reshaping started. During reshaping, atoms move to their target positions, so the closest-atom logic could match atoms differently.
+
+**Fix Applied**:
+
+1. **Modified `getTargetConfiguration()` to return both positions AND mapping**:
+```javascript
+function getTargetConfiguration(molecule, template) {
+    // ... existing position calculation ...
+    const atomToTemplateIndex = new Map();
+    
+    // When assigning atoms to template positions, also store the index
+    atomToTemplateIndex.set(atom, tPos.index);
+    
+    return { targetPositions, atomToTemplateIndex };
+}
+```
+
+2. **Store the mapping in `startReshaping()`**:
+```javascript
+startReshaping(template) {
+    const config = getTargetConfiguration(this, template);
+    this.targetPositions = config.targetPositions;
+    this.atomToTemplateIndex = config.atomToTemplateIndex;  // Store for later use
+}
+```
+
+3. **Use stored mapping in `_restructureBonds()`** instead of recalculating:
+```javascript
+_restructureBonds() {
+    // Use the stored mapping - same one used for position calculation
+    const templateIndexToAtom = new Map();
+    for (const [atom, templateIndex] of this.atomToTemplateIndex) {
+        templateIndexToAtom.set(templateIndex, atom);
+    }
+    // ... create bonds using this consistent mapping ...
+}
+```
+
+**Key Insight**: The atom-to-template mapping must be calculated ONCE at the start of reshaping and reused for bond restructuring. Recalculating it after atoms have moved leads to inconsistent mappings and missing bonds.
+
 ---
 
 ## 🧪 Chemistry Rules to Preserve

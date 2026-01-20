@@ -144,6 +144,10 @@ const STABLE_MOLECULES = {
     },
 
     // ===== CARBON ALLOTROPES & CLUSTERS =====
+    // NOTE: Most carbon allotropes (C3-C12) removed because they have unsatisfied valences.
+    // Linear cumulenes have end carbons with only 2 bonds (need 4).
+    // Cyclic rings with alternating double/single bonds give 3 bonds per carbon (need 4).
+    // Only C2 with quadruple bond is kept.
 
     'C2': {
         name: 'Dicarbon',
@@ -156,186 +160,6 @@ const STABLE_MOLECULES = {
             { atom1: 0, atom2: 1, order: 4 }  // Quadruple bond (or double based on model)
         ],
         description: 'Dicarbon - found in carbon vapor and comets'
-    },
-    'C3': {
-        name: 'Tricarbon',
-        formula: 'C3',
-        atoms: [
-            { symbol: 'C', relX: -25, relY: 0 },
-            { symbol: 'C', relX: 0, relY: 0 },
-            { symbol: 'C', relX: 25, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 2 }
-        ],
-        description: 'Tricarbon - linear molecule found in space'
-    },
-    'C4': {
-        name: 'Tetracarbon',
-        formula: 'C4',
-        atoms: [
-            { symbol: 'C', relX: -35, relY: 0 },
-            { symbol: 'C', relX: -12, relY: 0 },
-            { symbol: 'C', relX: 12, relY: 0 },
-            { symbol: 'C', relX: 35, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 2 },
-            { atom1: 2, atom2: 3, order: 2 }
-        ],
-        description: 'Tetracarbon - linear carbon chain (cumulene form)'
-    },
-    'C5': {
-        name: 'Pentacarbon',
-        formula: 'C5',
-        atoms: [
-            { symbol: 'C', relX: -45, relY: 0 },
-            { symbol: 'C', relX: -22, relY: 0 },
-            { symbol: 'C', relX: 0, relY: 0 },
-            { symbol: 'C', relX: 22, relY: 0 },
-            { symbol: 'C', relX: 45, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 2 },
-            { atom1: 2, atom2: 3, order: 2 },
-            { atom1: 3, atom2: 4, order: 2 }
-        ],
-        description: 'Pentacarbon - linear carbon chain'
-    },
-    'C6lin': {
-        name: 'Hexacarbon (Linear)',
-        formula: 'C6',
-        atoms: [
-            { symbol: 'C', relX: -55, relY: 0 },
-            { symbol: 'C', relX: -33, relY: 0 },
-            { symbol: 'C', relX: -11, relY: 0 },
-            { symbol: 'C', relX: 11, relY: 0 },
-            { symbol: 'C', relX: 33, relY: 0 },
-            { symbol: 'C', relX: 55, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 2 },
-            { atom1: 2, atom2: 3, order: 2 },
-            { atom1: 3, atom2: 4, order: 2 },
-            { atom1: 4, atom2: 5, order: 2 }
-        ],
-        description: 'Hexacarbon linear chain (cumulene)'
-    },
-    'C6ring': {
-        name: 'Hexacarbon (Ring)',
-        formula: 'C6',
-        atoms: [
-            // Hexagonal ring
-            { symbol: 'C', relX: 0, relY: -25 },
-            { symbol: 'C', relX: 22, relY: -12 },
-            { symbol: 'C', relX: 22, relY: 12 },
-            { symbol: 'C', relX: 0, relY: 25 },
-            { symbol: 'C', relX: -22, relY: 12 },
-            { symbol: 'C', relX: -22, relY: -12 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 1 },
-            { atom1: 2, atom2: 3, order: 2 },
-            { atom1: 3, atom2: 4, order: 1 },
-            { atom1: 4, atom2: 5, order: 2 },
-            { atom1: 5, atom2: 0, order: 1 }
-        ],
-        description: 'Hexacarbon ring - cyclic carbon cluster'
-    },
-    'C8': {
-        name: 'Cyclooctacarbon',
-        formula: 'C8',
-        atoms: [
-            // Octagonal ring
-            { symbol: 'C', relX: 0, relY: -30 },
-            { symbol: 'C', relX: 21, relY: -21 },
-            { symbol: 'C', relX: 30, relY: 0 },
-            { symbol: 'C', relX: 21, relY: 21 },
-            { symbol: 'C', relX: 0, relY: 30 },
-            { symbol: 'C', relX: -21, relY: 21 },
-            { symbol: 'C', relX: -30, relY: 0 },
-            { symbol: 'C', relX: -21, relY: -21 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 1 },
-            { atom1: 2, atom2: 3, order: 2 },
-            { atom1: 3, atom2: 4, order: 1 },
-            { atom1: 4, atom2: 5, order: 2 },
-            { atom1: 5, atom2: 6, order: 1 },
-            { atom1: 6, atom2: 7, order: 2 },
-            { atom1: 7, atom2: 0, order: 1 }
-        ],
-        description: 'Cyclooctacarbon - stable 8-carbon ring'
-    },
-    'C10': {
-        name: 'Cyclodecacarbon',
-        formula: 'C10',
-        atoms: [
-            // Decagonal ring (36° apart)
-            { symbol: 'C', relX: 0, relY: -35 },
-            { symbol: 'C', relX: 20, relY: -28 },
-            { symbol: 'C', relX: 33, relY: -11 },
-            { symbol: 'C', relX: 33, relY: 11 },
-            { symbol: 'C', relX: 20, relY: 28 },
-            { symbol: 'C', relX: 0, relY: 35 },
-            { symbol: 'C', relX: -20, relY: 28 },
-            { symbol: 'C', relX: -33, relY: 11 },
-            { symbol: 'C', relX: -33, relY: -11 },
-            { symbol: 'C', relX: -20, relY: -28 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 1 },
-            { atom1: 2, atom2: 3, order: 2 },
-            { atom1: 3, atom2: 4, order: 1 },
-            { atom1: 4, atom2: 5, order: 2 },
-            { atom1: 5, atom2: 6, order: 1 },
-            { atom1: 6, atom2: 7, order: 2 },
-            { atom1: 7, atom2: 8, order: 1 },
-            { atom1: 8, atom2: 9, order: 2 },
-            { atom1: 9, atom2: 0, order: 1 }
-        ],
-        description: 'Cyclodecacarbon - 10-carbon ring (detected in space)'
-    },
-    'C12': {
-        name: 'Cyclododecacarbon',
-        formula: 'C12',
-        atoms: [
-            // Dodecagonal ring (30° apart)
-            { symbol: 'C', relX: 0, relY: -40 },
-            { symbol: 'C', relX: 20, relY: -35 },
-            { symbol: 'C', relX: 35, relY: -20 },
-            { symbol: 'C', relX: 40, relY: 0 },
-            { symbol: 'C', relX: 35, relY: 20 },
-            { symbol: 'C', relX: 20, relY: 35 },
-            { symbol: 'C', relX: 0, relY: 40 },
-            { symbol: 'C', relX: -20, relY: 35 },
-            { symbol: 'C', relX: -35, relY: 20 },
-            { symbol: 'C', relX: -40, relY: 0 },
-            { symbol: 'C', relX: -35, relY: -20 },
-            { symbol: 'C', relX: -20, relY: -35 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 1 },
-            { atom1: 2, atom2: 3, order: 2 },
-            { atom1: 3, atom2: 4, order: 1 },
-            { atom1: 4, atom2: 5, order: 2 },
-            { atom1: 5, atom2: 6, order: 1 },
-            { atom1: 6, atom2: 7, order: 2 },
-            { atom1: 7, atom2: 8, order: 1 },
-            { atom1: 8, atom2: 9, order: 2 },
-            { atom1: 9, atom2: 10, order: 1 },
-            { atom1: 10, atom2: 11, order: 2 },
-            { atom1: 11, atom2: 0, order: 1 }
-        ],
-        description: 'Cyclododecacarbon - 12-carbon ring'
     },
 
     // ===== CARBON-OXYGEN COMPOUNDS =====
@@ -358,58 +182,10 @@ const STABLE_MOLECULES = {
         ],
         description: 'Carbon suboxide - linear O=C=C=C=O'
     },
-    'C2O': {
-        name: 'Dicarbon Monoxide',
-        formula: 'C2O',
-        atoms: [
-            { symbol: 'C', relX: -22, relY: 0 },
-            { symbol: 'C', relX: 0, relY: 0 },
-            { symbol: 'O', relX: 22, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 3 },
-            { atom1: 1, atom2: 2, order: 1 }
-        ],
-        description: 'Dicarbon monoxide - detected in space (C≡C-O)'
-    },
-    'C4O': {
-        name: 'Tetracarbon Monoxide',
-        formula: 'C4O',
-        atoms: [
-            { symbol: 'C', relX: -40, relY: 0 },
-            { symbol: 'C', relX: -20, relY: 0 },
-            { symbol: 'C', relX: 0, relY: 0 },
-            { symbol: 'C', relX: 20, relY: 0 },
-            { symbol: 'O', relX: 40, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 3 },
-            { atom1: 1, atom2: 2, order: 1 },
-            { atom1: 2, atom2: 3, order: 3 },
-            { atom1: 3, atom2: 4, order: 1 }
-        ],
-        description: 'Tetracarbon monoxide - interstellar molecule'
-    },
-    'C5O': {
-        name: 'Pentacarbon Monoxide',
-        formula: 'C5O',
-        atoms: [
-            { symbol: 'C', relX: -50, relY: 0 },
-            { symbol: 'C', relX: -25, relY: 0 },
-            { symbol: 'C', relX: 0, relY: 0 },
-            { symbol: 'C', relX: 25, relY: 0 },
-            { symbol: 'C', relX: 50, relY: 0 },
-            { symbol: 'O', relX: 72, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 3 },
-            { atom1: 1, atom2: 2, order: 1 },
-            { atom1: 2, atom2: 3, order: 3 },
-            { atom1: 3, atom2: 4, order: 1 },
-            { atom1: 4, atom2: 5, order: 3 }
-        ],
-        description: 'Pentacarbon monoxide - carbon chain oxide'
-    },
+    // C2O, C4O, C5O removed - end carbon has only 3 bonds (needs 4)
+    // CO3 removed - bottom oxygens have only 1 bond each (need 2) - it's a radical
+    // C2O3 removed - end carbons have only 2 bonds each (needs 4)
+    // C3O removed - end carbon has only 2 bonds (needs 4)
     'C2O2': {
         name: 'Ethylenedione',
         formula: 'C2O2',
@@ -467,56 +243,6 @@ const STABLE_MOLECULES = {
             { atom1: 5, atom2: 6, order: 2 }
         ],
         description: 'Pentatetraenedione - O=C=C=C=C=C=O'
-    },
-    'CO3': {
-        name: 'Carbonate Radical',
-        formula: 'CO3',
-        atoms: [
-            { symbol: 'C', relX: 0, relY: 0 },
-            { symbol: 'O', relX: 0, relY: -25 },
-            { symbol: 'O', relX: -22, relY: 12 },
-            { symbol: 'O', relX: 22, relY: 12 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 0, atom2: 2, order: 1 },
-            { atom1: 0, atom2: 3, order: 1 }
-        ],
-        description: 'Carbonate radical - trigonal planar CO3'
-    },
-    'C2O3': {
-        name: 'Oxalic Anhydride',
-        formula: 'C2O3',
-        atoms: [
-            { symbol: 'O', relX: -35, relY: -15 },
-            { symbol: 'C', relX: -15, relY: 0 },
-            { symbol: 'O', relX: 0, relY: 15 },
-            { symbol: 'C', relX: 15, relY: 0 },
-            { symbol: 'O', relX: 35, relY: -15 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 1 },
-            { atom1: 2, atom2: 3, order: 1 },
-            { atom1: 3, atom2: 4, order: 2 }
-        ],
-        description: 'Oxalic anhydride - cyclic C2O3'
-    },
-    'C3O': {
-        name: 'Tricarbon Monoxide',
-        formula: 'C3O',
-        atoms: [
-            { symbol: 'C', relX: -30, relY: 0 },
-            { symbol: 'C', relX: -10, relY: 0 },
-            { symbol: 'C', relX: 10, relY: 0 },
-            { symbol: 'O', relX: 30, relY: 0 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 2 },
-            { atom1: 1, atom2: 2, order: 2 },
-            { atom1: 2, atom2: 3, order: 2 }
-        ],
-        description: 'Tricarbon monoxide - interstellar molecule C=C=C=O'
     },
 
     // ===== SIMPLE CARBOHYDRATES =====
@@ -976,22 +702,7 @@ const STABLE_MOLECULES = {
         ],
         description: 'Hypochlorous acid - weak acid, disinfectant HOCl'
     },
-    'H3O': {
-        name: 'Hydronium',
-        formula: 'H3O',
-        atoms: [
-            { symbol: 'O', relX: 0, relY: 0 },
-            { symbol: 'H', relX: 0, relY: -22 },
-            { symbol: 'H', relX: 19, relY: 11 },
-            { symbol: 'H', relX: -19, relY: 11 }
-        ],
-        bonds: [
-            { atom1: 0, atom2: 1, order: 1 },
-            { atom1: 0, atom2: 2, order: 1 },
-            { atom1: 0, atom2: 3, order: 1 }
-        ],
-        description: 'Hydronium ion - protonated water H3O+'
-    },
+    // H3O (Hydronium) removed - it's an ion (O has 3 bonds but valence is 2)
     'H2O2': {
         name: 'Hydrogen Peroxide',
         formula: 'H2O2',
@@ -1747,11 +1458,12 @@ function matchesStableTemplate(molecule) {
  * This maps the molecule's atoms to the template atoms by element type
  * @param {Molecule} molecule - The molecule to reshape
  * @param {Object} template - The stable template
- * @returns {Map<Atom, Vector2>} Map of atom -> target position
+ * @returns {Object} Object with targetPositions (Map<Atom, Vector2>) and atomToTemplateIndex (Map<Atom, number>)
  */
 function getTargetConfiguration(molecule, template) {
     const center = molecule.centerOfMass;
     const targetPositions = new Map();
+    const atomToTemplateIndex = new Map();  // Track which template index each atom maps to
 
     // Group molecule atoms by symbol
     const atomsBySymbol = {};
@@ -1814,11 +1526,13 @@ function getTargetConfiguration(molecule, template) {
                     center.x + tPos.relX,
                     center.y + tPos.relY
                 ));
+                // Store the original template index for this atom
+                atomToTemplateIndex.set(atom, tPos.index);
             }
         }
     }
 
-    return targetPositions;
+    return { targetPositions, atomToTemplateIndex };
 }
 
 /**
@@ -1876,7 +1590,8 @@ function needsReshaping(molecule, template) {
     }
 
     // Check if atom positions are significantly different from template
-    const targetPositions = getTargetConfiguration(molecule, template);
+    const config = getTargetConfiguration(molecule, template);
+    const targetPositions = config.targetPositions;
     const threshold = 15; // Pixels - if any atom is more than this far from target
 
     for (const [atom, targetPos] of targetPositions) {

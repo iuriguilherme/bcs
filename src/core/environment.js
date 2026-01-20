@@ -94,14 +94,25 @@ class Environment {
 
     /**
      * Synchronize bonds between environment.bonds and atom.bonds
-     * This cleans up stale/broken bonds and ensures consistency.
-     * 
-     * environment.bonds is the SOURCE OF TRUTH.
-     * After sync, atom.bonds will exactly match what's in environment.bonds.
+     * This is BIDIRECTIONAL:
+     * 1. Adds bonds from atom.bonds that aren't in environment.bonds (e.g., from reshaping)
+     * 2. Removes bonds from environment.bonds that atoms no longer have
      */
     syncBonds() {
-        // Step 1: Remove broken bonds from environment.bonds
-        // A bond is "broken" if either atom no longer references it
+        // Step 1: Discover NEW bonds that exist in atom.bonds but not in environment.bonds
+        // This happens when molecules reshape and create new bonds via Bond constructor
+        const knownBondIds = new Set(this.bonds.keys());
+        for (const atom of this.atoms.values()) {
+            for (const bond of atom.bonds) {
+                if (!knownBondIds.has(bond.id)) {
+                    // This is a new bond - add it to environment.bonds
+                    this.bonds.set(bond.id, bond);
+                    knownBondIds.add(bond.id);
+                }
+            }
+        }
+        
+        // Step 2: Remove broken/orphaned bonds from environment.bonds
         const bondsToRemove = [];
         for (const [bondId, bond] of this.bonds) {
             // Check if bond is orphaned (atoms don't exist in environment)
@@ -126,13 +137,12 @@ class Environment {
             this.bonds.delete(bondId);
         }
         
-        // Step 2: Rebuild atom.bonds arrays from environment.bonds (source of truth)
-        // First clear all atom bonds
+        // Step 3: Ensure atom.bonds arrays are consistent with environment.bonds
+        // Rebuild atom.bonds from environment.bonds to ensure both sides match
         for (const atom of this.atoms.values()) {
             atom.bonds = [];
         }
         
-        // Then rebuild from environment.bonds
         for (const bond of this.bonds.values()) {
             if (bond.atom1 && bond.atom2) {
                 if (!bond.atom1.bonds.includes(bond)) {
