@@ -66,7 +66,9 @@ class Intention {
         }
 
         this.exclusionInitialized = true;
-        console.log(`Intention ${this.id.substring(0, 8)} initialized with ${this.excludedMoleculeIds.size} excluded molecules`);
+        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+            console.log(`Intention ${this.id.substring(0, 8)} initialized with ${this.excludedMoleculeIds.size} excluded molecules`);
+        }
     }
 
     /**
@@ -486,6 +488,10 @@ class Intention {
                 // IMPORTANT: Skip molecules that existed before this intention was created
                 if (this.excludedMoleculeIds.has(mol.id)) continue;
 
+                // CRITICAL: Skip molecules already claimed by another intention
+                // This prevents overlapping intentions from all being fulfilled by the same molecule
+                if (mol.claimedByIntentionId && mol.claimedByIntentionId !== this.id) continue;
+
                 // CRITICAL: Molecule must be STABLE before we count it as complete
                 // This ensures the molecule has finished reshaping and won't become unstable
                 if (!mol.isStable()) continue;
@@ -516,16 +522,24 @@ class Intention {
                     const blueprintFormula = this.blueprint.formula;
                     if (blueprintFormula && mol.formula === blueprintFormula) {
                         // Mark intention as fulfilled - correct stable molecule formed!
+                        // CRITICAL: Claim the molecule so other overlapping intentions can't use it
+                        mol.claimedByIntentionId = this.id;
                         this.createdEntity = mol;
                         this.fulfilled = true;
-                        console.log(`Intention fulfilled: Stable molecule ${mol.formula} matches blueprint`);
+                        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                            console.log(`[Intention ${this.id.substring(0, 8)}] Fulfilled: Stable molecule ${mol.formula} matches blueprint`);
+                        }
                         return;
                     }
                     // If no formula in blueprint, fall back to atom count check (legacy)
                     else if (!blueprintFormula && mol.atoms.length === requirements.count) {
+                        // CRITICAL: Claim the molecule so other overlapping intentions can't use it
+                        mol.claimedByIntentionId = this.id;
                         this.createdEntity = mol;
                         this.fulfilled = true;
-                        console.log(`Intention fulfilled: New stable molecule ${mol.formula} formed (atom count match)`);
+                        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                            console.log(`[Intention ${this.id.substring(0, 8)}] Fulfilled: New stable molecule ${mol.formula} formed (atom count match)`);
+                        }
                         return;
                     }
                 }
@@ -550,6 +564,8 @@ class Intention {
             const nearbyMolecules = [];
             for (const mol of environment.molecules.values()) {
                 if (mol.polymerId) continue;
+                // CRITICAL: Skip molecules already claimed by another intention
+                if (mol.claimedByIntentionId && mol.claimedByIntentionId !== this.id) continue;
                 const dist = mol.getCenter().distanceTo(this.position);
                 if (dist < this.radius * 0.5) {
                     nearbyMolecules.push(mol);
@@ -569,6 +585,8 @@ class Intention {
                 if (mol.polymerId) continue;
                 if (!mol.isMonomer) continue;
                 if (requiredFormula && mol.formula !== requiredFormula) continue;
+                // CRITICAL: Skip molecules already claimed by another intention
+                if (mol.claimedByIntentionId && mol.claimedByIntentionId !== this.id) continue;
 
                 const dist = mol.getCenter().distanceTo(this.position);
                 if (dist < this.radius * 0.5) {
@@ -584,6 +602,8 @@ class Intention {
             // Check if we have required polymer types
             const nearbyPolymers = { membrane: null, structure: null, genetics: null };
             for (const polymer of environment.proteins.values()) {
+                // CRITICAL: Skip polymers already claimed by another intention
+                if (polymer.claimedByIntentionId && polymer.claimedByIntentionId !== this.id) continue;
                 const dist = polymer.getCenter().distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
                     const role = polymer.cellRole || polymer.type;
@@ -635,7 +655,9 @@ class Intention {
         const bondedAtoms = atoms.filter(a => a.bonds.length > 0);
 
         if (bondedAtoms.length < 2) {
-            console.log('Intention: Not enough bonded atoms to form molecule');
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                console.log(`[Intention ${this.id.substring(0, 8)}] Not enough bonded atoms to form molecule`);
+            }
             return; // Don't fulfill - try again next tick
         }
 
@@ -647,7 +669,9 @@ class Intention {
         // If wrong molecule formed, don't fulfill - keep trying
         const blueprintFormula = this.blueprint.formula;
         if (blueprintFormula && molecule.formula !== blueprintFormula) {
-            console.log(`Intention: Formed ${molecule.formula} but need ${blueprintFormula}, continuing...`);
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                console.log(`[Intention ${this.id.substring(0, 8)}] Formed ${molecule.formula} but need ${blueprintFormula}, continuing...`);
+            }
             return; // Don't fulfill - wrong molecule formed
         }
 
@@ -655,7 +679,9 @@ class Intention {
         // We just created bonds - the molecule may not be stable yet.
         // The _checkCompletion loop above will verify stability and fulfill.
         // Just log that molecule was formed - completion check will handle the rest.
-        console.log(`Intention: Created molecule ${molecule.formula}, waiting for stability...`);
+        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+            console.log(`[Intention ${this.id.substring(0, 8)}] Created molecule ${molecule.formula}, waiting for stability...`);
+        }
     }
 
     /**
@@ -670,18 +696,25 @@ class Intention {
                     return true; // This molecule can bind
                 }
             }
-            console.log(`Molecule ${mol.formula} cannot polymerize - no available valence`);
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                console.log(`[Intention ${this.id.substring(0, 8)}] Molecule ${mol.formula} cannot polymerize - no available valence`);
+            }
             return false;
         });
 
         if (polymerizableMolecules.length < 2) {
-            console.log('Cannot form polymer: need at least 2 molecules with available valence');
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                console.log(`[Intention ${this.id.substring(0, 8)}] Cannot form polymer: need at least 2 molecules with available valence`);
+            }
             return; // Don't form polymer
         }
 
-        // Mark molecules as part of polymer
+        // Mark molecules as part of polymer and claim them
         const polymerId = Utils.generateId();
-        polymerizableMolecules.forEach(mol => mol.polymerId = polymerId);
+        polymerizableMolecules.forEach(mol => {
+            mol.polymerId = polymerId;
+            mol.claimedByIntentionId = this.id;  // Claim so other intentions don't double-count
+        });
 
         // Create polymer
         const polymer = new Polymer(polymerizableMolecules, this.blueprint.type, this.blueprint.name);
@@ -691,7 +724,9 @@ class Intention {
         this.createdEntity = polymer;
         this.fulfilled = true;
 
-        console.log(`Intention fulfilled: Created polymer ${polymer.name || polymer.type}`);
+        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+            console.log(`[Intention ${this.id.substring(0, 8)}] Fulfilled: Created polymer ${polymer.name || polymer.type}`);
+        }
     }
 
     /**
@@ -703,27 +738,38 @@ class Intention {
      */
     _formPolymerFromMonomers(environment, monomers, monomerTemplate) {
         if (monomers.length < 2) {
-            console.log('Cannot form polymer: need at least 2 monomers');
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                console.log(`[Intention ${this.id.substring(0, 8)}] Cannot form polymer: need at least 2 monomers`);
+            }
             return;
         }
 
         const monomerName = monomerTemplate?.name || monomers[0]?.formula || 'Unknown';
-        console.log(`Forming polymer from ${monomers.length} ${monomerName} monomers`);
+        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+            console.log(`[Intention ${this.id.substring(0, 8)}] Forming polymer from ${monomers.length} ${monomerName} monomers`);
+        }
 
         // Create polymer with monomer template
         const polymer = new Polymer(monomers, monomerTemplate, this.blueprint.name);
 
-        // Mark molecules as part of polymer
-        monomers.forEach(mol => mol.polymerId = polymer.id);
+        // Mark molecules as part of polymer and claim them
+        monomers.forEach(mol => {
+            mol.polymerId = polymer.id;
+            mol.claimedByIntentionId = this.id;  // Claim so other intentions don't double-count
+        });
 
         // Handle polymerization type
         if (monomerTemplate?.polymerizationType === 'condensation') {
             // Condensation polymerization releases water molecules
             const waterCount = monomers.length - 1; // n-1 water released
-            console.log(`Condensation polymerization: ${waterCount} H2O molecules released (conceptually)`);
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                console.log(`[Intention ${this.id.substring(0, 8)}] Condensation polymerization: ${waterCount} H2O molecules released (conceptually)`);
+            }
             // Note: Could actually spawn water molecules here if desired
         } else if (monomerTemplate?.polymerizationType === 'addition') {
-            console.log('Addition polymerization: double bonds opened to form chain');
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                console.log(`[Intention ${this.id.substring(0, 8)}] Addition polymerization: double bonds opened to form chain`);
+            }
         }
 
         // Seal polymer to prevent external bonding
@@ -735,7 +781,9 @@ class Intention {
         this.createdEntity = polymer;
         this.fulfilled = true;
 
-        console.log(`Polymer created: ${polymer.name || polymer.type} from ${monomers.length} ${monomerName} monomers`);
+        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+            console.log(`[Intention ${this.id.substring(0, 8)}] Polymer created: ${polymer.name || polymer.type} from ${monomers.length} ${monomerName} monomers`);
+        }
     }
 
     /**
@@ -745,8 +793,9 @@ class Intention {
         // Create cell at this position
         const cell = new Cell(this.position.x, this.position.y);
 
-        // Add polymers to cell
+        // Add polymers to cell and claim them
         for (const polymer of polymers) {
+            polymer.claimedByIntentionId = this.id;  // Claim so other intentions don't double-count
             cell.addPolymer(polymer);
             environment.removeProtein(polymer.id);
         }
@@ -756,7 +805,9 @@ class Intention {
         this.createdEntity = cell;
         this.fulfilled = true;
 
-        console.log(`Intention fulfilled: Created cell from ${polymers.length} polymers`);
+        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+            console.log(`[Intention ${this.id.substring(0, 8)}] Fulfilled: Created cell from ${polymers.length} polymers`);
+        }
     }
 
     /**

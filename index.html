@@ -955,11 +955,12 @@ body {
     
     
     
+    
 
     <script>
 // ============================================
-// Bundled Cell Simulator Scripts
-// Generated: 2026-01-17T16:45:03.161Z
+// Bundled BioChemSim Scripts
+// Generated: 2026-01-20T01:17:00.902Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -1029,9 +1030,14 @@ const Debug = {
         }
     },
 
+    /**
+     * Check if we should log for this molecule
+     */
     shouldLog(category, molecule = null) {
         if (!this.enabled) return false;
         if (!this.categories[category]) return false;
+        
+        // If watching specific molecule/formula, filter
         if (this.watchedMoleculeId && molecule) {
             if (molecule.id !== this.watchedMoleculeId) return false;
         }
@@ -1041,10 +1047,13 @@ const Debug = {
         return true;
     },
 
+    /**
+     * Log molecule-related message with rich context
+     */
     logMolecule(category, action, molecule, extra = {}) {
         if (!this.shouldLog(category, molecule)) return;
 
-        const id = molecule.id.substring(0, 8);
+        const id = molecule.id.substring(0, 8);  // Short ID
         const formula = molecule.formula || '?';
         const atomCount = molecule.atoms?.length || 0;
         const bondCount = molecule.bonds?.length || 0;
@@ -1053,6 +1062,7 @@ const Debug = {
         const verified = molecule.geometryVerified ? 'VERIFIED' : '';
 
         let msg = `[${category.toUpperCase()}] ${action} | ${formula} (${id}) | atoms:${atomCount} bonds:${bondCount} | ${reshaping} ${verified}`;
+        
         if (Object.keys(extra).length > 0) {
             msg += ` | ${JSON.stringify(extra)}`;
         }
@@ -1069,6 +1079,9 @@ const Debug = {
         console.log(`%c${msg}`, `color: ${color}`);
     },
 
+    /**
+     * Log bond-related message
+     */
     logBond(action, bond, molecule = null, extra = {}) {
         if (!this.shouldLog('bonds', molecule)) return;
 
@@ -1077,16 +1090,22 @@ const Debug = {
         const molId = molecule ? molecule.id.substring(0, 8) : 'none';
 
         let msg = `[BOND] ${action} | ${atom1} --${bond.order || 1}-- ${atom2} | mol:${molId}`;
+        
         if (Object.keys(extra).length > 0) {
             msg += ` | ${JSON.stringify(extra)}`;
         }
+
         console.log(`%c${msg}`, 'color: #00ff00');
     },
 
+    /**
+     * Log state dump for a molecule (detailed)
+     */
     dumpMolecule(molecule) {
         console.group(`%c[DUMP] Molecule ${molecule.formula} (${molecule.id})`, 'color: #ff00ff; font-weight: bold');
         console.log('ID:', molecule.id);
         console.log('Formula:', molecule.formula);
+        console.log('Name:', molecule.name);
         console.log('Atoms:', molecule.atoms?.length, molecule.atoms?.map(a => `${a.symbol}(${a.id.substring(0,6)})`));
         console.log('Bonds:', molecule.bonds?.length, molecule.bonds?.map(b => `${b.atom1?.symbol}-${b.atom2?.symbol} o${b.order}`));
         console.log('isStable():', molecule.isStable?.());
@@ -1101,6 +1120,7 @@ const Debug = {
     }
 };
 
+// Make Debug available globally
 window.Debug = Debug;
 
 const Utils = {
@@ -1788,6 +1808,10 @@ const STABLE_MOLECULES = {
     },
 
     // ===== CARBON ALLOTROPES & CLUSTERS =====
+    // NOTE: Most carbon allotropes (C3-C12) removed because they have unsatisfied valences.
+    // Linear cumulenes have end carbons with only 2 bonds (need 4).
+    // Cyclic rings with alternating double/single bonds give 3 bonds per carbon (need 4).
+    // Only C2 with quadruple bond is kept.
 
     'C2': {
         name: 'Dicarbon',
@@ -1803,7 +1827,6 @@ const STABLE_MOLECULES = {
     },
 
     // ===== CARBON-OXYGEN COMPOUNDS =====
-    // Note: Pure carbon allotropes (C3-C12) removed - they have unsatisfied valences
 
     'C3O2': {
         name: 'Carbon Suboxide',
@@ -1823,7 +1846,10 @@ const STABLE_MOLECULES = {
         ],
         description: 'Carbon suboxide - linear O=C=C=C=O'
     },
-    // Note: C2O, C4O, C5O removed - end carbons have unsatisfied valence
+    // C2O, C4O, C5O removed - end carbon has only 3 bonds (needs 4)
+    // CO3 removed - bottom oxygens have only 1 bond each (need 2) - it's a radical
+    // C2O3 removed - end carbons have only 2 bonds each (needs 4)
+    // C3O removed - end carbon has only 2 bonds (needs 4)
     'C2O2': {
         name: 'Ethylenedione',
         formula: 'C2O2',
@@ -1882,7 +1908,6 @@ const STABLE_MOLECULES = {
         ],
         description: 'Pentatetraenedione - O=C=C=C=C=C=O'
     },
-    // Note: CO3, C2O3, C3O removed - have unsatisfied valence (radicals/ions)
 
     // ===== NITROGEN COMPOUNDS =====
     // Note: N2 and NH3 are defined above in the basic molecules section
@@ -3306,17 +3331,12 @@ function getTemplateBonds(template) {
 function needsReshaping(molecule, template) {
     if (!molecule || !template) return false;
 
-    const debugEnabled = typeof Debug !== 'undefined' && Debug.verbose;
-
     // Check if bond orders match template
     const templateBonds = template.bonds;
     const moleculeBonds = molecule.bonds;
 
     // If bond count doesn't match, definitely needs reshaping
     if (moleculeBonds.length !== templateBonds.length) {
-        if (debugEnabled) {
-            console.log(`[needsReshaping] ${molecule.formula}: bond count mismatch - molecule:${moleculeBonds.length} vs template:${templateBonds.length}`);
-        }
         return true;
     }
 
@@ -3334,9 +3354,6 @@ function needsReshaping(molecule, template) {
 
             if (symbols[0] === tSymbols[0] && symbols[1] === tSymbols[1]) {
                 if (bond.order !== tBond.order) {
-                    if (debugEnabled) {
-                        console.log(`[needsReshaping] ${molecule.formula}: bond order mismatch - ${symbols.join('-')} has order ${bond.order} vs template ${tBond.order}`);
-                    }
                     return true; // Bond order mismatch
                 }
                 foundMatch = true;
@@ -3345,9 +3362,6 @@ function needsReshaping(molecule, template) {
         }
 
         if (!foundMatch) {
-            if (debugEnabled) {
-                console.log(`[needsReshaping] ${molecule.formula}: bond ${symbols.join('-')} not found in template`);
-            }
             return true; // Bond not found in template
         }
     }
@@ -3360,16 +3374,10 @@ function needsReshaping(molecule, template) {
     for (const [atom, targetPos] of targetPositions) {
         const dist = atom.position.distanceTo(targetPos);
         if (dist > threshold) {
-            if (debugEnabled) {
-                console.log(`[needsReshaping] ${molecule.formula}: atom ${atom.symbol} position off by ${dist.toFixed(1)}px (threshold ${threshold})`);
-            }
             return true;
         }
     }
 
-    if (debugEnabled) {
-        console.log(`[needsReshaping] ${molecule.formula}: NO reshaping needed - all checks passed`);
-    }
     return false;
 }
 
@@ -4126,20 +4134,12 @@ class Molecule {
      */
     updateProperties() {
         const oldFormula = this.formula;
-        const oldVerified = this.geometryVerified;
         this.formula = this.calculateFormula();
         this.fingerprint = this.calculateFingerprint();
         
         // If formula changed, geometry needs re-verification
         if (oldFormula && oldFormula !== this.formula) {
             this.geometryVerified = false;
-            if (typeof Debug !== 'undefined' && Debug.verbose) {
-                Debug.logMolecule('reshape', 'VERIFIED RESET (formula changed)', this, {
-                    oldFormula,
-                    newFormula: this.formula,
-                    wasVerified: oldVerified
-                });
-            }
         }
     }
 
@@ -4236,42 +4236,26 @@ class Molecule {
         if (this.isReshaping) return false;
 
         // If geometry was already verified (after reshaping), skip re-check
-        if (this.geometryVerified) {
-            if (typeof Debug !== 'undefined' && Debug.verbose) {
-                Debug.logMolecule('reshape', 'isStable=TRUE (geometryVerified)', this);
-            }
-            return true;
-        }
+        if (this.geometryVerified) return true;
 
         // Check if this formula matches a known stable template
         if (typeof matchesStableTemplate === 'function') {
             const template = matchesStableTemplate(this);
             if (template) {
                 // This molecule matches a known formula - check geometry
-                if (typeof needsReshaping === 'function') {
-                    const needsIt = needsReshaping(this, template);
-                    if (typeof Debug !== 'undefined' && Debug.verbose) {
-                        Debug.logMolecule('reshape', `needsReshaping=${needsIt}`, this, {
+                if (typeof needsReshaping === 'function' && needsReshaping(this, template)) {
+                    // Geometry doesn't match template - NOT stable
+                    if (typeof Debug !== 'undefined' && Debug.shouldLog('reshape', this)) {
+                        Debug.logMolecule('reshape', 'isStable=FALSE (needs reshaping)', this, {
                             template: template.name,
-                            moleculeBonds: this.bonds.length,
-                            templateBonds: template.bonds?.length,
                             geometryVerified: this.geometryVerified
                         });
                     }
-                    if (needsIt) {
-                        // Geometry doesn't match template - NOT stable
-                        if (typeof Debug !== 'undefined' && Debug.shouldLog('reshape', this)) {
-                            Debug.logMolecule('reshape', 'isStable=FALSE (needs reshaping)', this, {
-                                template: template.name,
-                                geometryVerified: this.geometryVerified
-                            });
-                        }
-                        // Start reshaping if not already
-                        if (!this.isReshaping) {
-                            this.startReshaping(template);
-                        }
-                        return false;
+                    // Start reshaping if not already
+                    if (!this.isReshaping) {
+                        this.startReshaping(template);
                     }
+                    return false;
                 }
             }
         }
@@ -4354,10 +4338,6 @@ class Molecule {
                 mappingSize: this.atomToTemplateIndex?.size,
                 templateBonds: template.bonds?.length
             });
-            // Log stack trace to see WHO is calling startReshaping
-            if (Debug.verbose) {
-                console.trace('startReshaping called from:');
-            }
         }
     }
 
@@ -4421,17 +4401,15 @@ class Molecule {
      */
     applyStableConfiguration() {
         if (!this.targetTemplate || !this.targetPositions) {
-            if (typeof Debug !== 'undefined') {
-                Debug.logMolecule('reshape', 'ABORT - no template/positions', this);
-            }
             this.cancelReshaping();
             return;
         }
 
         if (typeof Debug !== 'undefined') {
             Debug.logMolecule('reshape', `COMPLETING → ${this.targetTemplate.name}`, this, {
-                targetPositions: this.targetPositions?.size,
-                atomMapping: this.atomToTemplateIndex?.size
+                atomCount: this.atoms.length,
+                currentBonds: this.bonds.length,
+                templateBonds: this.targetTemplate.bonds?.length
             });
         }
 
@@ -4463,10 +4441,13 @@ class Molecule {
             this.isMonomer = true;
         }
 
+        // Final state log
         if (typeof Debug !== 'undefined') {
-            Debug.logMolecule('reshape', 'COMPLETED', this, {
+            Debug.logMolecule('reshape', 'FINISHED - Now stable', this, {
+                finalBonds: this.bonds.length,
+                isStableNow: this.hasValidValence(),
                 geometryVerified: this.geometryVerified,
-                bondsAfter: this.bonds.length
+                atomValences: this.atoms.map(a => `${a.symbol}:${a.bondCount}/${a.maxBonds}`)
             });
         }
     }
@@ -4485,7 +4466,7 @@ class Molecule {
         // that was used to calculate target positions, ensuring consistency
         if (!this.atomToTemplateIndex || this.atomToTemplateIndex.size === 0) {
             if (typeof Debug !== 'undefined') {
-                Debug.logMolecule('bonds', 'ERROR - no atom mapping for restructure', this);
+                Debug.logMolecule('reshape', 'ERROR: No atom-to-template mapping', this);
             }
             return;
         }
@@ -4497,10 +4478,9 @@ class Molecule {
         }
 
         if (typeof Debug !== 'undefined') {
-            Debug.logMolecule('bonds', 'RESTRUCTURING', this, {
-                atomsMapped: this.atomToTemplateIndex.size,
-                bondsToCreate: templateBonds.length,
-                bondsToBreak: this.bonds.length
+            Debug.logMolecule('reshape', 'Restructuring bonds', this, {
+                mappedAtoms: this.atomToTemplateIndex.size,
+                templateAtoms: this.targetTemplate.atoms?.length
             });
         }
 
@@ -4508,8 +4488,8 @@ class Molecule {
         // Use break(false) to not add repulsion energy - we're restructuring, not decaying
         const bondsToBreak = [...this.bonds]; // Copy since we're modifying
         for (const bond of bondsToBreak) {
-            if (typeof Debug !== 'undefined' && Debug.verbose) {
-                Debug.logBond('break', bond, 'restructure (no energy)');
+            if (typeof Debug !== 'undefined') {
+                Debug.logBond('BREAK (restructure)', bond, this);
             }
             bond.break(false);  // No energy release during restructure
         }
@@ -4523,17 +4503,18 @@ class Molecule {
             if (atom1 && atom2) {
                 // Create new bond with correct order
                 const bond = new Bond(atom1, atom2, order);
-                if (typeof Debug !== 'undefined' && Debug.verbose) {
-                    Debug.logBond('create', bond, `order ${order} (restructure)`);
+                
+                if (typeof Debug !== 'undefined') {
+                    Debug.logBond(`CREATE order:${order}`, bond, this);
                 }
+
                 // Note: Bond constructor automatically adds itself to atoms
                 // and the Environment will pick it up via syncBonds
             } else {
                 if (typeof Debug !== 'undefined') {
-                    Debug.logMolecule('bonds', 'ERROR creating bond', this, {
-                        templateIdx: `${tBond.atom1}-${tBond.atom2}`,
-                        atom1Found: !!atom1,
-                        atom2Found: !!atom2
+                    Debug.logMolecule('reshape', `ERROR: Could not create bond indices ${tBond.atom1}-${tBond.atom2}`, this, {
+                        hasAtom1: !!atom1,
+                        hasAtom2: !!atom2
                     });
                 }
             }
@@ -4542,9 +4523,9 @@ class Molecule {
         // Step 3: Verify the new bonds are correct
         const newBonds = this.bonds;
         if (typeof Debug !== 'undefined') {
-            Debug.logMolecule('bonds', 'RESTRUCTURE DONE', this, {
-                newBonds: newBonds.length,
-                templateBonds: templateBonds.length,
+            Debug.logMolecule('reshape', 'RESTRUCTURE COMPLETE', this, {
+                newBondCount: newBonds.length,
+                templateBondCount: templateBonds.length,
                 match: newBonds.length === templateBonds.length
             });
         }
@@ -5913,7 +5894,9 @@ class Intention {
         }
 
         this.exclusionInitialized = true;
-        console.log(`Intention ${this.id.substring(0, 8)} initialized with ${this.excludedMoleculeIds.size} excluded molecules`);
+        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+            console.log(`Intention ${this.id.substring(0, 8)} initialized with ${this.excludedMoleculeIds.size} excluded molecules`);
+        }
     }
 
     /**
@@ -6333,6 +6316,10 @@ class Intention {
                 // IMPORTANT: Skip molecules that existed before this intention was created
                 if (this.excludedMoleculeIds.has(mol.id)) continue;
 
+                // CRITICAL: Skip molecules already claimed by another intention
+                // This prevents overlapping intentions from all being fulfilled by the same molecule
+                if (mol.claimedByIntentionId && mol.claimedByIntentionId !== this.id) continue;
+
                 // CRITICAL: Molecule must be STABLE before we count it as complete
                 // This ensures the molecule has finished reshaping and won't become unstable
                 if (!mol.isStable()) continue;
@@ -6363,16 +6350,24 @@ class Intention {
                     const blueprintFormula = this.blueprint.formula;
                     if (blueprintFormula && mol.formula === blueprintFormula) {
                         // Mark intention as fulfilled - correct stable molecule formed!
+                        // CRITICAL: Claim the molecule so other overlapping intentions can't use it
+                        mol.claimedByIntentionId = this.id;
                         this.createdEntity = mol;
                         this.fulfilled = true;
-                        console.log(`Intention fulfilled: Stable molecule ${mol.formula} matches blueprint`);
+                        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                            console.log(`[Intention ${this.id.substring(0, 8)}] Fulfilled: Stable molecule ${mol.formula} matches blueprint`);
+                        }
                         return;
                     }
                     // If no formula in blueprint, fall back to atom count check (legacy)
                     else if (!blueprintFormula && mol.atoms.length === requirements.count) {
+                        // CRITICAL: Claim the molecule so other overlapping intentions can't use it
+                        mol.claimedByIntentionId = this.id;
                         this.createdEntity = mol;
                         this.fulfilled = true;
-                        console.log(`Intention fulfilled: New stable molecule ${mol.formula} formed (atom count match)`);
+                        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                            console.log(`[Intention ${this.id.substring(0, 8)}] Fulfilled: New stable molecule ${mol.formula} formed (atom count match)`);
+                        }
                         return;
                     }
                 }
@@ -6397,6 +6392,8 @@ class Intention {
             const nearbyMolecules = [];
             for (const mol of environment.molecules.values()) {
                 if (mol.polymerId) continue;
+                // CRITICAL: Skip molecules already claimed by another intention
+                if (mol.claimedByIntentionId && mol.claimedByIntentionId !== this.id) continue;
                 const dist = mol.getCenter().distanceTo(this.position);
                 if (dist < this.radius * 0.5) {
                     nearbyMolecules.push(mol);
@@ -6416,6 +6413,8 @@ class Intention {
                 if (mol.polymerId) continue;
                 if (!mol.isMonomer) continue;
                 if (requiredFormula && mol.formula !== requiredFormula) continue;
+                // CRITICAL: Skip molecules already claimed by another intention
+                if (mol.claimedByIntentionId && mol.claimedByIntentionId !== this.id) continue;
 
                 const dist = mol.getCenter().distanceTo(this.position);
                 if (dist < this.radius * 0.5) {
@@ -6431,6 +6430,8 @@ class Intention {
             // Check if we have required polymer types
             const nearbyPolymers = { membrane: null, structure: null, genetics: null };
             for (const polymer of environment.proteins.values()) {
+                // CRITICAL: Skip polymers already claimed by another intention
+                if (polymer.claimedByIntentionId && polymer.claimedByIntentionId !== this.id) continue;
                 const dist = polymer.getCenter().distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
                     const role = polymer.cellRole || polymer.type;
@@ -6482,7 +6483,9 @@ class Intention {
         const bondedAtoms = atoms.filter(a => a.bonds.length > 0);
 
         if (bondedAtoms.length < 2) {
-            console.log('Intention: Not enough bonded atoms to form molecule');
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                console.log(`[Intention ${this.id.substring(0, 8)}] Not enough bonded atoms to form molecule`);
+            }
             return; // Don't fulfill - try again next tick
         }
 
@@ -6494,7 +6497,9 @@ class Intention {
         // If wrong molecule formed, don't fulfill - keep trying
         const blueprintFormula = this.blueprint.formula;
         if (blueprintFormula && molecule.formula !== blueprintFormula) {
-            console.log(`Intention: Formed ${molecule.formula} but need ${blueprintFormula}, continuing...`);
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                console.log(`[Intention ${this.id.substring(0, 8)}] Formed ${molecule.formula} but need ${blueprintFormula}, continuing...`);
+            }
             return; // Don't fulfill - wrong molecule formed
         }
 
@@ -6502,7 +6507,9 @@ class Intention {
         // We just created bonds - the molecule may not be stable yet.
         // The _checkCompletion loop above will verify stability and fulfill.
         // Just log that molecule was formed - completion check will handle the rest.
-        console.log(`Intention: Created molecule ${molecule.formula}, waiting for stability...`);
+        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+            console.log(`[Intention ${this.id.substring(0, 8)}] Created molecule ${molecule.formula}, waiting for stability...`);
+        }
     }
 
     /**
@@ -6517,18 +6524,25 @@ class Intention {
                     return true; // This molecule can bind
                 }
             }
-            console.log(`Molecule ${mol.formula} cannot polymerize - no available valence`);
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                console.log(`[Intention ${this.id.substring(0, 8)}] Molecule ${mol.formula} cannot polymerize - no available valence`);
+            }
             return false;
         });
 
         if (polymerizableMolecules.length < 2) {
-            console.log('Cannot form polymer: need at least 2 molecules with available valence');
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                console.log(`[Intention ${this.id.substring(0, 8)}] Cannot form polymer: need at least 2 molecules with available valence`);
+            }
             return; // Don't form polymer
         }
 
-        // Mark molecules as part of polymer
+        // Mark molecules as part of polymer and claim them
         const polymerId = Utils.generateId();
-        polymerizableMolecules.forEach(mol => mol.polymerId = polymerId);
+        polymerizableMolecules.forEach(mol => {
+            mol.polymerId = polymerId;
+            mol.claimedByIntentionId = this.id;  // Claim so other intentions don't double-count
+        });
 
         // Create polymer
         const polymer = new Polymer(polymerizableMolecules, this.blueprint.type, this.blueprint.name);
@@ -6538,7 +6552,9 @@ class Intention {
         this.createdEntity = polymer;
         this.fulfilled = true;
 
-        console.log(`Intention fulfilled: Created polymer ${polymer.name || polymer.type}`);
+        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+            console.log(`[Intention ${this.id.substring(0, 8)}] Fulfilled: Created polymer ${polymer.name || polymer.type}`);
+        }
     }
 
     /**
@@ -6550,27 +6566,38 @@ class Intention {
      */
     _formPolymerFromMonomers(environment, monomers, monomerTemplate) {
         if (monomers.length < 2) {
-            console.log('Cannot form polymer: need at least 2 monomers');
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                console.log(`[Intention ${this.id.substring(0, 8)}] Cannot form polymer: need at least 2 monomers`);
+            }
             return;
         }
 
         const monomerName = monomerTemplate?.name || monomers[0]?.formula || 'Unknown';
-        console.log(`Forming polymer from ${monomers.length} ${monomerName} monomers`);
+        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+            console.log(`[Intention ${this.id.substring(0, 8)}] Forming polymer from ${monomers.length} ${monomerName} monomers`);
+        }
 
         // Create polymer with monomer template
         const polymer = new Polymer(monomers, monomerTemplate, this.blueprint.name);
 
-        // Mark molecules as part of polymer
-        monomers.forEach(mol => mol.polymerId = polymer.id);
+        // Mark molecules as part of polymer and claim them
+        monomers.forEach(mol => {
+            mol.polymerId = polymer.id;
+            mol.claimedByIntentionId = this.id;  // Claim so other intentions don't double-count
+        });
 
         // Handle polymerization type
         if (monomerTemplate?.polymerizationType === 'condensation') {
             // Condensation polymerization releases water molecules
             const waterCount = monomers.length - 1; // n-1 water released
-            console.log(`Condensation polymerization: ${waterCount} H2O molecules released (conceptually)`);
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                console.log(`[Intention ${this.id.substring(0, 8)}] Condensation polymerization: ${waterCount} H2O molecules released (conceptually)`);
+            }
             // Note: Could actually spawn water molecules here if desired
         } else if (monomerTemplate?.polymerizationType === 'addition') {
-            console.log('Addition polymerization: double bonds opened to form chain');
+            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                console.log(`[Intention ${this.id.substring(0, 8)}] Addition polymerization: double bonds opened to form chain`);
+            }
         }
 
         // Seal polymer to prevent external bonding
@@ -6582,7 +6609,9 @@ class Intention {
         this.createdEntity = polymer;
         this.fulfilled = true;
 
-        console.log(`Polymer created: ${polymer.name || polymer.type} from ${monomers.length} ${monomerName} monomers`);
+        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+            console.log(`[Intention ${this.id.substring(0, 8)}] Polymer created: ${polymer.name || polymer.type} from ${monomers.length} ${monomerName} monomers`);
+        }
     }
 
     /**
@@ -6592,8 +6621,9 @@ class Intention {
         // Create cell at this position
         const cell = new Cell(this.position.x, this.position.y);
 
-        // Add polymers to cell
+        // Add polymers to cell and claim them
         for (const polymer of polymers) {
+            polymer.claimedByIntentionId = this.id;  // Claim so other intentions don't double-count
             cell.addPolymer(polymer);
             environment.removeProtein(polymer.id);
         }
@@ -6603,7 +6633,9 @@ class Intention {
         this.createdEntity = cell;
         this.fulfilled = true;
 
-        console.log(`Intention fulfilled: Created cell from ${polymers.length} polymers`);
+        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+            console.log(`[Intention ${this.id.substring(0, 8)}] Fulfilled: Created cell from ${polymers.length} polymers`);
+        }
     }
 
     /**
@@ -6754,240 +6786,6 @@ class Intention {
 
 // Make available globally
 window.Intention = Intention;
-
-
-// ==== src/systems/neural-network.js ====
-/**
- * Neural Network
- * Lightweight feed-forward neural network for cell behavior
- * No external dependencies
- */
-
-class NeuralNetwork {
-    /**
-     * Create a neural network
-     * @param {number[]} layers - Layer sizes, e.g., [4, 8, 4] for 4 inputs, 8 hidden, 4 outputs
-     * @param {string} activation - Activation function: 'sigmoid', 'relu', 'tanh'
-     */
-    constructor(layers, activation = 'sigmoid') {
-        this.layers = layers;
-        this.activation = activation;
-
-        // Initialize weights and biases
-        this.weights = [];
-        this.biases = [];
-
-        for (let i = 0; i < layers.length - 1; i++) {
-            // Weight matrix from layer i to layer i+1
-            const weightMatrix = this._createMatrix(layers[i + 1], layers[i]);
-            this._randomizeMatrix(weightMatrix);
-            this.weights.push(weightMatrix);
-
-            // Bias vector for layer i+1
-            const biasVector = new Array(layers[i + 1]).fill(0).map(() => (Math.random() - 0.5) * 0.5);
-            this.biases.push(biasVector);
-        }
-    }
-
-    /**
-     * Create a matrix (2D array)
-     */
-    _createMatrix(rows, cols) {
-        return Array.from({ length: rows }, () => new Array(cols).fill(0));
-    }
-
-    /**
-     * Randomize matrix values (Xavier initialization)
-     */
-    _randomizeMatrix(matrix) {
-        const rows = matrix.length;
-        const cols = matrix[0].length;
-        const scale = Math.sqrt(2 / (rows + cols));
-
-        for (let i = 0; i < rows; i++) {
-            for (let j = 0; j < cols; j++) {
-                matrix[i][j] = (Math.random() - 0.5) * 2 * scale;
-            }
-        }
-    }
-
-    /**
-     * Activation function
-     */
-    _activate(x) {
-        switch (this.activation) {
-            case 'sigmoid':
-                return 1 / (1 + Math.exp(-x));
-            case 'relu':
-                return Math.max(0, x);
-            case 'tanh':
-                return Math.tanh(x);
-            default:
-                return 1 / (1 + Math.exp(-x));
-        }
-    }
-
-    /**
-     * Forward propagation
-     * @param {number[]} inputs - Input values
-     * @returns {number[]} Output values
-     */
-    forward(inputs) {
-        if (inputs.length !== this.layers[0]) {
-            throw new Error(`Expected ${this.layers[0]} inputs, got ${inputs.length}`);
-        }
-
-        let current = inputs.slice();
-
-        for (let i = 0; i < this.weights.length; i++) {
-            const weights = this.weights[i];
-            const biases = this.biases[i];
-            const next = [];
-
-            for (let j = 0; j < weights.length; j++) {
-                let sum = biases[j];
-                for (let k = 0; k < current.length; k++) {
-                    sum += weights[j][k] * current[k];
-                }
-                next.push(this._activate(sum));
-            }
-
-            current = next;
-        }
-
-        return current;
-    }
-
-    /**
-     * Get all weights as a flat array
-     * @returns {number[]} Flattened weights and biases
-     */
-    getWeights() {
-        const flat = [];
-
-        for (let i = 0; i < this.weights.length; i++) {
-            const weights = this.weights[i];
-            for (let j = 0; j < weights.length; j++) {
-                for (let k = 0; k < weights[j].length; k++) {
-                    flat.push(weights[j][k]);
-                }
-            }
-            for (let j = 0; j < this.biases[i].length; j++) {
-                flat.push(this.biases[i][j]);
-            }
-        }
-
-        return flat;
-    }
-
-    /**
-     * Set all weights from a flat array
-     * @param {number[]} flat - Flattened weights and biases
-     */
-    setWeights(flat) {
-        let index = 0;
-
-        for (let i = 0; i < this.weights.length; i++) {
-            const weights = this.weights[i];
-            for (let j = 0; j < weights.length; j++) {
-                for (let k = 0; k < weights[j].length; k++) {
-                    weights[j][k] = flat[index++];
-                }
-            }
-            for (let j = 0; j < this.biases[i].length; j++) {
-                this.biases[i][j] = flat[index++];
-            }
-        }
-    }
-
-    /**
-     * Get total number of weights
-     */
-    getWeightCount() {
-        let count = 0;
-        for (let i = 0; i < this.layers.length - 1; i++) {
-            count += this.layers[i] * this.layers[i + 1]; // weights
-            count += this.layers[i + 1]; // biases
-        }
-        return count;
-    }
-
-    /**
-     * Mutate weights randomly
-     * @param {number} rate - Mutation rate (0-1), probability of each weight being mutated
-     * @param {number} strength - Mutation strength, max change amount
-     */
-    mutate(rate = 0.1, strength = 0.5) {
-        for (let i = 0; i < this.weights.length; i++) {
-            const weights = this.weights[i];
-            for (let j = 0; j < weights.length; j++) {
-                for (let k = 0; k < weights[j].length; k++) {
-                    if (Math.random() < rate) {
-                        weights[j][k] += (Math.random() - 0.5) * 2 * strength;
-                    }
-                }
-            }
-            for (let j = 0; j < this.biases[i].length; j++) {
-                if (Math.random() < rate) {
-                    this.biases[i][j] += (Math.random() - 0.5) * 2 * strength;
-                }
-            }
-        }
-    }
-
-    /**
-     * Create a copy of this neural network
-     * @returns {NeuralNetwork} Cloned network
-     */
-    clone() {
-        const clone = new NeuralNetwork(this.layers.slice(), this.activation);
-        clone.setWeights(this.getWeights());
-        return clone;
-    }
-
-    /**
-     * Serialize to JSON-compatible object
-     */
-    serialize() {
-        return {
-            layers: this.layers,
-            activation: this.activation,
-            weights: this.getWeights()
-        };
-    }
-
-    /**
-     * Create from serialized data
-     * @param {object} data - Serialized network data
-     * @returns {NeuralNetwork}
-     */
-    static deserialize(data) {
-        const nn = new NeuralNetwork(data.layers, data.activation);
-        nn.setWeights(data.weights);
-        return nn;
-    }
-
-    /**
-     * Create a random neural network with random topology
-     * @param {number} inputs - Number of inputs
-     * @param {number} outputs - Number of outputs
-     * @param {number} hiddenLayers - Number of hidden layers (0-3)
-     * @param {number} hiddenSize - Size of hidden layers
-     * @returns {NeuralNetwork}
-     */
-    static random(inputs, outputs, hiddenLayers = 1, hiddenSize = 8) {
-        const layers = [inputs];
-        for (let i = 0; i < hiddenLayers; i++) {
-            layers.push(hiddenSize);
-        }
-        layers.push(outputs);
-
-        return new NeuralNetwork(layers);
-    }
-}
-
-// Make available globally
-window.NeuralNetwork = NeuralNetwork;
 
 
 // ==== src/systems/atom-spawner.js ====
@@ -7388,6 +7186,240 @@ class AtomSpawner {
 
 // Make available globally
 window.AtomSpawner = AtomSpawner;
+
+
+// ==== src/systems/neural-network.js ====
+/**
+ * Neural Network
+ * Lightweight feed-forward neural network for cell behavior
+ * No external dependencies
+ */
+
+class NeuralNetwork {
+    /**
+     * Create a neural network
+     * @param {number[]} layers - Layer sizes, e.g., [4, 8, 4] for 4 inputs, 8 hidden, 4 outputs
+     * @param {string} activation - Activation function: 'sigmoid', 'relu', 'tanh'
+     */
+    constructor(layers, activation = 'sigmoid') {
+        this.layers = layers;
+        this.activation = activation;
+
+        // Initialize weights and biases
+        this.weights = [];
+        this.biases = [];
+
+        for (let i = 0; i < layers.length - 1; i++) {
+            // Weight matrix from layer i to layer i+1
+            const weightMatrix = this._createMatrix(layers[i + 1], layers[i]);
+            this._randomizeMatrix(weightMatrix);
+            this.weights.push(weightMatrix);
+
+            // Bias vector for layer i+1
+            const biasVector = new Array(layers[i + 1]).fill(0).map(() => (Math.random() - 0.5) * 0.5);
+            this.biases.push(biasVector);
+        }
+    }
+
+    /**
+     * Create a matrix (2D array)
+     */
+    _createMatrix(rows, cols) {
+        return Array.from({ length: rows }, () => new Array(cols).fill(0));
+    }
+
+    /**
+     * Randomize matrix values (Xavier initialization)
+     */
+    _randomizeMatrix(matrix) {
+        const rows = matrix.length;
+        const cols = matrix[0].length;
+        const scale = Math.sqrt(2 / (rows + cols));
+
+        for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
+                matrix[i][j] = (Math.random() - 0.5) * 2 * scale;
+            }
+        }
+    }
+
+    /**
+     * Activation function
+     */
+    _activate(x) {
+        switch (this.activation) {
+            case 'sigmoid':
+                return 1 / (1 + Math.exp(-x));
+            case 'relu':
+                return Math.max(0, x);
+            case 'tanh':
+                return Math.tanh(x);
+            default:
+                return 1 / (1 + Math.exp(-x));
+        }
+    }
+
+    /**
+     * Forward propagation
+     * @param {number[]} inputs - Input values
+     * @returns {number[]} Output values
+     */
+    forward(inputs) {
+        if (inputs.length !== this.layers[0]) {
+            throw new Error(`Expected ${this.layers[0]} inputs, got ${inputs.length}`);
+        }
+
+        let current = inputs.slice();
+
+        for (let i = 0; i < this.weights.length; i++) {
+            const weights = this.weights[i];
+            const biases = this.biases[i];
+            const next = [];
+
+            for (let j = 0; j < weights.length; j++) {
+                let sum = biases[j];
+                for (let k = 0; k < current.length; k++) {
+                    sum += weights[j][k] * current[k];
+                }
+                next.push(this._activate(sum));
+            }
+
+            current = next;
+        }
+
+        return current;
+    }
+
+    /**
+     * Get all weights as a flat array
+     * @returns {number[]} Flattened weights and biases
+     */
+    getWeights() {
+        const flat = [];
+
+        for (let i = 0; i < this.weights.length; i++) {
+            const weights = this.weights[i];
+            for (let j = 0; j < weights.length; j++) {
+                for (let k = 0; k < weights[j].length; k++) {
+                    flat.push(weights[j][k]);
+                }
+            }
+            for (let j = 0; j < this.biases[i].length; j++) {
+                flat.push(this.biases[i][j]);
+            }
+        }
+
+        return flat;
+    }
+
+    /**
+     * Set all weights from a flat array
+     * @param {number[]} flat - Flattened weights and biases
+     */
+    setWeights(flat) {
+        let index = 0;
+
+        for (let i = 0; i < this.weights.length; i++) {
+            const weights = this.weights[i];
+            for (let j = 0; j < weights.length; j++) {
+                for (let k = 0; k < weights[j].length; k++) {
+                    weights[j][k] = flat[index++];
+                }
+            }
+            for (let j = 0; j < this.biases[i].length; j++) {
+                this.biases[i][j] = flat[index++];
+            }
+        }
+    }
+
+    /**
+     * Get total number of weights
+     */
+    getWeightCount() {
+        let count = 0;
+        for (let i = 0; i < this.layers.length - 1; i++) {
+            count += this.layers[i] * this.layers[i + 1]; // weights
+            count += this.layers[i + 1]; // biases
+        }
+        return count;
+    }
+
+    /**
+     * Mutate weights randomly
+     * @param {number} rate - Mutation rate (0-1), probability of each weight being mutated
+     * @param {number} strength - Mutation strength, max change amount
+     */
+    mutate(rate = 0.1, strength = 0.5) {
+        for (let i = 0; i < this.weights.length; i++) {
+            const weights = this.weights[i];
+            for (let j = 0; j < weights.length; j++) {
+                for (let k = 0; k < weights[j].length; k++) {
+                    if (Math.random() < rate) {
+                        weights[j][k] += (Math.random() - 0.5) * 2 * strength;
+                    }
+                }
+            }
+            for (let j = 0; j < this.biases[i].length; j++) {
+                if (Math.random() < rate) {
+                    this.biases[i][j] += (Math.random() - 0.5) * 2 * strength;
+                }
+            }
+        }
+    }
+
+    /**
+     * Create a copy of this neural network
+     * @returns {NeuralNetwork} Cloned network
+     */
+    clone() {
+        const clone = new NeuralNetwork(this.layers.slice(), this.activation);
+        clone.setWeights(this.getWeights());
+        return clone;
+    }
+
+    /**
+     * Serialize to JSON-compatible object
+     */
+    serialize() {
+        return {
+            layers: this.layers,
+            activation: this.activation,
+            weights: this.getWeights()
+        };
+    }
+
+    /**
+     * Create from serialized data
+     * @param {object} data - Serialized network data
+     * @returns {NeuralNetwork}
+     */
+    static deserialize(data) {
+        const nn = new NeuralNetwork(data.layers, data.activation);
+        nn.setWeights(data.weights);
+        return nn;
+    }
+
+    /**
+     * Create a random neural network with random topology
+     * @param {number} inputs - Number of inputs
+     * @param {number} outputs - Number of outputs
+     * @param {number} hiddenLayers - Number of hidden layers (0-3)
+     * @param {number} hiddenSize - Size of hidden layers
+     * @returns {NeuralNetwork}
+     */
+    static random(inputs, outputs, hiddenLayers = 1, hiddenSize = 8) {
+        const layers = [inputs];
+        for (let i = 0; i < hiddenLayers; i++) {
+            layers.push(hiddenSize);
+        }
+        layers.push(outputs);
+
+        return new NeuralNetwork(layers);
+    }
+}
+
+// Make available globally
+window.NeuralNetwork = NeuralNetwork;
 
 
 // ==== src/entities/cell-memory.js ====
@@ -11829,12 +11861,14 @@ class Viewer {
      * Render atom spawner zone
      */
     _renderSpawnerZone() {
+        // Get spawner from global app instance
         const spawner = window.cellApp?.atomSpawner;
-        if (spawner && spawner.active) {
-            const scale = this.camera.zoom;
-            const offset = this.getOffset();
-            spawner.render(this.ctx, scale, offset);
-        }
+        if (!spawner || !spawner.active) return;
+        
+        const scale = this.camera.zoom;
+        const offset = this.getOffset();
+        
+        spawner.render(this.ctx, scale, offset);
     }
 
     /**
