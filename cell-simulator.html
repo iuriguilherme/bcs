@@ -1600,6 +1600,53 @@ window.getElementsByCategory = getElementsByCategory;
  * Defines known stable molecules with their correct geometric configurations.
  * Used to reshape unstable molecules that match these formulas into their
  * natural stable forms.
+ * 
+ * ============================================================================
+ * VALENCE CLOSURE REQUIREMENT
+ * ============================================================================
+ * 
+ * All molecules in this registry MUST have fully closed valence - meaning
+ * every atom must have its bonding capacity completely satisfied:
+ * 
+ *   Element | Valence | Must have exactly this many bonds
+ *   --------|---------|----------------------------------
+ *   H       |    1    | 1 bond
+ *   C       |    4    | 4 bonds (single, double, triple combinations)
+ *   N       |    3    | 3 bonds
+ *   O       |    2    | 2 bonds
+ *   S       |    2    | 2 bonds
+ *   Cl      |    1    | 1 bond
+ *   Na      |    1    | 1 bond
+ *   K       |    1    | 1 bond
+ *   Ca      |    2    | 2 bonds
+ *   Fe      |  2 or 3 | 2 or 3 bonds
+ * 
+ * WHY NO OPEN VALENCE MOLECULES?
+ * ------------------------------
+ * 
+ * 1. STABILITY DEFINITION: In this simulation, a molecule is "stable" when
+ *    ALL atoms have availableValence === 0. This is the fundamental gate
+ *    for molecule completion and cataloguing.
+ * 
+ * 2. RESHAPE LOOPS: Molecules with unsatisfied valence never become stable,
+ *    causing infinite reshape attempts as the system tries to fix them.
+ * 
+ * 3. POLYMER FORMATION: The canPolymerize() check relies on isStable().
+ *    Open-valence molecules would incorrectly try to form polymers.
+ * 
+ * 4. CHEMISTRY ACCURACY: Real radicals and ions (like OH•, H3O+, CO3²⁻)
+ *    are highly reactive intermediates, not stable end products. This
+ *    simulation focuses on stable molecular species.
+ * 
+ * REMOVED MOLECULES (for reference):
+ * - C3, C4, C5, C6, C8, C10, C12: End carbons have 2 bonds (need 4)
+ * - C2O, C4O, C5O: End carbon has 3 bonds (need 4)
+ * - C3O: End carbon has 2 bonds (need 4)
+ * - CO3: Oxygen atoms have 1 bond each (need 2) - carbonate radical
+ * - C2O3: End carbons have 2 bonds each (need 4)
+ * - H3O: Oxygen has 3 bonds (max 2) - hydronium ion
+ * 
+ * ============================================================================
  */
 
 const STABLE_MOLECULES = {
@@ -1836,6 +1883,119 @@ const STABLE_MOLECULES = {
         description: 'Pentatetraenedione - O=C=C=C=C=C=O'
     },
     // Note: CO3, C2O3, C3O removed - have unsatisfied valence (radicals/ions)
+
+    // ===== NITROGEN COMPOUNDS =====
+    // Note: N2 and NH3 are defined above in the basic molecules section
+
+    'HCN': {
+        name: 'Hydrogen Cyanide',
+        formula: 'CHN',
+        atoms: [
+            { symbol: 'H', relX: -30, relY: 0 },
+            { symbol: 'C', relX: 0, relY: 0 },
+            { symbol: 'N', relX: 25, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },  // H-C single
+            { atom1: 1, atom2: 2, order: 3 }   // C≡N triple
+        ],
+        description: 'Hydrogen cyanide - linear, triple bond C≡N'
+    },
+    // N2O removed - resonance structure doesn't fit simple valence model (middle N would have 4 bonds)
+    'CH3N': {
+        name: 'Methanimine',
+        formula: 'CH3N',
+        atoms: [
+            { symbol: 'C', relX: -12, relY: 0 },
+            { symbol: 'N', relX: 18, relY: 0 },
+            { symbol: 'H', relX: -30, relY: -15 },
+            { symbol: 'H', relX: -30, relY: 15 },
+            { symbol: 'H', relX: 35, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 2 },  // C=N double
+            { atom1: 0, atom2: 2, order: 1 },  // C-H
+            { atom1: 0, atom2: 3, order: 1 },  // C-H
+            { atom1: 1, atom2: 4, order: 1 }   // N-H
+        ],
+        description: 'Methanimine - simplest imine H2C=NH'
+    },
+    'CH5N': {
+        name: 'Methylamine',
+        formula: 'CH5N',
+        atoms: [
+            { symbol: 'C', relX: -15, relY: 0 },
+            { symbol: 'N', relX: 20, relY: 0 },
+            { symbol: 'H', relX: -35, relY: 0 },
+            { symbol: 'H', relX: -25, relY: -20 },
+            { symbol: 'H', relX: -25, relY: 20 },
+            { symbol: 'H', relX: 35, relY: -15 },
+            { symbol: 'H', relX: 35, relY: 15 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },  // C-N single
+            { atom1: 0, atom2: 2, order: 1 },  // C-H
+            { atom1: 0, atom2: 3, order: 1 },  // C-H
+            { atom1: 0, atom2: 4, order: 1 },  // C-H
+            { atom1: 1, atom2: 5, order: 1 },  // N-H
+            { atom1: 1, atom2: 6, order: 1 }   // N-H
+        ],
+        description: 'Methylamine - simplest primary amine CH3-NH2'
+    },
+    'N2H4': {
+        name: 'Hydrazine',
+        formula: 'H4N2',
+        atoms: [
+            { symbol: 'N', relX: -15, relY: 0 },
+            { symbol: 'N', relX: 15, relY: 0 },
+            { symbol: 'H', relX: -30, relY: -15 },
+            { symbol: 'H', relX: -30, relY: 15 },
+            { symbol: 'H', relX: 30, relY: -15 },
+            { symbol: 'H', relX: 30, relY: 15 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },  // N-N single
+            { atom1: 0, atom2: 2, order: 1 },  // N-H
+            { atom1: 0, atom2: 3, order: 1 },  // N-H
+            { atom1: 1, atom2: 4, order: 1 },  // N-H
+            { atom1: 1, atom2: 5, order: 1 }   // N-H
+        ],
+        description: 'Hydrazine - rocket fuel precursor H2N-NH2'
+    },
+    'CHNO': {
+        name: 'Isocyanic Acid',
+        formula: 'CHNO',
+        atoms: [
+            { symbol: 'H', relX: -40, relY: 0 },
+            { symbol: 'N', relX: -15, relY: 0 },
+            { symbol: 'C', relX: 10, relY: 0 },
+            { symbol: 'O', relX: 35, relY: 0 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },  // H-N single
+            { atom1: 1, atom2: 2, order: 2 },  // N=C double
+            { atom1: 2, atom2: 3, order: 2 }   // C=O double
+        ],
+        description: 'Isocyanic acid - linear H-N=C=O'
+    },
+    'CH2N2': {
+        name: 'Cyanamide',
+        formula: 'CH2N2',
+        atoms: [
+            { symbol: 'N', relX: -25, relY: 0 },
+            { symbol: 'C', relX: 0, relY: 0 },
+            { symbol: 'N', relX: 25, relY: 0 },
+            { symbol: 'H', relX: -40, relY: -15 },
+            { symbol: 'H', relX: -40, relY: 15 }
+        ],
+        bonds: [
+            { atom1: 0, atom2: 1, order: 1 },  // N-C single
+            { atom1: 1, atom2: 2, order: 3 },  // C≡N triple
+            { atom1: 0, atom2: 3, order: 1 },  // N-H
+            { atom1: 0, atom2: 4, order: 1 }   // N-H
+        ],
+        description: 'Cyanamide - H2N-C≡N, prebiotic molecule'
+    },
 
     // ===== SIMPLE CARBOHYDRATES =====
 

@@ -560,6 +560,61 @@ updateProperties() {
 
 ---
 
+## ⚗️ Why Open-Valence Molecules Are Not Supported
+
+### The Problem
+
+The current simulation architecture **requires all molecules to have fully closed valence** - meaning every atom must have exactly the number of bonds specified by its valence (H=1, C=4, N=3, O=2, etc.). Molecules like radicals (OH•), ions (H3O⁺, CO3²⁻), or linear carbon chains (C3, C4) with unsatisfied end atoms **cannot be represented as stable entities**.
+
+### Why This Is An Architectural Limitation
+
+1. **Stability Gate**: The `isStable()` method is the fundamental gate for molecule completion:
+   ```javascript
+   hasValidValence() {
+       for (const atom of this.atoms) {
+           if (atom.availableValence > 0) return false;  // ANY open valence = unstable
+       }
+       return true;
+   }
+   ```
+   Open-valence molecules can NEVER pass this check, so they can never be catalogued, never stop reshaping, and never be considered "complete".
+
+2. **Reshape Loop**: When a molecule matches a template in `STABLE_MOLECULES`, the system tries to reshape it. But if the template itself has open valence, the molecule will:
+   - Complete reshaping → still have `availableValence > 0` → fail `isStable()` → try to reshape again → infinite loop
+
+3. **Polymer Formation**: `canPolymerize()` returns `false` for stable molecules. If we allowed open-valence molecules to be "stable", they would incorrectly try to polymerize with themselves.
+
+4. **Bond Formation Logic**: The chemistry system tries to satisfy all open valences. An open-valence molecule would constantly attempt to bond with nearby atoms, making it impossible to maintain as a distinct species.
+
+### What Would Be Needed To Support Open-Valence Molecules
+
+To properly support radicals, ions, and other open-valence species, the simulation would need:
+
+1. **New stability concept**: Separate "chemically stable" (closed valence) from "simulation stable" (completed entity)
+2. **Radical tracking**: Special handling for unpaired electrons
+3. **Ion charges**: Track + and - charges, prevent reactions that violate charge balance
+4. **Reaction barriers**: Energy thresholds to prevent spontaneous reactions
+5. **Half-life/decay**: Radicals should be transient, not permanent
+6. **Different template system**: Templates that specify "this atom has 1 unpaired electron" rather than just bond counts
+
+### Current Workaround
+
+For now, only include molecules in `STABLE_MOLECULES` where **every atom has exactly zero available valence**. Examples of molecules that were removed:
+
+| Formula | Problem | Valence Issue |
+|---------|---------|---------------|
+| C3, C4, C5... | Linear carbon chains | End carbons have 2 bonds (need 4) |
+| C2O, C4O, C5O | Carbon monoxides | End carbon has 3 bonds (need 4) |
+| CO3 | Carbonate radical | Oxygens have 1 bond each (need 2) |
+| H3O | Hydronium ion | Oxygen has 3 bonds (max 2) |
+| N2O | Nitrous oxide | Middle nitrogen has 4 bonds (max 3) |
+
+### Future Consideration
+
+If radical/ion chemistry becomes important, consider adding a `RadicalMolecule` subclass or `isRadical` flag with completely separate handling from the normal molecule lifecycle.
+
+---
+
 ## 📂 Key Files and Responsibilities
 
 ### Entity Layer (`src/entities/`)
