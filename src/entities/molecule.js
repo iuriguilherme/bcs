@@ -565,9 +565,9 @@ class Molecule {
             if (!this.isReshaping) {
                 // Initialize decay timer if not set
                 if (this.decayTimer === null) {
-                    // Decay time: 100-400 ticks depending on stability (faster decay)
+                    // Decay time: 500-1500 ticks depending on stability (slower decay outside intentions)
                     const stabilityRatio = this._calculateStabilityRatio();
-                    this.decayTimer = 100 + Math.floor(stabilityRatio * 300);
+                    this.decayTimer = 500 + Math.floor(stabilityRatio * 1000);
                     this.decayRate = 1;
                 }
 
@@ -578,8 +578,8 @@ class Molecule {
                 if (this.decayTimer <= 0) {
                     const releasedAtom = this._releaseWeakestAtom(environment);
                     if (releasedAtom) {
-                        // Reset timer for next potential decay (faster)
-                        this.decayTimer = 80 + Math.floor(Math.random() * 120);
+                        // Reset timer for next potential decay (slower outside intentions)
+                        this.decayTimer = 400 + Math.floor(Math.random() * 400);
                         return { type: 'decay', atom: releasedAtom };
                     }
                 }
@@ -883,10 +883,11 @@ class Molecule {
         let pulseMultiplier = 1;
 
         if (isReshaping) {
-            // Reshaping: Yellow/gold gradient
-            colorInner = 'rgba(234, 179, 8, 0.7)';   // yellow-500
-            colorOuter = 'rgba(202, 138, 4, 0.4)';   // yellow-600
-            strokeColor = 'rgba(234, 179, 8, 0.8)';
+            // Reshaping: Yellow/gold gradient with pulse (similar to unstable)
+            pulseMultiplier = 0.7 + Math.sin(Date.now() / 150) * 0.3;
+            colorInner = `rgba(234, 179, 8, ${0.7 * pulseMultiplier})`;   // yellow-500
+            colorOuter = `rgba(202, 138, 4, ${0.4 * pulseMultiplier})`;   // yellow-600
+            strokeColor = `rgba(234, 179, 8, ${0.8 * pulseMultiplier})`;
         } else if (isStable) {
             // Stable: Green gradient
             colorInner = 'rgba(34, 197, 94, 0.6)';   // green-500
@@ -923,7 +924,12 @@ class Molecule {
             ctx.strokeStyle = isStable ? '#22c55e' : '#f97316';
             ctx.lineWidth = 3;
             ctx.setLineDash([]);
-        } else if (!isStable && !isReshaping) {
+        } else if (isReshaping) {
+            // Reshaping molecules get dashed stroke
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+        } else if (!isStable) {
             // Unstable molecules get dashed stroke
             ctx.strokeStyle = strokeColor;
             ctx.lineWidth = 2;
@@ -936,9 +942,23 @@ class Molecule {
         ctx.stroke();
         ctx.setLineDash([]);
 
+        // Draw reshaping progress indicator
+        if (isReshaping && this.reshapingProgress !== undefined) {
+            const progressRadius = screenRadius + 5;
+
+            // Draw progress arc (filling up)
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, progressRadius,
+                -Math.PI / 2,
+                -Math.PI / 2 + (this.reshapingProgress * Math.PI * 2));
+            ctx.strokeStyle = 'rgba(234, 179, 8, 0.7)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
         // Draw decay indicator for unstable molecules
         if (!isStable && !isReshaping && this.decayTimer !== null) {
-            const decayProgress = this.decayTimer / (100 + 300); // Approximate max decay time
+            const decayProgress = this.decayTimer / (500 + 1000); // Approximate max decay time
             const decayRadius = screenRadius + 5;
 
             // Draw decay arc (depleting)

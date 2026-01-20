@@ -21,14 +21,14 @@ class AtomSpawner {
         this.atomPool = ['H', 'C', 'N', 'O'];  // Default pool
         
         // Spawn zone (in world coordinates)
-        // Default: center of environment, 400x400 area
+        // Default: center of environment, 600x600 area
         const centerX = environment.width / 2;
         const centerY = environment.height / 2;
         this.zone = {
-            x: centerX - 200,
-            y: centerY - 200,
-            width: 400,
-            height: 400
+            x: centerX - 300,
+            y: centerY - 300,
+            width: 600,
+            height: 600
         };
         
         // UI state for zone resizing
