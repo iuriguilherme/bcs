@@ -31,6 +31,7 @@
                 <button id="stepBtn" class="control-btn" title="Step">⏭️</button>
                 <button id="spawnerBtn" class="control-btn spawner-btn" title="Toggle Atom Spawner">⚛️</button>
                 <input type="range" id="speedSlider" min="1" max="100" value="50" title="Simulation Speed">
+                <button id="tutorialBtn" class="control-btn tutorial-btn-header" title="Tutorial">❓</button>
             </div>
         </header>
 
@@ -40,16 +41,16 @@
             <aside class="panel left-panel">
                 <h2 class="panel-title">Tools</h2>
                 <div class="tool-section">
-                    <h3 id="paletteTitle">Place Atoms</h3>
-                    <div class="atom-palette" id="entityPalette">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
-                <div class="tool-section">
                     <h3>Actions</h3>
                     <button class="tool-btn" id="selectTool" data-tool="select">🔍 Select</button>
                     <button class="tool-btn active" id="placeTool" data-tool="place">➕ Place</button>
                     <button class="tool-btn" id="deleteTool" data-tool="delete">🗑️ Delete</button>
+                </div>
+                <div class="tool-section">
+                    <h3 id="paletteTitle">Place Atoms</h3>
+                    <div class="atom-palette" id="entityPalette">
+                        <!-- Populated by JS -->
+                    </div>
                 </div>
             </aside>
 
@@ -131,6 +132,22 @@
                 </div>
             </div>
         </div>
+
+        <!-- Tutorial Hint (for first-time visitors) -->
+        <div id="tutorialHint" class="tutorial-hint">
+            <div class="tutorial-hint-content">
+                <span class="tutorial-hint-icon">🧬</span>
+                <div class="tutorial-hint-text">
+                    <h4>New to BioChemSim?</h4>
+                    <p>Learn how to build molecules and explore chemistry!</p>
+                    <div class="tutorial-hint-actions">
+                        <button class="tutorial-hint-start" onclick="window.cellApp.tutorial.start()">Start Tutorial</button>
+                        <button class="tutorial-hint-dismiss" onclick="document.getElementById('tutorialHint').classList.remove('visible')">Maybe Later</button>
+                    </div>
+                </div>
+            </div>
+            <div class="tutorial-hint-arrow"></div>
+        </div>
     </div>
 
     <!-- Scripts (order matters) -->
@@ -158,6 +175,7 @@
     <script src="src/viewer/viewer.js"></script>
     <script src="src/viewer/controls.js"></script>
     <script src="src/viewer/catalogue-ui.js"></script>
+    <script src="src/viewer/tutorial.js"></script>
     <script src="src/main.js"></script>
 </body>
 

@@ -35,6 +35,7 @@ const scriptOrder = [
     'src/viewer/viewer.js',
     'src/viewer/controls.js',
     'src/viewer/catalogue-ui.js',
+    'src/viewer/tutorial.js',
     'src/main.js'
 ];
 

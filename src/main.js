@@ -13,6 +13,7 @@ class App {
         this.controls = null;
         this.catalogueUI = null;
         this.atomSpawner = null;
+        this.tutorial = null;
 
         // State
         this.initialized = false;
@@ -83,6 +84,10 @@ class App {
 
         // Add some initial atoms for demo
         this._addDemoAtoms();
+
+        // Initialize tutorial system
+        this.tutorial = new Tutorial(this);
+        this._setupTutorialUI();
 
         this.initialized = true;
         console.log('✅ Cell Simulator initialized!');
@@ -179,6 +184,24 @@ class App {
                 }
             });
         });
+    }
+
+    /**
+     * Set up tutorial button handler
+     */
+    _setupTutorialUI() {
+        const tutorialBtn = document.getElementById('tutorialBtn');
+        if (tutorialBtn) {
+            tutorialBtn.addEventListener('click', () => {
+                if (this.tutorial.active) {
+                    this.tutorial.end();
+                    tutorialBtn.classList.remove('active');
+                } else {
+                    this.tutorial.start();
+                    tutorialBtn.classList.add('active');
+                }
+            });
+        }
     }
 
     /**

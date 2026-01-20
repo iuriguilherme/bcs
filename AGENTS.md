@@ -648,6 +648,7 @@ If radical/ion chemistry becomes important, consider adding a `RadicalMolecule` 
 | `viewer.js` | Multi-level rendering |
 | `controls.js` | Input handling |
 | `catalogue-ui.js` | Right panel UI, atom palette in catalogue |
+| `tutorial.js` | Interactive tutorial system for new users |
 
 ### Main Entry
 
@@ -761,6 +762,26 @@ this.viewer.render();  // CRITICAL: refresh when paused
 this.viewer.pan(dx, dy);
 this.viewer.render();  // CRITICAL: refresh when paused
 ```
+
+### Tutorial System
+The tutorial provides guided onboarding for new users:
+
+- **Tutorial button** (`❓`) in the header - click to start/stop tutorial
+- **First-visit hint** - appears automatically for new visitors, stored in localStorage
+- **Step-by-step guidance** - explains each UI element with highlighted targets
+- **Keyboard navigation** - Arrow keys, Enter, and Escape work during tutorial
+
+Key implementation details:
+```javascript
+// In main.js:
+this.tutorial = new Tutorial(this);
+this._setupTutorialUI();
+
+// Tutorial checks localStorage for first visit:
+const hasSeenTutorial = localStorage.getItem('bcs-tutorial-seen');
+```
+
+The tutorial pauses the simulation when active and highlights relevant UI elements.
 
 ---
 
