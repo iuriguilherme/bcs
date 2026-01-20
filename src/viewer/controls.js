@@ -136,7 +136,7 @@ class Controls {
             const scale = this.viewer.camera.zoom;
             const offset = this.viewer.getOffset();
             const resizeEdge = spawner.getResizeHandleAt(x, y, scale, offset);
-            
+
             if (resizeEdge) {
                 spawner.startResize(resizeEdge, x, y);
                 this.viewer.canvas.style.cursor = spawner.getCursorForEdge(resizeEdge);
@@ -187,7 +187,7 @@ class Controls {
 
             this.mouse.dragStartX = x;
             this.mouse.dragStartY = y;
-            
+
             // Render immediately so view updates even when paused
             this.viewer.render();
         }
@@ -197,7 +197,7 @@ class Controls {
             const scale = this.viewer.camera.zoom;
             const offset = this.viewer.getOffset();
             const resizeEdge = spawner.getResizeHandleAt(x, y, scale, offset);
-            
+
             if (resizeEdge) {
                 this.viewer.canvas.style.cursor = spawner.getCursorForEdge(resizeEdge);
                 return;
@@ -216,14 +216,14 @@ class Controls {
         const spawner = window.cellApp?.atomSpawner;
         if (spawner && spawner.resizing) {
             spawner.endResize();
-            
+
             // Update modal inputs if open
             const widthInput = document.getElementById('zoneWidth');
             const heightInput = document.getElementById('zoneHeight');
             if (widthInput) widthInput.value = Math.round(spawner.zone.width);
             if (heightInput) heightInput.value = Math.round(spawner.zone.height);
         }
-        
+
         this.mouse.down = false;
         this.mouse.dragging = false;
 
@@ -242,7 +242,7 @@ class Controls {
 
         const delta = -Math.sign(event.deltaY);
         this.viewer.zoom(delta, x, y);
-        
+
         // Render immediately so view updates even when paused
         this.viewer.render();
     }
@@ -251,6 +251,17 @@ class Controls {
      * Handle key down
      */
     _onKeyDown(event) {
+        // Ignore keyboard shortcuts when typing in input fields
+        const activeElement = document.activeElement;
+        const isTyping = activeElement && (
+            activeElement.tagName === 'INPUT' ||
+            activeElement.tagName === 'TEXTAREA' ||
+            activeElement.isContentEditable
+        );
+        if (isTyping) {
+            return;
+        }
+
         this.keys.add(event.key);
 
         // Number keys for abstraction level
@@ -796,8 +807,8 @@ class Controls {
         // Get monomer info
         let monomerInfo = '';
         if (template.monomerId) {
-            const monomerTemplate = typeof getMonomerTemplate === 'function' 
-                ? getMonomerTemplate(template.monomerId) 
+            const monomerTemplate = typeof getMonomerTemplate === 'function'
+                ? getMonomerTemplate(template.monomerId)
                 : null;
             if (monomerTemplate) {
                 monomerInfo = `
