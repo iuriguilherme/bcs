@@ -313,10 +313,12 @@ class Controls {
             return;
         }
 
-        // At cell level (3+), place cells
+        // At cell level (3+), place prokaryotes
         if (this.viewer.level >= 3) {
-            const cell = new Cell(worldPos.x, worldPos.y);
-            this.environment.addCell(cell);
+            const prokaryote = new Prokaryote({});
+            prokaryote.position = new Vector2(worldPos.x, worldPos.y);
+            prokaryote.cytoplasm.atp = 100;  // Start with some energy
+            this.environment.addProkaryote(prokaryote);
         }
         // At polymer level (2), create polymer intention (attract molecules)
         else if (this.viewer.level === 2) {
@@ -367,7 +369,7 @@ class Controls {
             } else if (result.type === 'molecule') {
                 result.entity.selected = true;
                 this.viewer.selectedMolecule = result.entity;
-            } else if (result.type === 'cell') {
+            } else if (result.type === 'prokaryote') {
                 this.viewer.selectedCell = result.entity;
             } else if (result.type === 'polymer') {
                 result.entity.selected = true;
@@ -420,9 +422,9 @@ class Controls {
         const result = this.viewer.getEntityAt(screenX, screenY);
         if (!result) return;
 
-        // At cell level (3) or higher, delete cells
-        if (this.viewer.level >= 3 && result.type === 'cell') {
-            this.environment.removeCell(result.entity.id);
+        // At cell level (3) or higher, delete prokaryotes
+        if (this.viewer.level >= 3 && result.type === 'prokaryote') {
+            this.environment.removeProkaryote(result.entity.id);
         }
         // At molecule level (1) or higher, delete entire molecules
         else if (this.viewer.level >= 1 && result.type === 'molecule') {
@@ -574,17 +576,19 @@ class Controls {
             setTimeout(() => {
                 this._renderMoleculePreview(canvasId, mol);
             }, 0);
-        } else if (result.type === 'cell') {
-            const cell = result.entity;
+        } else if (result.type === 'prokaryote') {
+            const prok = result.entity;
+            const components = prok.getComponentSummary();
             content.innerHTML = `
                 <div class="inspector-item">
-                    <h3>Cell (Gen ${cell.generation})</h3>
-                    <p>Energy: ${cell.energy.toFixed(1)} / ${cell.maxEnergy}</p>
-                    <p>Age: ${cell.age} ticks</p>
-                    <p>Position: (${cell.position.x.toFixed(1)}, ${cell.position.y.toFixed(1)})</p>
-                    <p>Brain: ${cell.brain.layers.join(' &rarr; ')}</p>
-                    <p>Weights: ${cell.brain.getWeightCount()}</p>
-                    <p>Alive: ${cell.isAlive ? 'Yes &#10003;' : 'No'}</p>
+                    <h3>Prokaryote (Gen ${prok.generation})</h3>
+                    <p>ATP: ${prok.cytoplasm.atp.toFixed(1)} / ${prok.cytoplasm.maxAtp}</p>
+                    <p>Age: ${prok.age} ticks</p>
+                    <p>Position: (${prok.position.x.toFixed(1)}, ${prok.position.y.toFixed(1)})</p>
+                    <p>Membrane: ${components.membrane} polymers</p>
+                    <p>Nucleoid: ${components.nucleoid} polymers</p>
+                    <p>Ribosomes: ${components.ribosomes} polymers</p>
+                    <p>Alive: ${prok.isAlive ? 'Yes &#10003;' : 'No'}</p>
                 </div>
             `;
         } else if (result.type === 'polymer') {

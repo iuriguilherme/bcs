@@ -57,9 +57,9 @@ class App {
         this.simulation.onTick = (tick) => {
             // Update atom spawner
             if (this.atomSpawner) {
-                this.atomSpawner.update(1/60);
+                this.atomSpawner.update(1 / 60);
             }
-            
+
             // Auto-discover stable molecules every 60 ticks
             if (tick % 60 === 0) {
                 this.catalogue.autoDiscover(this.environment.getAllMolecules());
@@ -502,15 +502,15 @@ class App {
     }
 
     /**
-     * Render cell palette
+     * Render cell/prokaryote palette
      */
     _renderCellPalette(palette) {
         palette.innerHTML = `
-            <button class="palette-btn cell-btn selected" data-type="cell">
-                <span class="symbol">&#129516;</span>
-                <span class="info">New Cell</span>
+            <button class="palette-btn cell-btn selected" data-type="prokaryote">
+                <span class="symbol">🦠</span>
+                <span class="info">New Prokaryote</span>
             </button>
-            <p class="palette-hint">Click canvas to place a cell with random neural network</p>
+            <p class="palette-hint">Click canvas to place a chemistry-based prokaryote</p>
         `;
 
         palette.querySelector('.cell-btn')?.addEventListener('click', () => {
@@ -650,12 +650,12 @@ class App {
         const closeModalBtn = document.getElementById('closeSpawnerModal');
         const applyBtn = document.getElementById('applySpawnerConfig');
         const atomPoolSelector = document.getElementById('atomPoolSelector');
-        
+
         if (!spawnerBtn || !spawnerModal) return;
-        
+
         // Available atoms for spawning
         const availableAtoms = ['H', 'C', 'N', 'O', 'P', 'S', 'Cl', 'Na', 'K', 'Ca', 'Fe'];
-        
+
         // Populate atom pool selector
         atomPoolSelector.innerHTML = availableAtoms.map(symbol => {
             const element = getElement(symbol);
@@ -668,14 +668,14 @@ class App {
                 </button>
             `;
         }).join('');
-        
+
         // Toggle atom in pool on click
         atomPoolSelector.querySelectorAll('.atom-pool-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 btn.classList.toggle('selected');
             });
         });
-        
+
         // Left-click: toggle spawner on/off
         spawnerBtn.addEventListener('click', (e) => {
             if (e.shiftKey) {
@@ -688,30 +688,30 @@ class App {
                 this.viewer.render();
             }
         });
-        
+
         // Right-click: open config modal
         spawnerBtn.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             this._openSpawnerModal();
         });
-        
+
         // Close modal
         closeModalBtn?.addEventListener('click', () => {
             spawnerModal.style.display = 'none';
         });
-        
+
         // Click backdrop to close
         spawnerModal.querySelector('.modal-backdrop')?.addEventListener('click', () => {
             spawnerModal.style.display = 'none';
         });
-        
+
         // Apply configuration
         applyBtn?.addEventListener('click', () => {
             this._applySpawnerConfig();
             spawnerModal.style.display = 'none';
         });
     }
-    
+
     /**
      * Open spawner configuration modal
      */
@@ -721,23 +721,23 @@ class App {
         const widthInput = document.getElementById('zoneWidth');
         const heightInput = document.getElementById('zoneHeight');
         const atomPoolSelector = document.getElementById('atomPoolSelector');
-        
+
         if (!modal) return;
-        
+
         // Update inputs with current values
         if (intervalInput) intervalInput.value = this.atomSpawner.tickInterval;
         if (widthInput) widthInput.value = Math.round(this.atomSpawner.zone.width);
         if (heightInput) heightInput.value = Math.round(this.atomSpawner.zone.height);
-        
+
         // Update atom pool selection
         atomPoolSelector?.querySelectorAll('.atom-pool-btn').forEach(btn => {
             const symbol = btn.dataset.symbol;
             btn.classList.toggle('selected', this.atomSpawner.atomPool.includes(symbol));
         });
-        
+
         modal.style.display = 'flex';
     }
-    
+
     /**
      * Apply spawner configuration from modal
      */
@@ -746,30 +746,30 @@ class App {
         const widthInput = document.getElementById('zoneWidth');
         const heightInput = document.getElementById('zoneHeight');
         const atomPoolSelector = document.getElementById('atomPoolSelector');
-        
+
         // Get selected atoms
         const selectedAtoms = [];
         atomPoolSelector?.querySelectorAll('.atom-pool-btn.selected').forEach(btn => {
             selectedAtoms.push(btn.dataset.symbol);
         });
-        
+
         // Apply tick interval
         if (intervalInput) {
             this.atomSpawner.setTickInterval(parseInt(intervalInput.value) || 60);
         }
-        
+
         // Apply atom pool
         if (selectedAtoms.length > 0) {
             this.atomSpawner.setAtomPool(selectedAtoms);
         }
-        
+
         // Apply zone size (centered on current zone center)
         if (widthInput && heightInput) {
             const newWidth = parseInt(widthInput.value) || 400;
             const newHeight = parseInt(heightInput.value) || 400;
             const centerX = this.atomSpawner.zone.x + this.atomSpawner.zone.width / 2;
             const centerY = this.atomSpawner.zone.y + this.atomSpawner.zone.height / 2;
-            
+
             this.atomSpawner.setZone(
                 centerX - newWidth / 2,
                 centerY - newHeight / 2,
@@ -777,7 +777,7 @@ class App {
                 newHeight
             );
         }
-        
+
         this.viewer.render();
         console.log('Spawner config applied:', {
             interval: this.atomSpawner.tickInterval,

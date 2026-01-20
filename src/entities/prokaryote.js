@@ -72,7 +72,10 @@ class Prokaryote {
      */
     _updatePhysicalProperties() {
         if (this.membrane.length === 0) {
-            this.position = new Vector2(0, 0);
+            // Keep existing position if already set, otherwise default to 0,0
+            if (!this.position) {
+                this.position = new Vector2(0, 0);
+            }
             this.radius = 30;
             return;
         }

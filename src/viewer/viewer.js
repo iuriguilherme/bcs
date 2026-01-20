@@ -261,10 +261,10 @@ class Viewer {
         // Get spawner from global app instance
         const spawner = window.cellApp?.atomSpawner;
         if (!spawner || !spawner.active) return;
-        
+
         const scale = this.camera.zoom;
         const offset = this.getOffset();
-        
+
         spawner.render(this.ctx, scale, offset);
     }
 
@@ -388,12 +388,12 @@ class Viewer {
         const scale = this.camera.zoom;
         const offset = this.getOffset();
 
-        // Render cells
-        const cells = this.environment.getAllCells ? this.environment.getAllCells() : [];
-        for (const cell of cells) {
-            if (cell.isAlive) {
-                const isSelected = this.selectedCell && this.selectedCell.id === cell.id;
-                cell.render(this.ctx, scale, offset, isSelected);
+        // Render prokaryotes
+        const prokaryotes = this.environment.getAllProkaryotes ? this.environment.getAllProkaryotes() : [];
+        for (const prokaryote of prokaryotes) {
+            if (prokaryote.isAlive) {
+                const isSelected = this.selectedCell && this.selectedCell.id === prokaryote.id;
+                prokaryote.render(this.ctx, scale, offset, isSelected);
             }
         }
 
@@ -409,13 +409,13 @@ class Viewer {
             this.ctx.fill();
         }
 
-        // Show cell count if no cells
-        if (cells.length === 0) {
+        // Show message if no prokaryotes
+        if (prokaryotes.length === 0) {
             this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
             this.ctx.font = '18px sans-serif';
             this.ctx.textAlign = 'center';
             this.ctx.fillText(
-                'No cells yet - Place cells from the palette',
+                'No prokaryotes yet - Click to spawn one',
                 this.canvas.width / 2,
                 this.canvas.height / 2
             );
@@ -522,12 +522,12 @@ class Viewer {
             }
         }
 
-        // At cell level or higher, prioritize cells
+        // At cell level or higher, prioritize prokaryotes
         if (this.level >= 3) {
-            const cells = this.environment.getAllCells ? this.environment.getAllCells() : [];
-            for (const cell of cells) {
-                if (cell.isAlive && cell.containsPoint(screenX, screenY, scale, offset)) {
-                    return { type: 'cell', entity: cell };
+            const prokaryotes = this.environment.getAllProkaryotes ? this.environment.getAllProkaryotes() : [];
+            for (const prokaryote of prokaryotes) {
+                if (prokaryote.isAlive && prokaryote.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'prokaryote', entity: prokaryote };
                 }
             }
         }
