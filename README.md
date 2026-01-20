@@ -1,10 +1,10 @@
-# Cell Simulator
+# BioChemSim
 
 A hierarchical life simulation from atoms to social organisms. This is a browser-based interactive simulation where particles follow chemistry rules to form molecules, polymers, and eventually living cells.
 
 ## Overview
 
-Cell Simulator models emergent biological complexity through 6 hierarchical levels:
+BioChemSim models emergent biological complexity through 6 hierarchical levels:
 
 1. **Atoms** (Level 0) - Individual chemical elements with valence-based bonding
 2. **Molecules** (Level 1) - Bonded atoms forming stable structures
@@ -15,22 +15,37 @@ Cell Simulator models emergent biological complexity through 6 hierarchical leve
 
 ## Running the Application
 
-### Development Mode
-Open `index.html` directly in a browser. This loads individual script files for easier debugging.
+### GitHub Pages (Live Demo)
+This project is designed to run directly on GitHub Pages. Simply enable GitHub Pages in your repository settings:
+1. Go to **Settings** → **Pages**
+2. Under **Source**, select **Deploy from a branch**
+3. Choose your branch (e.g., `main`) and root folder (`/`)
+4. Click **Save**
 
-### Production Mode
-Open `cell-simulator.html` which is a single bundled file containing all CSS and JavaScript inline.
+The site will be available at `https://<username>.github.io/<repository-name>/`
 
-**Important**: The bundled `cell-simulator.html` is independently maintained. Changes to source files in `src/` do NOT automatically update the bundle.
+### Local Development Mode
+Open `dev.html` directly in a browser. This loads individual script files for easier debugging.
+
+### Production Mode (Single File)
+Open `index.html` which is the bundled file containing all CSS and JavaScript inline. This is what GitHub Pages serves.
+
+### Building the Bundle
+To rebuild `index.html` from source files:
+```bash
+deno run --allow-read --allow-write build.ts
+```
+
+**Important**: Changes to source files in `src/` do NOT automatically update `index.html`. You must run the build script.
 
 ## Project Structure
 
 ```
 cs1/
-├── index.html          # Development entry point
+├── index.html          # Production bundle (served by GitHub Pages)
+├── dev.html            # Development entry point (loads separate scripts)
 ├── index.css           # Main stylesheet
-├── cell-simulator.html # Bundled single-file version (PRODUCTION)
-├── bundle.js           # Alternative bundle (not used by default)
+├── build.ts            # Deno build script to generate index.html
 ├── src/
 │   ├── main.js         # Application entry point
 │   ├── core/

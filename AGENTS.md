@@ -1,4 +1,4 @@
-# AGENTS.md - AI Assistant Guidelines for Cell Simulator
+# AGENTS.md - AI Assistant Guidelines for BioChemSim
 
 This document provides critical information for AI coding assistants working on this project. **Read this entire document before making any changes.**
 
@@ -6,13 +6,20 @@ This document provides critical information for AI coding assistants working on 
 
 This project has **TWO code bases** that must stay synchronized:
 
-1. **Source Files** (`src/` directory) - Individual JavaScript files loaded by `index.html`
-2. **Bundled File** (`cell-simulator.html`) - Single file with all CSS/JS inlined
+1. **Source Files** (`src/` directory) - Individual JavaScript files loaded by `dev.html`
+2. **Bundled File** (`index.html`) - Single file with all CSS/JS inlined (served by GitHub Pages)
 
 > [!CAUTION]
-> **Changes to source files do NOT automatically update the bundle.** When fixing bugs or adding features, you MUST update BOTH the source files AND the corresponding code in `cell-simulator.html`.
+> **Changes to source files do NOT automatically update the bundle.** When fixing bugs or adding features, you MUST update BOTH the source files AND the corresponding code in `index.html`, OR run the build script.
 
-The user typically runs `cell-simulator.html` (production mode), so changes only to `src/` files will appear to have no effect.
+The user typically runs `index.html` (production mode), so changes only to `src/` files will appear to have no effect.
+
+### Building the Bundle
+
+To regenerate `index.html` from source files:
+```bash
+deno run --allow-read --allow-write build.ts
+```
 
 ### Finding Code in the Bundle
 
@@ -657,7 +664,7 @@ The atom palette must be synchronized across multiple locations:
 1. **`main.js` `_populateAtomPalette()`** - Initial palette at load
 2. **`main.js` `_renderAtomPalette()`** - Level 0 palette render
 3. **`catalogue-ui.js`** - Catalogue atoms panel
-4. **`cell-simulator.html` (2 locations)** - Both palette functions in bundle
+4. **`index.html` (2 locations)** - Both palette functions in bundle
 
 Current elements list: `['H', 'C', 'N', 'O', 'P', 'S', 'Cl', 'Na', 'K', 'Ca', 'Fe']`
 
@@ -721,7 +728,7 @@ Before considering a change complete, verify:
 
 - ES6 classes with JSDoc comments
 - Global `window.ClassName = ClassName` exports
-- No module bundler - script order matters in `index.html`
+- No module bundler - script order matters in `dev.html`
 - CSS uses custom properties (variables) in `:root`
 
 ---
@@ -731,7 +738,7 @@ Before considering a change complete, verify:
 ### Play/Pause Button
 - Shows "▶️ Play" when simulation is paused (initial state)
 - Shows "⏸️ Pause" when simulation is running
-- Updated in THREE places: `index.html`, `main.js`, `controls.js`- Button has class `play-pause-btn` for wider styling to fit text
+- Updated in THREE places: `dev.html`, `main.js`, `controls.js`- Button has class `play-pause-btn` for wider styling to fit text
 - Initial HTML must show "▶️ Play" since simulation starts paused
 
 ```javascript
@@ -759,7 +766,7 @@ this.viewer.render();  // CRITICAL: refresh when paused
 
 ## 🚫 Common Mistakes to Avoid
 
-1. **Forgetting the bundle**: Always update `cell-simulator.html` when changing source files
+1. **Forgetting the bundle**: Always update `index.html` when changing source files (or run `build.ts`)
 2. **Proximity-based molecules**: Never group atoms into molecules without bond validation
 3. **Ignoring valence**: Always check `availableValence` before forming bonds
 4. **Breaking isStable()**: This method gates polymerization AND geometry verification
@@ -775,6 +782,6 @@ this.viewer.render();  // CRITICAL: refresh when paused
 When making changes:
 
 1. Make the change in the source file under `src/`
-2. Find the equivalent code in `cell-simulator.html`
-3. Apply the same change to the bundle
-4. Verify both `index.html` and `cell-simulator.html` work correctly
+2. Find the equivalent code in `index.html` (the bundle)
+3. Apply the same change to the bundle, OR run `deno run --allow-read --allow-write build.ts`
+4. Verify both `dev.html` and `index.html` work correctly

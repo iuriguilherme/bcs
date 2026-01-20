@@ -4,8 +4,8 @@
  */
 
 const sourceDir = './src';
-const indexHtml = './index.html';
-const outputFile = './cell-simulator.html';
+const devHtml = './dev.html';        // Development entry point (separate scripts)
+const outputFile = './index.html';   // Production bundle for GitHub Pages
 const cssFile = './index.css';
 
 // Script loading order from index.html
@@ -38,10 +38,10 @@ const scriptOrder = [
 ];
 
 async function build() {
-    console.log('Building cell-simulator.html...');
+    console.log('Building index.html (production bundle)...');
 
-    // Read index.html
-    const indexContent = await Deno.readTextFile(indexHtml);
+    // Read dev.html as template
+    const devContent = await Deno.readTextFile(devHtml);
 
     // Read CSS
     const cssContent = await Deno.readTextFile(cssFile);
@@ -64,7 +64,7 @@ async function build() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cell Simulator - Multi-Level Life Simulation</title>
+    <title>BioChemSim - Multi-Level Life Simulation</title>
     <link rel="stylesheet" href="assets/css/all.min.css">
     <style>
 ${cssContent}
@@ -73,8 +73,8 @@ ${cssContent}
 <body>
 `;
 
-    // Extract body content from index.html (everything between <body> and </body>)
-    const bodyMatch = indexContent.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    // Extract body content from dev.html (everything between <body> and </body>)
+    const bodyMatch = devContent.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
     if (bodyMatch) {
         // Remove script tags from body
         let bodyContent = bodyMatch[1];
@@ -86,7 +86,7 @@ ${cssContent}
     bundledHtml += `
     <script>
 // ============================================
-// Bundled Cell Simulator Scripts
+// Bundled BioChemSim Scripts
 // Generated: ${new Date().toISOString()}
 // ============================================
 
