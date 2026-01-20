@@ -528,7 +528,7 @@ class Controls {
             if (atom.moleculeId && this.environment) {
                 const mol = this.environment.molecules.get(atom.moleculeId);
                 if (mol && mol.polymerId) {
-                    polymerIdStr = `<p>Polymer ID: ${mol.polymerId.substring(0, 8)}...</p>`;
+                    polymerIdStr = `<p>Polymer ID: ${mol.polymerId}</p>`;
                 }
             }
             content.innerHTML = `
@@ -539,7 +539,7 @@ class Controls {
                     <p>Valence: ${atom.bondCount}/${atom.maxBonds}</p>
                     <p>Bonds: ${atom.bonds.length}</p>
                     <p>Position: (${atom.position.x.toFixed(1)}, ${atom.position.y.toFixed(1)})</p>
-                    ${atom.moleculeId ? `<p>Molecule ID: ${atom.moleculeId.substring(0, 8)}...</p>` : ''}
+                    ${atom.moleculeId ? `<p>Molecule ID: ${atom.moleculeId}</p>` : ''}
                     ${polymerIdStr}
                 </div>
             `;
@@ -561,13 +561,14 @@ class Controls {
                     <div class="inspector-shape-preview">
                         <canvas id="${canvasId}" width="120" height="120"></canvas>
                     </div>
+                    <p>Molecule ID: ${mol.id}</p>
                     <p>Formula: ${mol.formula}</p>
                     <p>Mass: ${mol.mass.toFixed(3)} u</p>
                     <p>Atoms: ${mol.atoms.length}</p>
                     <p>Bonds: ${mol.bonds.length}</p>
                     <p>Stable: ${mol.isStable() ? 'Yes &#10003;' : 'No'}</p>
                     ${mol.isReshaping ? '<p style="color: #4ade80;">Reshaping...</p>' : ''}
-                    ${mol.polymerId ? `<p>Polymer ID: ${mol.polymerId.substring(0, 8)}...</p>` : ''}
+                    ${mol.polymerId ? `<p>Polymer ID: ${mol.polymerId}</p>` : ''}
                     ${catalogueBtn}
                 </div>
             `;
@@ -597,7 +598,7 @@ class Controls {
             content.innerHTML = `
                 <div class="inspector-item">
                     <h3>${poly.name || typeLabel}</h3>
-                    <p>ID: ${poly.id.substring(0, 8)}...</p>
+                    <p>Polymer ID: ${poly.id}</p>
                     <p>Type: ${typeLabel}</p>
                     <p>Molecules: ${poly.molecules.length}</p>
                     <p>Sequence: ${poly.sequence.substring(0, 30)}${poly.sequence.length > 30 ? '...' : ''}</p>
