@@ -1,6 +1,12 @@
 /**
  * Build script to bundle cell-simulator.html from source files
- * Usage: deno run --allow-read --allow-write --allow-run build.ts
+ * 
+ * Usage: 
+ *   deno run --allow-read --allow-write --allow-run build.ts [version]
+ * 
+ * Examples:
+ *   deno run --allow-read --allow-write --allow-run build.ts         # Uses git describe
+ *   deno run --allow-read --allow-write --allow-run build.ts v1.2.3  # Uses specified version
  */
 
 const sourceDir = './src';
@@ -40,13 +46,32 @@ const scriptOrder = [
 ];
 
 /**
- * Get the current version from git tags
- * Returns the latest tag or 'dev' if no tags found
+ * Get the version from command-line argument or git tags
+ * Usage: deno run --allow-read --allow-write --allow-run build.ts [version]
+ * 
+ * If a version argument is provided (e.g., "v1.2.3"), it will be used directly.
+ * This allows building with a version BEFORE tagging, so the tagged commit
+ * contains the correct version in the bundle.
+ * 
+ * Workflow:
+ *   1. deno run --allow-read --allow-write --allow-run build.ts v1.2.3
+ *   2. git add . && git commit -m "Release v1.2.3"
+ *   3. git tag v1.2.3
+ *   4. git push && git push --tags
  */
 async function getVersion(): Promise<string> {
+    // Check for command-line argument first
+    const args = Deno.args;
+    if (args.length > 0 && args[0]) {
+        const version = args[0].trim();
+        console.log(`  Using version from argument: ${version}`);
+        return version;
+    }
+
+    // Fall back to git describe for development builds
     try {
         const command = new Deno.Command('git', {
-            args: ['describe', '--tags', '--abbrev=0'],
+            args: ['describe', '--tags', '--always'],
             stdout: 'piped',
             stderr: 'piped',
         });
