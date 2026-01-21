@@ -1564,6 +1564,79 @@ const STABLE_MOLECULES = {
             { atom1: 5, atom2: 13, order: 1 }
         ],
         description: 'Butyric acid - short chain fatty acid (CH3-CH2-CH2-COOH)'
+    },
+    'C10H14N5O6P': {
+        name: 'Adenine Nucleotide (AMP)',
+        formula: 'C10H14N5O6P',
+        isMonomer: true,
+        polymerName: 'Nucleic Acid',
+        atoms: [
+            // Phosphate group
+            { symbol: 'P', relX: -40, relY: 0 },
+            { symbol: 'O', relX: -55, relY: -15 },
+            { symbol: 'O', relX: -55, relY: 15 },
+            { symbol: 'O', relX: -40, relY: -25 },
+            { symbol: 'O', relX: -25, relY: 0 },
+            // Ribose sugar (simplified)
+            { symbol: 'C', relX: -5, relY: 0 },
+            { symbol: 'C', relX: 10, relY: -15 },
+            { symbol: 'C', relX: 25, relY: -5 },
+            { symbol: 'O', relX: 15, relY: 10 },
+            // Adenine base (simplified)
+            { symbol: 'N', relX: 40, relY: -10 },
+            { symbol: 'C', relX: 55, relY: -20 },
+            { symbol: 'N', relX: 70, relY: -10 },
+            { symbol: 'C', relX: 70, relY: 10 },
+            { symbol: 'C', relX: 55, relY: 20 },
+            { symbol: 'N', relX: 40, relY: 10 },
+            // Hydrogens (representative)
+            { symbol: 'H', relX: -60, relY: -25 },
+            { symbol: 'H', relX: -60, relY: 25 },
+            { symbol: 'H', relX: 55, relY: -35 },
+            { symbol: 'H', relX: 85, relY: -15 },
+            { symbol: 'H', relX: 55, relY: 35 },
+            // Additional hydrogens on ribose
+            { symbol: 'H', relX: -5, relY: -15 },
+            { symbol: 'H', relX: -5, relY: 15 },
+            { symbol: 'H', relX: 10, relY: -30 },
+            { symbol: 'H', relX: 35, relY: -10 }
+        ],
+        bonds: [
+            // Phosphate
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 0, atom2: 2, order: 1 },
+            { atom1: 0, atom2: 3, order: 1 },
+            { atom1: 0, atom2: 4, order: 1 },
+            // Phosphate to sugar
+            { atom1: 4, atom2: 5, order: 1 },
+            // Sugar ring
+            { atom1: 5, atom2: 6, order: 1 },
+            { atom1: 6, atom2: 7, order: 1 },
+            { atom1: 7, atom2: 8, order: 1 },
+            { atom1: 8, atom2: 5, order: 1 },
+            // Sugar to base
+            { atom1: 7, atom2: 9, order: 1 },
+            // Adenine base
+            { atom1: 9, atom2: 10, order: 1 },
+            { atom1: 10, atom2: 11, order: 2 },
+            { atom1: 11, atom2: 12, order: 1 },
+            { atom1: 12, atom2: 13, order: 2 },
+            { atom1: 13, atom2: 14, order: 1 },
+            { atom1: 14, atom2: 9, order: 1 },
+            // Hydrogens on phosphate
+            { atom1: 1, atom2: 15, order: 1 },
+            { atom1: 2, atom2: 16, order: 1 },
+            // Hydrogens on base
+            { atom1: 10, atom2: 17, order: 1 },
+            { atom1: 11, atom2: 18, order: 1 },
+            { atom1: 13, atom2: 19, order: 1 },
+            // Hydrogens on ribose
+            { atom1: 5, atom2: 20, order: 1 },
+            { atom1: 5, atom2: 21, order: 1 },
+            { atom1: 6, atom2: 22, order: 1 },
+            { atom1: 7, atom2: 23, order: 1 }
+        ],
+        description: 'Adenine nucleotide (AMP) - DNA/RNA building block'
     }
 };
 

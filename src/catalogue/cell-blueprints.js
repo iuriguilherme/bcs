@@ -27,7 +27,7 @@ const CELL_BLUEPRINTS = {
                 description: 'Lipid bilayer enclosing the cell'
             },
             nucleoid: {
-                polymerId: 'DNA',
+                polymerId: 'DNA_STRAND',
                 minChainLength: 2,
                 count: 1,
                 description: 'Genetic material for replication'
@@ -52,7 +52,7 @@ const CELL_BLUEPRINTS = {
                 description: 'Double membrane with thylakoid system'
             },
             nucleoid: {
-                polymerId: 'DNA',
+                polymerId: 'DNA_STRAND',
                 minChainLength: 3,
                 count: 1,
                 description: 'Circular chromosome'
@@ -90,7 +90,7 @@ const CELL_BLUEPRINTS = {
                 description: 'Inner and outer membrane'
             },
             nucleoid: {
-                polymerId: 'DNA',
+                polymerId: 'DNA_STRAND',
                 minChainLength: 4,
                 count: 1,
                 description: 'Single circular chromosome'
@@ -120,7 +120,7 @@ const CELL_BLUEPRINTS = {
                 description: 'Heat-stable lipid bilayer'
             },
             nucleoid: {
-                polymerId: 'DNA',
+                polymerId: 'DNA_STRAND',
                 minChainLength: 3,
                 count: 1,
                 description: 'Heat-stable DNA'
