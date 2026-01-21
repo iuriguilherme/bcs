@@ -794,23 +794,43 @@ class App {
         // Available atoms for spawning
         const availableAtoms = ['H', 'C', 'N', 'O', 'P', 'S', 'Cl', 'Na', 'K', 'Ca', 'Fe'];
 
-        // Populate atom pool selector
+        // Weight options for spawn probability
+        const weightOptions = [1, 2, 3, 4, 5, 6, 8];
+
+        // Populate atom pool selector with weight dropdowns
         atomPoolSelector.innerHTML = availableAtoms.map(symbol => {
             const element = getElement(symbol);
             const isSelected = this.atomSpawner.atomPool.includes(symbol);
+            const currentWeight = this.atomSpawner.getAtomWeight(symbol);
+            const weightOptionsHtml = weightOptions.map(w =>
+                `<option value="${w}" ${w === currentWeight ? 'selected' : ''}>${w}x</option>`
+            ).join('');
             return `
-                <button class="atom-pool-btn ${isSelected ? 'selected' : ''}" 
-                        data-symbol="${symbol}"
-                        style="color: ${element.color}; border-color: ${element.color}40;">
-                    ${symbol}
-                </button>
+                <div class="atom-pool-item ${isSelected ? 'selected' : ''}" data-symbol="${symbol}">
+                    <button class="atom-pool-btn ${isSelected ? 'selected' : ''}" 
+                            data-symbol="${symbol}"
+                            style="color: ${element.color}; border-color: ${element.color}40;">
+                        ${symbol}
+                    </button>
+                    <select class="atom-weight-select" data-symbol="${symbol}" 
+                            style="${isSelected ? '' : 'display: none;'}">
+                        ${weightOptionsHtml}
+                    </select>
+                </div>
             `;
         }).join('');
 
         // Toggle atom in pool on click
         atomPoolSelector.querySelectorAll('.atom-pool-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                btn.classList.toggle('selected');
+                const symbol = btn.dataset.symbol;
+                const item = btn.closest('.atom-pool-item');
+                const select = item.querySelector('.atom-weight-select');
+                const isSelected = !btn.classList.contains('selected');
+
+                btn.classList.toggle('selected', isSelected);
+                item.classList.toggle('selected', isSelected);
+                select.style.display = isSelected ? '' : 'none';
             });
         });
 
@@ -867,10 +887,18 @@ class App {
         if (widthInput) widthInput.value = Math.round(this.atomSpawner.zone.width);
         if (heightInput) heightInput.value = Math.round(this.atomSpawner.zone.height);
 
-        // Update atom pool selection
-        atomPoolSelector?.querySelectorAll('.atom-pool-btn').forEach(btn => {
-            const symbol = btn.dataset.symbol;
-            btn.classList.toggle('selected', this.atomSpawner.atomPool.includes(symbol));
+        // Update atom pool selection and weights
+        atomPoolSelector?.querySelectorAll('.atom-pool-item').forEach(item => {
+            const symbol = item.dataset.symbol;
+            const btn = item.querySelector('.atom-pool-btn');
+            const select = item.querySelector('.atom-weight-select');
+            const isSelected = this.atomSpawner.atomPool.includes(symbol);
+            const currentWeight = this.atomSpawner.getAtomWeight(symbol);
+
+            btn.classList.toggle('selected', isSelected);
+            item.classList.toggle('selected', isSelected);
+            select.style.display = isSelected ? '' : 'none';
+            select.value = currentWeight;
         });
 
         modal.style.display = 'flex';
@@ -885,10 +913,17 @@ class App {
         const heightInput = document.getElementById('zoneHeight');
         const atomPoolSelector = document.getElementById('atomPoolSelector');
 
-        // Get selected atoms
+        // Get selected atoms and their weights
         const selectedAtoms = [];
-        atomPoolSelector?.querySelectorAll('.atom-pool-btn.selected').forEach(btn => {
-            selectedAtoms.push(btn.dataset.symbol);
+        const atomWeights = {};
+        atomPoolSelector?.querySelectorAll('.atom-pool-item').forEach(item => {
+            const btn = item.querySelector('.atom-pool-btn');
+            const select = item.querySelector('.atom-weight-select');
+            if (btn.classList.contains('selected')) {
+                const symbol = btn.dataset.symbol;
+                selectedAtoms.push(symbol);
+                atomWeights[symbol] = parseInt(select.value) || 1;
+            }
         });
 
         // Apply tick interval
@@ -896,9 +931,10 @@ class App {
             this.atomSpawner.setTickInterval(parseInt(intervalInput.value) || 60);
         }
 
-        // Apply atom pool
+        // Apply atom pool and weights
         if (selectedAtoms.length > 0) {
             this.atomSpawner.setAtomPool(selectedAtoms);
+            this.atomSpawner.setAtomWeights(atomWeights);
         }
 
         // Apply zone size (centered on current zone center)
@@ -920,6 +956,7 @@ class App {
         console.log('Spawner config applied:', {
             interval: this.atomSpawner.tickInterval,
             pool: this.atomSpawner.atomPool,
+            weights: this.atomSpawner.atomWeights,
             zone: this.atomSpawner.zone
         });
     }

@@ -829,6 +829,35 @@ body {
     outline-offset: 1px;
 }
 
+.atom-pool-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.atom-weight-select {
+    width: 100%;
+    padding: 2px 4px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+}
+
+.atom-weight-select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.atom-pool-item.selected .atom-weight-select {
+    border-color: var(--success);
+}
+
 .btn-primary {
     padding: var(--space-sm) var(--space-lg);
     background: var(--accent-primary);
@@ -979,7 +1008,8 @@ body {
     background: rgba(0, 0, 0, 0.6);
     z-index: 950;
     backdrop-filter: blur(2px);
-    display: none; /* Disabled for non-blocking tutorial */
+    display: none;
+    /* Disabled for non-blocking tutorial */
 }
 
 /* Tutorial Highlight Box - Non-blocking, just visual indication */
@@ -994,10 +1024,13 @@ body {
 }
 
 @keyframes tutorial-pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         box-shadow: 0 0 20px var(--accent-glow), inset 0 0 15px var(--accent-glow);
         border-color: var(--accent-primary);
     }
+
     50% {
         box-shadow: 0 0 40px var(--accent-glow), inset 0 0 25px var(--accent-glow);
         border-color: var(--accent-secondary);

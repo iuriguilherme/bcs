@@ -278,24 +278,7 @@ class ProteinBlueprint extends Blueprint {
     }
 }
 
-/**
- * Cell Blueprint (placeholder for Phase 2)
- */
-class CellBlueprint extends Blueprint {
-    constructor(name) {
-        super('cell', name);
-        this.molecules = [];
-        this.proteins = [];  // Can also contain proteins
-        this.behavior = null;
-        this.genome = null;
-    }
-
-    instantiate(x, y) {
-        // TODO: Implement in Phase 2
-        console.warn('CellBlueprint.instantiate not yet implemented');
-        return null;
-    }
-}
+// NOTE: CellBlueprint is defined in cell-blueprints.js
 
 /**
  * Organism Blueprint (placeholder for Phase 3)
@@ -319,5 +302,5 @@ class OrganismBlueprint extends Blueprint {
 window.Blueprint = Blueprint;
 window.MoleculeBlueprint = MoleculeBlueprint;
 window.ProteinBlueprint = ProteinBlueprint;
-window.CellBlueprint = CellBlueprint;
+// NOTE: CellBlueprint is exported from cell-blueprints.js
 window.OrganismBlueprint = OrganismBlueprint;
