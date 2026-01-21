@@ -243,6 +243,13 @@ body {
     border-bottom: 1px solid var(--border-subtle);
 }
 
+/* Make the palette section (last tool-section) scrollable */
+.left-panel .tool-section:last-child {
+    flex: 1;
+    overflow-y: auto;
+    border-bottom: none;
+}
+
 .tool-section h3 {
     font-size: 0.75rem;
     color: var(--text-muted);

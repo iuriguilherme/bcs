@@ -251,6 +251,13 @@ body {
     border-bottom: 1px solid var(--border-subtle);
 }
 
+/* Make the palette section (last tool-section) scrollable */
+.left-panel .tool-section:last-child {
+    flex: 1;
+    overflow-y: auto;
+    border-bottom: none;
+}
+
 .tool-section h3 {
     font-size: 0.75rem;
     color: var(--text-muted);
@@ -1166,8 +1173,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.21.0"
-                    class="version-link" target="_blank">v0.21.0</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.21.1"
+                    class="version-link" target="_blank">v0.21.1</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1338,8 +1345,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.21.0
-// Generated: 2026-01-21T02:21:20.887Z
+// Version: v0.21.1
+// Generated: 2026-01-21T07:34:12.548Z
 // ============================================
 
 // ==== src/core/utils.js ====
