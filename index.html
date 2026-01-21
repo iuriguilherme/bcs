@@ -1173,8 +1173,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.21.1"
-                    class="version-link" target="_blank">v0.21.1</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.0"
+                    class="version-link" target="_blank">v0.22.0</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1345,8 +1345,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.21.1
-// Generated: 2026-01-21T07:34:12.548Z
+// Version: v0.22.0
+// Generated: 2026-01-21T07:45:00.826Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -12014,7 +12014,14 @@ class CellBlueprint {
  * @returns {CellBlueprint|null}
  */
 function getCellBlueprint(id) {
-    const template = CELL_BLUEPRINTS[id];
+    // First try direct key lookup (for uppercase keys like MINIMAL_CELL)
+    let template = CELL_BLUEPRINTS[id];
+
+    // If not found, search by id property (for lowercase ids like minimal_cell)
+    if (!template) {
+        template = Object.values(CELL_BLUEPRINTS).find(t => t.id === id);
+    }
+
     if (!template) return null;
     return new CellBlueprint(template);
 }

@@ -275,7 +275,14 @@ class CellBlueprint {
  * @returns {CellBlueprint|null}
  */
 function getCellBlueprint(id) {
-    const template = CELL_BLUEPRINTS[id];
+    // First try direct key lookup (for uppercase keys like MINIMAL_CELL)
+    let template = CELL_BLUEPRINTS[id];
+
+    // If not found, search by id property (for lowercase ids like minimal_cell)
+    if (!template) {
+        template = Object.values(CELL_BLUEPRINTS).find(t => t.id === id);
+    }
+
     if (!template) return null;
     return new CellBlueprint(template);
 }
