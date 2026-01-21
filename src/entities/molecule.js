@@ -568,7 +568,16 @@ class Molecule {
                     // Decay time: 500-1500 ticks depending on stability (slower decay outside intentions)
                     const stabilityRatio = this._calculateStabilityRatio();
                     this.decayTimer = 500 + Math.floor(stabilityRatio * 1000);
-                    this.decayRate = 1;
+
+                    // Decay rate scales with molecule size:
+                    // - Atom count factor: more atoms = faster decay (1-3x)
+                    // - Mass factor: heavier molecules = faster decay (1-2x)
+                    // Combined: decay rate ranges from 1 (small) to ~5 (large)
+                    const atomCount = this.atoms.length;
+                    const totalMass = this.mass;
+                    const atomFactor = Math.min(3, 1 + (atomCount - 2) * 0.5); // 2 atoms = 1x, 6+ atoms = 3x
+                    const massFactor = Math.min(2, 1 + (totalMass - 10) / 50); // ~10 amu = 1x, ~60+ amu = 2x
+                    this.decayRate = Math.max(1, atomFactor * massFactor);
                 }
 
                 // Progress decay

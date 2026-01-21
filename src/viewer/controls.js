@@ -313,12 +313,17 @@ class Controls {
             return;
         }
 
-        // At cell level (3+), place prokaryotes
+        // At cell level (3+), place cell intentions (attract polymers to form cells)
         if (this.viewer.level >= 3) {
-            const prokaryote = new Prokaryote({});
-            prokaryote.position = new Vector2(worldPos.x, worldPos.y);
-            prokaryote.cytoplasm.atp = 100;  // Start with some energy
-            this.environment.addProkaryote(prokaryote);
+            if (this.selectedCellBlueprint) {
+                // Create cell intention zone with selected blueprint
+                const intention = new Intention('cell', this.selectedCellBlueprint, worldPos.x, worldPos.y);
+                this.environment.addIntention(intention);
+                console.log(`Placed cell intention: ${this.selectedCellBlueprint.name}`);
+            } else {
+                // No blueprint selected - show hint
+                console.log('No cell blueprint selected. Select a cell type from the palette first.');
+            }
         }
         // At polymer level (2), create polymer intention (attract molecules)
         else if (this.viewer.level === 2) {
@@ -580,15 +585,27 @@ class Controls {
         } else if (result.type === 'prokaryote') {
             const prok = result.entity;
             const components = prok.getComponentSummary();
+
+            // Get cell name from blueprint or use generic label
+            const cellName = prok.cellName || 'Prokaryote';
+            const speciesLine = prok.species
+                ? `<p style="color: #94a3b8; font-style: italic;">${prok.species}</p>`
+                : '';
+
             content.innerHTML = `
                 <div class="inspector-item">
-                    <h3>Prokaryote (Gen ${prok.generation})</h3>
+                    <h3>${cellName}</h3>
+                    ${speciesLine}
+                    <p>Generation: ${prok.generation}</p>
+                    <hr style="border-color: #444; margin: 8px 0;">
                     <p>ATP: ${prok.cytoplasm.atp.toFixed(1)} / ${prok.cytoplasm.maxAtp}</p>
                     <p>Age: ${prok.age} ticks</p>
                     <p>Position: (${prok.position.x.toFixed(1)}, ${prok.position.y.toFixed(1)})</p>
-                    <p>Membrane: ${components.membrane} polymers</p>
-                    <p>Nucleoid: ${components.nucleoid} polymers</p>
-                    <p>Ribosomes: ${components.ribosomes} polymers</p>
+                    <hr style="border-color: #444; margin: 8px 0;">
+                    <p><strong>Components:</strong></p>
+                    <p>• Membrane: ${components.membrane} polymers</p>
+                    <p>• Nucleoid: ${components.nucleoid} polymers</p>
+                    <p>• Ribosomes: ${components.ribosomes} polymers</p>
                     <p>Alive: ${prok.isAlive ? 'Yes &#10003;' : 'No'}</p>
                 </div>
             `;
@@ -644,6 +661,53 @@ class Controls {
             } else if (requirements?.type === 'polymers') {
                 const roles = requirements.roles?.join(', ') || 'Various';
                 reqDetails = `<p><strong>Needs polymers with roles:</strong></p><p>${roles}</p>`;
+            } else if (requirements?.type === 'polymers_detailed') {
+                // NEW: Detailed cell recipe with polymer requirements
+                const cellName = requirements.cellName || 'Cell';
+                const species = requirements.species;
+                const color = requirements.color || '#8b5cf6';
+
+                let html = `<p style="color: ${color}; font-weight: bold;"><strong>Recipe: ${cellName}</strong></p>`;
+                if (species) {
+                    html += `<p style="color: #94a3b8; font-style: italic;">${species}</p>`;
+                }
+                html += '<hr style="border-color: #444; margin: 8px 0;">';
+                html += '<p><strong>Required Polymers:</strong></p>';
+
+                // Show each polymer requirement
+                for (const req of requirements.polymerRequirements || []) {
+                    const roleColors = {
+                        'membrane': '#f59e0b',
+                        'nucleoid': '#3b82f6',
+                        'ribosomes': '#22c55e'
+                    };
+                    const roleColor = roleColors[req.role] || '#8b5cf6';
+
+                    // Get current progress from intention's polymerFulfillment
+                    const have = intention.polymerFulfillment?.[req.role]?.have || 0;
+                    const progressIcon = have >= req.count ? '✓' : `${have}/${req.count}`;
+
+                    html += `
+                        <p style="color: ${roleColor}; margin-top: 4px;">
+                            <strong>${req.role}:</strong> ${req.count}× ${req.polymerName} 
+                            <span style="color: #666;">[${progressIcon}]</span>
+                        </p>
+                        <p style="color: #94a3b8; font-size: 0.85em; margin-left: 12px;">
+                            Chain: ${req.minChainLength}+ monomers
+                        </p>
+                    `;
+
+                    // Show what monomer to create
+                    if (req.monomerFormula) {
+                        html += `
+                            <p style="color: #4ade80; font-size: 0.85em; margin-left: 12px;">
+                                → Create ${req.monomerFormula} molecules
+                            </p>
+                        `;
+                    }
+                }
+
+                reqDetails = html;
             }
 
             content.innerHTML = `

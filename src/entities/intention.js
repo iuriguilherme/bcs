@@ -90,15 +90,15 @@ class Intention {
      */
     getTargetComposition() {
         if (this.type !== 'molecule') return null;
-        
+
         const composition = {};
-        
+
         if (this.blueprint.atomData) {
             for (const atom of this.blueprint.atomData) {
                 composition[atom.symbol] = (composition[atom.symbol] || 0) + 1;
             }
         }
-        
+
         return composition;
     }
 
@@ -108,24 +108,24 @@ class Intention {
      */
     getMonomerElements() {
         if (this.type !== 'polymer') return null;
-        
+
         const requirements = this.getRequirements();
         const elements = new Set();
-        
+
         // Get elements from monomer template's atomLayout
         if (requirements.monomerTemplate && requirements.monomerTemplate.atomLayout) {
             for (const atom of requirements.monomerTemplate.atomLayout) {
                 elements.add(atom.symbol);
             }
         }
-        
+
         // Fallback to requiredElements if no atomLayout
         if (elements.size === 0 && requirements.requiredElements) {
             for (const el of requirements.requiredElements) {
                 elements.add(el);
             }
         }
-        
+
         return elements;
     }
 
@@ -136,19 +136,19 @@ class Intention {
      */
     getCompositionDelta(molecule) {
         if (this.type !== 'molecule') return null;
-        
+
         const target = this.getTargetComposition();
         if (!target) return null;
-        
+
         // Get current molecule composition
         const current = {};
         for (const atom of molecule.atoms) {
             current[atom.symbol] = (current[atom.symbol] || 0) + 1;
         }
-        
+
         const needed = {};  // Atoms we need to add
         const excess = {};  // Atoms we need to remove
-        
+
         // Check what's needed (in target but not enough in current)
         for (const [symbol, count] of Object.entries(target)) {
             const have = current[symbol] || 0;
@@ -156,7 +156,7 @@ class Intention {
                 needed[symbol] = count - have;
             }
         }
-        
+
         // Check what's in excess (in current but not needed or too many)
         for (const [symbol, count] of Object.entries(current)) {
             const want = target[symbol] || 0;
@@ -164,9 +164,9 @@ class Intention {
                 excess[symbol] = count - want;
             }
         }
-        
+
         const isMatch = Object.keys(needed).length === 0 && Object.keys(excess).length === 0;
-        
+
         return { needed, excess, isMatch };
     }
 
@@ -212,10 +212,49 @@ class Intention {
                 requiredElements: this.blueprint.requiredElements || resolvedTemplate?.requiredElements || []
             };
         } else if (this.type === 'cell') {
-            // For cells, we need polymer chains
+            // For cells, we need specific polymers with chain length requirements
+            const blueprint = this.blueprint;
+
+            // If no detailed requirements, fall back to basic roles
+            if (!blueprint?.requirements) {
+                return {
+                    type: 'polymers',
+                    roles: ['membrane', 'nucleoid']
+                };
+            }
+
+            // Map requirements to detailed format for inspector display
+            const polymerReqs = [];
+            for (const [role, req] of Object.entries(blueprint.requirements)) {
+                // Look up polymer and monomer templates
+                const polymerTemplate = typeof CELL_ESSENTIAL_POLYMERS !== 'undefined'
+                    ? CELL_ESSENTIAL_POLYMERS[req.polymerId] : null;
+                let monomerTemplate = null;
+                if (polymerTemplate?.monomerId && typeof getMonomerTemplate === 'function') {
+                    monomerTemplate = getMonomerTemplate(polymerTemplate.monomerId);
+                }
+
+                polymerReqs.push({
+                    role,
+                    polymerId: req.polymerId,
+                    polymerName: polymerTemplate?.name || req.polymerId,
+                    polymerType: polymerTemplate?.type || 'generic',
+                    minChainLength: req.minChainLength || 2,
+                    count: req.count || 1,
+                    description: req.description || '',
+                    monomerId: polymerTemplate?.monomerId || null,
+                    monomerTemplate: monomerTemplate,
+                    monomerFormula: monomerTemplate?.formula || null
+                });
+            }
+
             return {
-                type: 'polymers',
-                roles: ['membrane', 'structure', 'genetics']
+                type: 'polymers_detailed',
+                cellName: blueprint.name || 'Cell',
+                species: blueprint.species || null,
+                color: blueprint.color || '#8b5cf6',
+                polymerRequirements: polymerReqs,
+                totalPolymers: polymerReqs.reduce((sum, r) => sum + r.count, 0)
             };
         }
         return null;
@@ -250,7 +289,7 @@ class Intention {
         if (requirements.type === 'atoms') {
             const targetComp = this.getTargetComposition();
             const neededElements = targetComp ? new Set(Object.keys(targetComp)) : null;
-            
+
             // Attract free atoms AND atoms in unstable molecules
             for (const atom of environment.atoms.values()) {
                 // Check if atom is in a molecule
@@ -268,7 +307,7 @@ class Intention {
                 if (dist < this.radius && dist > 5) {
                     const direction = this.position.sub(atom.position).normalize();
                     let forceMagnitude = this.attractionForce * (1 - dist / this.radius);
-                    
+
                     // Smart attraction: attract needed elements, repel unneeded
                     if (neededElements) {
                         if (neededElements.has(atom.symbol)) {
@@ -283,7 +322,7 @@ class Intention {
                             continue; // Skip normal force application
                         }
                     }
-                    
+
                     const force = direction.mul(forceMagnitude);
                     atom.applyForce(force);
                     // Note: gatheredComponents is now managed in progress calculation
@@ -295,7 +334,7 @@ class Intention {
             for (const mol of environment.molecules.values()) {
                 // Skip stable molecules - they don't need attraction
                 if (mol.isStable()) continue;
-                
+
                 // CRITICAL: Skip molecules that are reshaping - moving them will break geometry
                 if (mol.isReshaping) continue;
 
@@ -315,13 +354,13 @@ class Intention {
             for (const mol of environment.molecules.values()) {
                 // Skip molecules that are still reshaping (let them finish)
                 if (mol.isReshaping) continue;
-                
+
                 // If this molecule IS the target formula, don't repel it
                 if (targetFormula && mol.formula === targetFormula) continue;
-                
+
                 // Only repel STABLE molecules - unstable molecules may still transform
                 if (!mol.isStable()) continue;
-                
+
                 const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
                 const dist = center.distanceTo(this.position);
                 if (dist < this.radius && dist > 10) {
@@ -357,11 +396,11 @@ class Intention {
             for (const atom of environment.atoms.values()) {
                 // Skip atoms in molecules
                 if (atom.moleculeId) continue;
-                
+
                 const dist = atom.position.distanceTo(this.position);
                 if (dist < this.radius && dist > 5) {
                     const direction = this.position.sub(atom.position).normalize();
-                    
+
                     if (monomerElements && monomerElements.has(atom.symbol)) {
                         // This element is part of the monomer - attract it
                         const force = direction.mul(this.attractionForce * 0.8 * (1 - dist / this.radius));
@@ -381,14 +420,14 @@ class Intention {
 
                 const center = mol.getCenter();
                 const dist = center.distanceTo(this.position);
-                
+
                 // Check if this is the right monomer type
-                const isCorrectMonomer = mol.isMonomer && 
+                const isCorrectMonomer = mol.isMonomer &&
                     (!requiredFormula || mol.formula === requiredFormula);
-                
+
                 if (dist < this.radius && dist > 10) {
                     const direction = this.position.sub(center).normalize();
-                    
+
                     if (isCorrectMonomer) {
                         // Attract correct monomers
                         const force = direction.mul(this.attractionForce * (1 - dist / this.radius));
@@ -403,18 +442,47 @@ class Intention {
                     // Note: gatheredComponents is now managed in progress calculation
                 }
             }
-        } else if (requirements.type === 'polymers') {
-            // Attract polymers
+        } else if (requirements.type === 'polymers' || requirements.type === 'polymers_detailed') {
+            // Attract polymers - for both basic and detailed cell requirements
             for (const polymer of environment.proteins.values()) {
+                // Skip polymers already part of a cell
+                if (polymer.prokaryoteId) continue;
+
+                // Skip polymers already claimed by another intention
+                if (polymer.claimedByIntentionId && polymer.claimedByIntentionId !== this.id) continue;
+
                 const center = polymer.getCenter();
                 const dist = center.distanceTo(this.position);
+
                 if (dist < this.radius && dist > 20) {
-                    const direction = this.position.sub(center).normalize();
-                    // Polymers move slower
-                    for (const mol of polymer.molecules) {
-                        mol.applyForce(direction.mul(this.attractionForce * 0.5));
+                    // For detailed requirements, only attract polymers we need
+                    let shouldAttract = true;
+                    if (requirements.type === 'polymers_detailed' && requirements.polymerRequirements) {
+                        shouldAttract = false;
+                        for (const req of requirements.polymerRequirements) {
+                            // Check if this polymer matches any requirement
+                            const polymerType = polymer.type;
+                            const expectedType = typeof CELL_ESSENTIAL_POLYMERS !== 'undefined'
+                                ? CELL_ESSENTIAL_POLYMERS[req.polymerId]?.type : null;
+
+                            if (polymerType === expectedType) {
+                                // Check chain length
+                                const chainLength = polymer.monomers?.length || polymer.molecules?.length || 0;
+                                if (chainLength >= req.minChainLength) {
+                                    shouldAttract = true;
+                                    break;
+                                }
+                            }
+                        }
                     }
-                    // Note: gatheredComponents is now managed in progress calculation
+
+                    if (shouldAttract) {
+                        const direction = this.position.sub(center).normalize();
+                        // Polymers move slower
+                        for (const mol of polymer.molecules) {
+                            mol.applyForce(direction.mul(this.attractionForce * 0.5));
+                        }
+                    }
                 }
             }
         }
@@ -425,11 +493,11 @@ class Intention {
             // Count only RELEVANT atoms in zone (matching target composition)
             const targetComp = this.getTargetComposition();
             const neededElements = targetComp ? new Set(Object.keys(targetComp)) : null;
-            
+
             let relevantAtomsInZone = 0;
             // Clear and rebuild gatheredComponents each frame
             this.gatheredComponents.clear();
-            
+
             for (const atom of environment.atoms.values()) {
                 const dist = atom.position.distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
@@ -445,7 +513,7 @@ class Intention {
             // Count matching monomers in zone
             let monomersInZone = 0;
             const requiredFormula = requirements2.monomerFormula;
-            
+
             // Clear and rebuild gatheredComponents each frame
             this.gatheredComponents.clear();
 
@@ -599,11 +667,12 @@ class Intention {
                 this._formPolymerFromMonomers(environment, nearbyMonomers.slice(0, requirements.count), requirements.monomerTemplate);
             }
         } else if (requirements.type === 'polymers') {
-            // Check if we have required polymer types
+            // Check if we have required polymer types (basic/legacy mode)
             const nearbyPolymers = { membrane: null, structure: null, genetics: null };
             for (const polymer of environment.proteins.values()) {
                 // CRITICAL: Skip polymers already claimed by another intention
                 if (polymer.claimedByIntentionId && polymer.claimedByIntentionId !== this.id) continue;
+                if (polymer.prokaryoteId) continue;
                 const dist = polymer.getCenter().distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
                     const role = polymer.cellRole || polymer.type;
@@ -613,9 +682,81 @@ class Intention {
                 }
             }
 
-            if (nearbyPolymers.membrane && nearbyPolymers.structure && nearbyPolymers.genetics) {
-                // Form the cell!
-                this._formCell(environment, Object.values(nearbyPolymers).filter(p => p));
+            if (nearbyPolymers.membrane && nearbyPolymers.genetics) {
+                // Form the cell! (structure is optional)
+                const polymersToUse = Object.values(nearbyPolymers).filter(p => p);
+                this._formCell(environment, polymersToUse);
+            }
+        } else if (requirements.type === 'polymers_detailed' && requirements.polymerRequirements) {
+            // NEW: Detailed polymer requirements with chain length validation
+            const fulfillment = {};
+            let allSatisfied = true;
+            let totalGathered = 0;
+
+            // Clear gathered components for this frame
+            this.gatheredComponents.clear();
+
+            for (const req of requirements.polymerRequirements) {
+                // Find polymers matching this requirement
+                const matching = [];
+
+                for (const polymer of environment.proteins.values()) {
+                    // Skip polymers already used
+                    if (polymer.prokaryoteId) continue;
+                    if (polymer.claimedByIntentionId && polymer.claimedByIntentionId !== this.id) continue;
+
+                    // Check distance
+                    const dist = polymer.getCenter().distanceTo(this.position);
+                    if (dist >= this.radius * 0.6) continue;
+
+                    // Check type matches
+                    const polymerType = polymer.type;
+                    const expectedType = typeof CELL_ESSENTIAL_POLYMERS !== 'undefined'
+                        ? CELL_ESSENTIAL_POLYMERS[req.polymerId]?.type : null;
+
+                    if (polymerType !== expectedType) continue;
+
+                    // Check chain length
+                    const chainLength = polymer.monomers?.length || polymer.molecules?.length || 0;
+                    if (chainLength < req.minChainLength) continue;
+
+                    matching.push(polymer);
+                    this.gatheredComponents.add(polymer.id);
+                }
+
+                fulfillment[req.role] = {
+                    have: matching.length,
+                    need: req.count,
+                    satisfied: matching.length >= req.count,
+                    polymers: matching
+                };
+
+                totalGathered += matching.length;
+
+                if (matching.length < req.count) {
+                    allSatisfied = false;
+                }
+            }
+
+            // Update progress based on how many requirements are met
+            const totalNeeded = requirements.totalPolymers || 2;
+            this.progress = Math.min(1, totalGathered / totalNeeded);
+
+            // Store fulfillment for inspector display
+            this.polymerFulfillment = fulfillment;
+
+            if (allSatisfied) {
+                // Gather all matching polymers and form the cell
+                const polymersToUse = [];
+                for (const [role, status] of Object.entries(fulfillment)) {
+                    for (let i = 0; i < status.need && i < status.polymers.length; i++) {
+                        polymersToUse.push(status.polymers[i]);
+                    }
+                }
+
+                if (polymersToUse.length > 0) {
+                    this._formCell(environment, polymersToUse);
+                }
             }
         }
     }
@@ -787,26 +928,60 @@ class Intention {
     }
 
     /**
-     * Form a cell from gathered polymers
+     * Form a cell (Prokaryote) from gathered polymers
      */
     _formCell(environment, polymers) {
-        // Create cell at this position
-        const cell = new Cell(this.position.x, this.position.y);
+        // Categorize polymers by their role
+        const components = {
+            membrane: [],
+            nucleoid: [],
+            ribosomes: []
+        };
 
-        // Add polymers to cell and claim them
         for (const polymer of polymers) {
             polymer.claimedByIntentionId = this.id;  // Claim so other intentions don't double-count
-            cell.addPolymer(polymer);
-            environment.removeProtein(polymer.id);
+
+            // Categorize by type
+            const type = polymer.type;
+            if (type === 'lipid') {
+                components.membrane.push(polymer);
+            } else if (type === 'nucleic_acid') {
+                components.nucleoid.push(polymer);
+            } else if (type === 'protein') {
+                components.ribosomes.push(polymer);
+            }
+
+            // Don't remove from environment yet - Prokaryote will own them
         }
 
-        environment.addCell(cell);
+        // Create Prokaryote at this position with categorized components
+        const prokaryote = new Prokaryote(components);
+        prokaryote.position = new Vector2(this.position.x, this.position.y);
 
-        this.createdEntity = cell;
+        // Store blueprint info if available
+        if (this.blueprint) {
+            prokaryote.blueprintId = this.blueprint.id;
+            prokaryote.species = this.blueprint.species || null;
+            prokaryote.cellName = this.blueprint.name || 'Cell';
+        }
+
+        // Give it some starting energy
+        prokaryote.cytoplasm.atp = 50;
+
+        // Add to environment
+        environment.addProkaryote(prokaryote);
+
+        // Mark polymers as belonging to this prokaryote
+        for (const polymer of polymers) {
+            polymer.prokaryoteId = prokaryote.id;
+        }
+
+        this.createdEntity = prokaryote;
         this.fulfilled = true;
 
         if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
-            console.log(`[Intention ${this.id.substring(0, 8)}] Fulfilled: Created cell from ${polymers.length} polymers`);
+            const cellName = this.blueprint?.name || 'Prokaryote';
+            console.log(`[Intention ${this.id.substring(0, 8)}] Fulfilled: Created ${cellName} from ${polymers.length} polymers`);
         }
     }
 

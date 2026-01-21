@@ -1133,8 +1133,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.19.2"
-                    class="version-link" target="_blank">v0.19.2</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.20.0"
+                    class="version-link" target="_blank">v0.20.0</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1261,8 +1261,11 @@ body {
                     <h4>New to BioChemSim?</h4>
                     <p>Learn how to build molecules and explore chemistry!</p>
                     <div class="tutorial-hint-actions">
-                        <button class="tutorial-hint-start" onclick="window.cellApp.tutorial.start()">Start Tutorial</button>
-                        <button class="tutorial-hint-dismiss" onclick="document.getElementById('tutorialHint').classList.remove('visible')">Maybe Later</button>
+                        <button class="tutorial-hint-start" onclick="window.cellApp.tutorial.start()">Start
+                            Tutorial</button>
+                        <button class="tutorial-hint-dismiss"
+                            onclick="document.getElementById('tutorialHint').classList.remove('visible')">Maybe
+                            Later</button>
                     </div>
                 </div>
             </div>
@@ -1297,12 +1300,13 @@ body {
     
     
     
+    
 
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.19.2
-// Generated: 2026-01-20T22:23:06.060Z
+// Version: v0.20.0
+// Generated: 2026-01-21T01:39:42.505Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -4933,7 +4937,16 @@ class Molecule {
                     // Decay time: 500-1500 ticks depending on stability (slower decay outside intentions)
                     const stabilityRatio = this._calculateStabilityRatio();
                     this.decayTimer = 500 + Math.floor(stabilityRatio * 1000);
-                    this.decayRate = 1;
+
+                    // Decay rate scales with molecule size:
+                    // - Atom count factor: more atoms = faster decay (1-3x)
+                    // - Mass factor: heavier molecules = faster decay (1-2x)
+                    // Combined: decay rate ranges from 1 (small) to ~5 (large)
+                    const atomCount = this.atoms.length;
+                    const totalMass = this.mass;
+                    const atomFactor = Math.min(3, 1 + (atomCount - 2) * 0.5); // 2 atoms = 1x, 6+ atoms = 3x
+                    const massFactor = Math.min(2, 1 + (totalMass - 10) / 50); // ~10 amu = 1x, ~60+ amu = 2x
+                    this.decayRate = Math.max(1, atomFactor * massFactor);
                 }
 
                 // Progress decay
@@ -6348,15 +6361,15 @@ class Intention {
      */
     getTargetComposition() {
         if (this.type !== 'molecule') return null;
-        
+
         const composition = {};
-        
+
         if (this.blueprint.atomData) {
             for (const atom of this.blueprint.atomData) {
                 composition[atom.symbol] = (composition[atom.symbol] || 0) + 1;
             }
         }
-        
+
         return composition;
     }
 
@@ -6366,24 +6379,24 @@ class Intention {
      */
     getMonomerElements() {
         if (this.type !== 'polymer') return null;
-        
+
         const requirements = this.getRequirements();
         const elements = new Set();
-        
+
         // Get elements from monomer template's atomLayout
         if (requirements.monomerTemplate && requirements.monomerTemplate.atomLayout) {
             for (const atom of requirements.monomerTemplate.atomLayout) {
                 elements.add(atom.symbol);
             }
         }
-        
+
         // Fallback to requiredElements if no atomLayout
         if (elements.size === 0 && requirements.requiredElements) {
             for (const el of requirements.requiredElements) {
                 elements.add(el);
             }
         }
-        
+
         return elements;
     }
 
@@ -6394,19 +6407,19 @@ class Intention {
      */
     getCompositionDelta(molecule) {
         if (this.type !== 'molecule') return null;
-        
+
         const target = this.getTargetComposition();
         if (!target) return null;
-        
+
         // Get current molecule composition
         const current = {};
         for (const atom of molecule.atoms) {
             current[atom.symbol] = (current[atom.symbol] || 0) + 1;
         }
-        
+
         const needed = {};  // Atoms we need to add
         const excess = {};  // Atoms we need to remove
-        
+
         // Check what's needed (in target but not enough in current)
         for (const [symbol, count] of Object.entries(target)) {
             const have = current[symbol] || 0;
@@ -6414,7 +6427,7 @@ class Intention {
                 needed[symbol] = count - have;
             }
         }
-        
+
         // Check what's in excess (in current but not needed or too many)
         for (const [symbol, count] of Object.entries(current)) {
             const want = target[symbol] || 0;
@@ -6422,9 +6435,9 @@ class Intention {
                 excess[symbol] = count - want;
             }
         }
-        
+
         const isMatch = Object.keys(needed).length === 0 && Object.keys(excess).length === 0;
-        
+
         return { needed, excess, isMatch };
     }
 
@@ -6470,10 +6483,49 @@ class Intention {
                 requiredElements: this.blueprint.requiredElements || resolvedTemplate?.requiredElements || []
             };
         } else if (this.type === 'cell') {
-            // For cells, we need polymer chains
+            // For cells, we need specific polymers with chain length requirements
+            const blueprint = this.blueprint;
+
+            // If no detailed requirements, fall back to basic roles
+            if (!blueprint?.requirements) {
+                return {
+                    type: 'polymers',
+                    roles: ['membrane', 'nucleoid']
+                };
+            }
+
+            // Map requirements to detailed format for inspector display
+            const polymerReqs = [];
+            for (const [role, req] of Object.entries(blueprint.requirements)) {
+                // Look up polymer and monomer templates
+                const polymerTemplate = typeof CELL_ESSENTIAL_POLYMERS !== 'undefined'
+                    ? CELL_ESSENTIAL_POLYMERS[req.polymerId] : null;
+                let monomerTemplate = null;
+                if (polymerTemplate?.monomerId && typeof getMonomerTemplate === 'function') {
+                    monomerTemplate = getMonomerTemplate(polymerTemplate.monomerId);
+                }
+
+                polymerReqs.push({
+                    role,
+                    polymerId: req.polymerId,
+                    polymerName: polymerTemplate?.name || req.polymerId,
+                    polymerType: polymerTemplate?.type || 'generic',
+                    minChainLength: req.minChainLength || 2,
+                    count: req.count || 1,
+                    description: req.description || '',
+                    monomerId: polymerTemplate?.monomerId || null,
+                    monomerTemplate: monomerTemplate,
+                    monomerFormula: monomerTemplate?.formula || null
+                });
+            }
+
             return {
-                type: 'polymers',
-                roles: ['membrane', 'structure', 'genetics']
+                type: 'polymers_detailed',
+                cellName: blueprint.name || 'Cell',
+                species: blueprint.species || null,
+                color: blueprint.color || '#8b5cf6',
+                polymerRequirements: polymerReqs,
+                totalPolymers: polymerReqs.reduce((sum, r) => sum + r.count, 0)
             };
         }
         return null;
@@ -6508,7 +6560,7 @@ class Intention {
         if (requirements.type === 'atoms') {
             const targetComp = this.getTargetComposition();
             const neededElements = targetComp ? new Set(Object.keys(targetComp)) : null;
-            
+
             // Attract free atoms AND atoms in unstable molecules
             for (const atom of environment.atoms.values()) {
                 // Check if atom is in a molecule
@@ -6526,7 +6578,7 @@ class Intention {
                 if (dist < this.radius && dist > 5) {
                     const direction = this.position.sub(atom.position).normalize();
                     let forceMagnitude = this.attractionForce * (1 - dist / this.radius);
-                    
+
                     // Smart attraction: attract needed elements, repel unneeded
                     if (neededElements) {
                         if (neededElements.has(atom.symbol)) {
@@ -6541,7 +6593,7 @@ class Intention {
                             continue; // Skip normal force application
                         }
                     }
-                    
+
                     const force = direction.mul(forceMagnitude);
                     atom.applyForce(force);
                     // Note: gatheredComponents is now managed in progress calculation
@@ -6553,7 +6605,7 @@ class Intention {
             for (const mol of environment.molecules.values()) {
                 // Skip stable molecules - they don't need attraction
                 if (mol.isStable()) continue;
-                
+
                 // CRITICAL: Skip molecules that are reshaping - moving them will break geometry
                 if (mol.isReshaping) continue;
 
@@ -6573,13 +6625,13 @@ class Intention {
             for (const mol of environment.molecules.values()) {
                 // Skip molecules that are still reshaping (let them finish)
                 if (mol.isReshaping) continue;
-                
+
                 // If this molecule IS the target formula, don't repel it
                 if (targetFormula && mol.formula === targetFormula) continue;
-                
+
                 // Only repel STABLE molecules - unstable molecules may still transform
                 if (!mol.isStable()) continue;
-                
+
                 const center = mol.getCenter ? mol.getCenter() : mol.centerOfMass;
                 const dist = center.distanceTo(this.position);
                 if (dist < this.radius && dist > 10) {
@@ -6615,11 +6667,11 @@ class Intention {
             for (const atom of environment.atoms.values()) {
                 // Skip atoms in molecules
                 if (atom.moleculeId) continue;
-                
+
                 const dist = atom.position.distanceTo(this.position);
                 if (dist < this.radius && dist > 5) {
                     const direction = this.position.sub(atom.position).normalize();
-                    
+
                     if (monomerElements && monomerElements.has(atom.symbol)) {
                         // This element is part of the monomer - attract it
                         const force = direction.mul(this.attractionForce * 0.8 * (1 - dist / this.radius));
@@ -6639,14 +6691,14 @@ class Intention {
 
                 const center = mol.getCenter();
                 const dist = center.distanceTo(this.position);
-                
+
                 // Check if this is the right monomer type
-                const isCorrectMonomer = mol.isMonomer && 
+                const isCorrectMonomer = mol.isMonomer &&
                     (!requiredFormula || mol.formula === requiredFormula);
-                
+
                 if (dist < this.radius && dist > 10) {
                     const direction = this.position.sub(center).normalize();
-                    
+
                     if (isCorrectMonomer) {
                         // Attract correct monomers
                         const force = direction.mul(this.attractionForce * (1 - dist / this.radius));
@@ -6661,18 +6713,47 @@ class Intention {
                     // Note: gatheredComponents is now managed in progress calculation
                 }
             }
-        } else if (requirements.type === 'polymers') {
-            // Attract polymers
+        } else if (requirements.type === 'polymers' || requirements.type === 'polymers_detailed') {
+            // Attract polymers - for both basic and detailed cell requirements
             for (const polymer of environment.proteins.values()) {
+                // Skip polymers already part of a cell
+                if (polymer.prokaryoteId) continue;
+
+                // Skip polymers already claimed by another intention
+                if (polymer.claimedByIntentionId && polymer.claimedByIntentionId !== this.id) continue;
+
                 const center = polymer.getCenter();
                 const dist = center.distanceTo(this.position);
+
                 if (dist < this.radius && dist > 20) {
-                    const direction = this.position.sub(center).normalize();
-                    // Polymers move slower
-                    for (const mol of polymer.molecules) {
-                        mol.applyForce(direction.mul(this.attractionForce * 0.5));
+                    // For detailed requirements, only attract polymers we need
+                    let shouldAttract = true;
+                    if (requirements.type === 'polymers_detailed' && requirements.polymerRequirements) {
+                        shouldAttract = false;
+                        for (const req of requirements.polymerRequirements) {
+                            // Check if this polymer matches any requirement
+                            const polymerType = polymer.type;
+                            const expectedType = typeof CELL_ESSENTIAL_POLYMERS !== 'undefined'
+                                ? CELL_ESSENTIAL_POLYMERS[req.polymerId]?.type : null;
+
+                            if (polymerType === expectedType) {
+                                // Check chain length
+                                const chainLength = polymer.monomers?.length || polymer.molecules?.length || 0;
+                                if (chainLength >= req.minChainLength) {
+                                    shouldAttract = true;
+                                    break;
+                                }
+                            }
+                        }
                     }
-                    // Note: gatheredComponents is now managed in progress calculation
+
+                    if (shouldAttract) {
+                        const direction = this.position.sub(center).normalize();
+                        // Polymers move slower
+                        for (const mol of polymer.molecules) {
+                            mol.applyForce(direction.mul(this.attractionForce * 0.5));
+                        }
+                    }
                 }
             }
         }
@@ -6683,11 +6764,11 @@ class Intention {
             // Count only RELEVANT atoms in zone (matching target composition)
             const targetComp = this.getTargetComposition();
             const neededElements = targetComp ? new Set(Object.keys(targetComp)) : null;
-            
+
             let relevantAtomsInZone = 0;
             // Clear and rebuild gatheredComponents each frame
             this.gatheredComponents.clear();
-            
+
             for (const atom of environment.atoms.values()) {
                 const dist = atom.position.distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
@@ -6703,7 +6784,7 @@ class Intention {
             // Count matching monomers in zone
             let monomersInZone = 0;
             const requiredFormula = requirements2.monomerFormula;
-            
+
             // Clear and rebuild gatheredComponents each frame
             this.gatheredComponents.clear();
 
@@ -6857,11 +6938,12 @@ class Intention {
                 this._formPolymerFromMonomers(environment, nearbyMonomers.slice(0, requirements.count), requirements.monomerTemplate);
             }
         } else if (requirements.type === 'polymers') {
-            // Check if we have required polymer types
+            // Check if we have required polymer types (basic/legacy mode)
             const nearbyPolymers = { membrane: null, structure: null, genetics: null };
             for (const polymer of environment.proteins.values()) {
                 // CRITICAL: Skip polymers already claimed by another intention
                 if (polymer.claimedByIntentionId && polymer.claimedByIntentionId !== this.id) continue;
+                if (polymer.prokaryoteId) continue;
                 const dist = polymer.getCenter().distanceTo(this.position);
                 if (dist < this.radius * 0.6) {
                     const role = polymer.cellRole || polymer.type;
@@ -6871,9 +6953,81 @@ class Intention {
                 }
             }
 
-            if (nearbyPolymers.membrane && nearbyPolymers.structure && nearbyPolymers.genetics) {
-                // Form the cell!
-                this._formCell(environment, Object.values(nearbyPolymers).filter(p => p));
+            if (nearbyPolymers.membrane && nearbyPolymers.genetics) {
+                // Form the cell! (structure is optional)
+                const polymersToUse = Object.values(nearbyPolymers).filter(p => p);
+                this._formCell(environment, polymersToUse);
+            }
+        } else if (requirements.type === 'polymers_detailed' && requirements.polymerRequirements) {
+            // NEW: Detailed polymer requirements with chain length validation
+            const fulfillment = {};
+            let allSatisfied = true;
+            let totalGathered = 0;
+
+            // Clear gathered components for this frame
+            this.gatheredComponents.clear();
+
+            for (const req of requirements.polymerRequirements) {
+                // Find polymers matching this requirement
+                const matching = [];
+
+                for (const polymer of environment.proteins.values()) {
+                    // Skip polymers already used
+                    if (polymer.prokaryoteId) continue;
+                    if (polymer.claimedByIntentionId && polymer.claimedByIntentionId !== this.id) continue;
+
+                    // Check distance
+                    const dist = polymer.getCenter().distanceTo(this.position);
+                    if (dist >= this.radius * 0.6) continue;
+
+                    // Check type matches
+                    const polymerType = polymer.type;
+                    const expectedType = typeof CELL_ESSENTIAL_POLYMERS !== 'undefined'
+                        ? CELL_ESSENTIAL_POLYMERS[req.polymerId]?.type : null;
+
+                    if (polymerType !== expectedType) continue;
+
+                    // Check chain length
+                    const chainLength = polymer.monomers?.length || polymer.molecules?.length || 0;
+                    if (chainLength < req.minChainLength) continue;
+
+                    matching.push(polymer);
+                    this.gatheredComponents.add(polymer.id);
+                }
+
+                fulfillment[req.role] = {
+                    have: matching.length,
+                    need: req.count,
+                    satisfied: matching.length >= req.count,
+                    polymers: matching
+                };
+
+                totalGathered += matching.length;
+
+                if (matching.length < req.count) {
+                    allSatisfied = false;
+                }
+            }
+
+            // Update progress based on how many requirements are met
+            const totalNeeded = requirements.totalPolymers || 2;
+            this.progress = Math.min(1, totalGathered / totalNeeded);
+
+            // Store fulfillment for inspector display
+            this.polymerFulfillment = fulfillment;
+
+            if (allSatisfied) {
+                // Gather all matching polymers and form the cell
+                const polymersToUse = [];
+                for (const [role, status] of Object.entries(fulfillment)) {
+                    for (let i = 0; i < status.need && i < status.polymers.length; i++) {
+                        polymersToUse.push(status.polymers[i]);
+                    }
+                }
+
+                if (polymersToUse.length > 0) {
+                    this._formCell(environment, polymersToUse);
+                }
             }
         }
     }
@@ -7045,26 +7199,60 @@ class Intention {
     }
 
     /**
-     * Form a cell from gathered polymers
+     * Form a cell (Prokaryote) from gathered polymers
      */
     _formCell(environment, polymers) {
-        // Create cell at this position
-        const cell = new Cell(this.position.x, this.position.y);
+        // Categorize polymers by their role
+        const components = {
+            membrane: [],
+            nucleoid: [],
+            ribosomes: []
+        };
 
-        // Add polymers to cell and claim them
         for (const polymer of polymers) {
             polymer.claimedByIntentionId = this.id;  // Claim so other intentions don't double-count
-            cell.addPolymer(polymer);
-            environment.removeProtein(polymer.id);
+
+            // Categorize by type
+            const type = polymer.type;
+            if (type === 'lipid') {
+                components.membrane.push(polymer);
+            } else if (type === 'nucleic_acid') {
+                components.nucleoid.push(polymer);
+            } else if (type === 'protein') {
+                components.ribosomes.push(polymer);
+            }
+
+            // Don't remove from environment yet - Prokaryote will own them
         }
 
-        environment.addCell(cell);
+        // Create Prokaryote at this position with categorized components
+        const prokaryote = new Prokaryote(components);
+        prokaryote.position = new Vector2(this.position.x, this.position.y);
 
-        this.createdEntity = cell;
+        // Store blueprint info if available
+        if (this.blueprint) {
+            prokaryote.blueprintId = this.blueprint.id;
+            prokaryote.species = this.blueprint.species || null;
+            prokaryote.cellName = this.blueprint.name || 'Cell';
+        }
+
+        // Give it some starting energy
+        prokaryote.cytoplasm.atp = 50;
+
+        // Add to environment
+        environment.addProkaryote(prokaryote);
+
+        // Mark polymers as belonging to this prokaryote
+        for (const polymer of polymers) {
+            polymer.prokaryoteId = prokaryote.id;
+        }
+
+        this.createdEntity = prokaryote;
         this.fulfilled = true;
 
         if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
-            console.log(`[Intention ${this.id.substring(0, 8)}] Fulfilled: Created cell from ${polymers.length} polymers`);
+            const cellName = this.blueprint?.name || 'Prokaryote';
+            console.log(`[Intention ${this.id.substring(0, 8)}] Fulfilled: Created ${cellName} from ${polymers.length} polymers`);
         }
     }
 
@@ -7232,15 +7420,19 @@ class AtomSpawner {
     constructor(environment) {
         this.environment = environment;
         this.id = Utils.generateId();
-        
+
         // Spawner state
         this.active = false;
         this.tickInterval = 60;  // Ticks between spawns (default: 1 per second at 60fps)
         this.tickCounter = 0;
-        
+
         // Atom pool - which atoms can be spawned
         this.atomPool = ['H', 'C', 'N', 'O'];  // Default pool
-        
+
+        // Atom weights - spawn probability multipliers (1-8)
+        // Higher weight = more likely to spawn relative to others
+        this.atomWeights = {};  // e.g., { H: 4, C: 2, O: 1 }
+
         // Spawn zone (in world coordinates)
         // Default: center of environment, 600x600 area
         const centerX = environment.width / 2;
@@ -7251,19 +7443,19 @@ class AtomSpawner {
             width: 600,
             height: 600
         };
-        
+
         // UI state for zone resizing
         this.resizing = false;
         this.resizeEdge = null;  // 'n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'
         this.resizeStartMouse = { x: 0, y: 0 };
         this.resizeStartZone = { x: 0, y: 0, width: 0, height: 0 };
-        
+
         // Visual settings
         this.zoneColor = 'rgba(16, 185, 129, 0.3)';  // Green tint
         this.zoneBorderColor = 'rgba(16, 185, 129, 0.8)';
         this.handleSize = 10;
     }
-    
+
     /**
      * Toggle spawner on/off
      */
@@ -7272,7 +7464,7 @@ class AtomSpawner {
         this.tickCounter = 0;
         return this.active;
     }
-    
+
     /**
      * Set spawner active state
      * @param {boolean} active - Whether spawner is active
@@ -7283,7 +7475,7 @@ class AtomSpawner {
             this.tickCounter = 0;
         }
     }
-    
+
     /**
      * Set tick interval between spawns
      * @param {number} ticks - Number of ticks between spawns
@@ -7291,7 +7483,7 @@ class AtomSpawner {
     setTickInterval(ticks) {
         this.tickInterval = Math.max(1, Math.floor(ticks));
     }
-    
+
     /**
      * Set the atom pool
      * @param {string[]} atoms - Array of element symbols
@@ -7301,7 +7493,36 @@ class AtomSpawner {
             this.atomPool = atoms.slice();
         }
     }
-    
+
+    /**
+     * Set weight for a specific atom type
+     * @param {string} symbol - Element symbol
+     * @param {number} weight - Weight multiplier (1-8)
+     */
+    setAtomWeight(symbol, weight) {
+        this.atomWeights[symbol] = Math.max(1, Math.min(8, weight));
+    }
+
+    /**
+     * Set all atom weights at once
+     * @param {object} weights - Map of symbol to weight
+     */
+    setAtomWeights(weights) {
+        this.atomWeights = {};
+        for (const symbol in weights) {
+            this.setAtomWeight(symbol, weights[symbol]);
+        }
+    }
+
+    /**
+     * Get weight for an atom (defaults to 1 if not set)
+     * @param {string} symbol - Element symbol
+     * @returns {number} - Weight multiplier
+     */
+    getAtomWeight(symbol) {
+        return this.atomWeights[symbol] || 1;
+    }
+
     /**
      * Set the spawn zone
      * @param {number} x - Zone X position
@@ -7314,7 +7535,7 @@ class AtomSpawner {
         this.zone.y = Math.max(0, y);
         this.zone.width = Math.max(50, width);
         this.zone.height = Math.max(50, height);
-        
+
         // Clamp to environment bounds
         if (this.zone.x + this.zone.width > this.environment.width) {
             this.zone.x = this.environment.width - this.zone.width;
@@ -7323,40 +7544,66 @@ class AtomSpawner {
             this.zone.y = this.environment.height - this.zone.height;
         }
     }
-    
+
     /**
      * Update spawner - called every simulation tick
      * @param {number} dt - Delta time
      */
     update(dt) {
         if (!this.active) return;
-        
+
         this.tickCounter++;
-        
+
         if (this.tickCounter >= this.tickInterval) {
             this.tickCounter = 0;
             this._spawnAtom();
         }
     }
-    
+
     /**
-     * Spawn a random atom in the zone
+     * Spawn a random atom in the zone using weighted selection
      */
     _spawnAtom() {
         if (this.atomPool.length === 0) return;
-        
-        // Pick random atom type
-        const symbol = this.atomPool[Math.floor(Math.random() * this.atomPool.length)];
-        
+
+        // Pick atom using weighted random selection
+        const symbol = this._selectWeightedAtom();
+
         // Pick random position in zone
         const x = this.zone.x + Math.random() * this.zone.width;
         const y = this.zone.y + Math.random() * this.zone.height;
-        
+
         // Create and add atom
         const atom = new Atom(symbol, x, y);
         this.environment.addAtom(atom);
     }
-    
+
+    /**
+     * Select an atom from the pool using weighted random selection
+     * @returns {string} - Selected element symbol
+     */
+    _selectWeightedAtom() {
+        // Calculate total weight
+        let totalWeight = 0;
+        for (const symbol of this.atomPool) {
+            totalWeight += this.getAtomWeight(symbol);
+        }
+
+        // Random value in range [0, totalWeight)
+        let random = Math.random() * totalWeight;
+
+        // Walk through atoms, subtracting weights until we find the one
+        for (const symbol of this.atomPool) {
+            random -= this.getAtomWeight(symbol);
+            if (random <= 0) {
+                return symbol;
+            }
+        }
+
+        // Fallback (should never reach here)
+        return this.atomPool[this.atomPool.length - 1];
+    }
+
     /**
      * Render the spawn zone
      * @param {CanvasRenderingContext2D} ctx - Canvas context
@@ -7365,39 +7612,39 @@ class AtomSpawner {
      */
     render(ctx, scale, offset) {
         if (!this.active) return;
-        
+
         const screenX = (this.zone.x + offset.x) * scale;
         const screenY = (this.zone.y + offset.y) * scale;
         const screenWidth = this.zone.width * scale;
         const screenHeight = this.zone.height * scale;
-        
+
         // Draw zone fill
         ctx.fillStyle = this.zoneColor;
         ctx.fillRect(screenX, screenY, screenWidth, screenHeight);
-        
+
         // Draw zone border
         ctx.strokeStyle = this.zoneBorderColor;
         ctx.lineWidth = 2;
         ctx.setLineDash([8, 4]);
         ctx.strokeRect(screenX, screenY, screenWidth, screenHeight);
         ctx.setLineDash([]);
-        
+
         // Draw resize handles
         this._renderResizeHandles(ctx, screenX, screenY, screenWidth, screenHeight);
-        
+
         // Draw spawn indicator icon
         this._renderSpawnIcon(ctx, screenX, screenY, screenWidth, screenHeight);
     }
-    
+
     /**
      * Render resize handles at corners and edges
      */
     _renderResizeHandles(ctx, x, y, w, h) {
         const hs = this.handleSize;
         const halfHs = hs / 2;
-        
+
         ctx.fillStyle = this.zoneBorderColor;
-        
+
         // Corner handles
         const corners = [
             { x: x - halfHs, y: y - halfHs, edge: 'nw' },
@@ -7405,11 +7652,11 @@ class AtomSpawner {
             { x: x - halfHs, y: y + h - halfHs, edge: 'sw' },
             { x: x + w - halfHs, y: y + h - halfHs, edge: 'se' }
         ];
-        
+
         for (const corner of corners) {
             ctx.fillRect(corner.x, corner.y, hs, hs);
         }
-        
+
         // Edge handles (midpoints)
         const edges = [
             { x: x + w / 2 - halfHs, y: y - halfHs, edge: 'n' },
@@ -7417,19 +7664,19 @@ class AtomSpawner {
             { x: x - halfHs, y: y + h / 2 - halfHs, edge: 'w' },
             { x: x + w - halfHs, y: y + h / 2 - halfHs, edge: 'e' }
         ];
-        
+
         for (const edge of edges) {
             ctx.fillRect(edge.x, edge.y, hs, hs);
         }
     }
-    
+
     /**
      * Render spawn indicator
      */
     _renderSpawnIcon(ctx, x, y, w, h) {
         const centerX = x + w / 2;
         const centerY = y + 20;
-        
+
         ctx.save();
         ctx.font = '14px sans-serif';
         ctx.fillStyle = this.zoneBorderColor;
@@ -7438,7 +7685,7 @@ class AtomSpawner {
         ctx.fillText('⚛️ Spawner Zone', centerX, centerY);
         ctx.restore();
     }
-    
+
     /**
      * Check if a screen point is on a resize handle
      * @param {number} screenX - Screen X
@@ -7449,14 +7696,14 @@ class AtomSpawner {
      */
     getResizeHandleAt(screenX, screenY, scale, offset) {
         if (!this.active) return null;
-        
+
         const zx = (this.zone.x + offset.x) * scale;
         const zy = (this.zone.y + offset.y) * scale;
         const zw = this.zone.width * scale;
         const zh = this.zone.height * scale;
         const hs = this.handleSize;
         const halfHs = hs / 2;
-        
+
         // Check corners first (they have priority)
         const corners = [
             { x: zx - halfHs, y: zy - halfHs, edge: 'nw' },
@@ -7464,14 +7711,14 @@ class AtomSpawner {
             { x: zx - halfHs, y: zy + zh - halfHs, edge: 'sw' },
             { x: zx + zw - halfHs, y: zy + zh - halfHs, edge: 'se' }
         ];
-        
+
         for (const corner of corners) {
             if (screenX >= corner.x && screenX <= corner.x + hs &&
                 screenY >= corner.y && screenY <= corner.y + hs) {
                 return corner.edge;
             }
         }
-        
+
         // Check edges
         const edges = [
             { x: zx + zw / 2 - halfHs, y: zy - halfHs, edge: 'n' },
@@ -7479,17 +7726,17 @@ class AtomSpawner {
             { x: zx - halfHs, y: zy + zh / 2 - halfHs, edge: 'w' },
             { x: zx + zw - halfHs, y: zy + zh / 2 - halfHs, edge: 'e' }
         ];
-        
+
         for (const edge of edges) {
             if (screenX >= edge.x && screenX <= edge.x + hs &&
                 screenY >= edge.y && screenY <= edge.y + hs) {
                 return edge.edge;
             }
         }
-        
+
         return null;
     }
-    
+
     /**
      * Check if point is inside the zone (but not on handles)
      * @param {number} screenX - Screen X
@@ -7500,16 +7747,16 @@ class AtomSpawner {
      */
     isInsideZone(screenX, screenY, scale, offset) {
         if (!this.active) return false;
-        
+
         const zx = (this.zone.x + offset.x) * scale;
         const zy = (this.zone.y + offset.y) * scale;
         const zw = this.zone.width * scale;
         const zh = this.zone.height * scale;
-        
+
         return screenX >= zx && screenX <= zx + zw &&
-               screenY >= zy && screenY <= zy + zh;
+            screenY >= zy && screenY <= zy + zh;
     }
-    
+
     /**
      * Start resizing from a handle
      * @param {string} edge - Edge being dragged
@@ -7522,7 +7769,7 @@ class AtomSpawner {
         this.resizeStartMouse = { x: mouseX, y: mouseY };
         this.resizeStartZone = { ...this.zone };
     }
-    
+
     /**
      * Update resize during drag
      * @param {number} mouseX - Current mouse X
@@ -7531,15 +7778,15 @@ class AtomSpawner {
      */
     updateResize(mouseX, mouseY, scale) {
         if (!this.resizing) return;
-        
+
         const dx = (mouseX - this.resizeStartMouse.x) / scale;
         const dy = (mouseY - this.resizeStartMouse.y) / scale;
-        
+
         let newX = this.resizeStartZone.x;
         let newY = this.resizeStartZone.y;
         let newW = this.resizeStartZone.width;
         let newH = this.resizeStartZone.height;
-        
+
         // Handle different edges
         if (this.resizeEdge.includes('n')) {
             newY = this.resizeStartZone.y + dy;
@@ -7555,11 +7802,11 @@ class AtomSpawner {
         if (this.resizeEdge.includes('e')) {
             newW = this.resizeStartZone.width + dx;
         }
-        
+
         // Apply with constraints
         this.setZone(newX, newY, newW, newH);
     }
-    
+
     /**
      * End resize operation
      */
@@ -7567,7 +7814,7 @@ class AtomSpawner {
         this.resizing = false;
         this.resizeEdge = null;
     }
-    
+
     /**
      * Get cursor style for edge
      * @param {string} edge - Edge identifier
@@ -7586,7 +7833,7 @@ class AtomSpawner {
         };
         return cursors[edge] || 'default';
     }
-    
+
     /**
      * Serialize spawner state
      * @returns {object} - Serialized state
@@ -7596,10 +7843,11 @@ class AtomSpawner {
             active: this.active,
             tickInterval: this.tickInterval,
             atomPool: this.atomPool.slice(),
+            atomWeights: { ...this.atomWeights },
             zone: { ...this.zone }
         };
     }
-    
+
     /**
      * Deserialize spawner state
      * @param {object} data - Serialized data
@@ -7608,6 +7856,7 @@ class AtomSpawner {
         if (data.active !== undefined) this.active = data.active;
         if (data.tickInterval !== undefined) this.tickInterval = data.tickInterval;
         if (data.atomPool) this.atomPool = data.atomPool.slice();
+        if (data.atomWeights) this.atomWeights = { ...data.atomWeights };
         if (data.zone) {
             this.zone = { ...data.zone };
         }
@@ -11464,6 +11713,347 @@ window.getAllPolymerTemplates = getAllPolymerTemplates;
 window.checkCellViability = checkCellViability;
 
 
+// ==== src/catalogue/cell-blueprints.js ====
+/**
+ * Cell Blueprints
+ * Pre-defined templates for known bacteria/prokaryotes
+ * 
+ * Each cell blueprint specifies:
+ * - Required polymer types with minimum chain lengths
+ * - Biological metadata (species name, description)
+ * - Future: environmental effects (produces/consumes)
+ */
+
+/**
+ * Cell blueprint definitions
+ * Each entry describes a type of prokaryote that can be formed
+ */
+const CELL_BLUEPRINTS = {
+    // Minimal viable cell - simplest possible life form
+    MINIMAL_CELL: {
+        id: 'minimal_cell',
+        name: 'Minimal Cell',
+        species: 'Protocellus minimus',
+        description: 'Simplest possible living cell with just membrane and genetic material',
+        requirements: {
+            membrane: {
+                polymerId: 'PHOSPHOLIPID',
+                minChainLength: 2,
+                count: 1,
+                description: 'Lipid bilayer enclosing the cell'
+            },
+            nucleoid: {
+                polymerId: 'DNA',
+                minChainLength: 2,
+                count: 1,
+                description: 'Genetic material for replication'
+            }
+        },
+        color: '#4ade80',  // Green
+        // Future: environmental effects
+        environmentalEffects: null
+    },
+
+    // Cyanobacteria - photosynthetic, produces oxygen
+    CYANOBACTERIA: {
+        id: 'cyanobacteria',
+        name: 'Cyanobacteria',
+        species: 'Synechococcus elongatus',
+        description: 'Photosynthetic bacteria that produce oxygen. Essential for early Earth atmosphere.',
+        requirements: {
+            membrane: {
+                polymerId: 'PHOSPHOLIPID',
+                minChainLength: 3,
+                count: 1,
+                description: 'Double membrane with thylakoid system'
+            },
+            nucleoid: {
+                polymerId: 'DNA',
+                minChainLength: 3,
+                count: 1,
+                description: 'Circular chromosome'
+            },
+            ribosomes: {
+                polymerId: 'STRUCTURAL_PROTEIN',
+                minChainLength: 2,
+                count: 1,
+                description: 'Protein synthesis machinery'
+            }
+        },
+        color: '#22d3ee',  // Cyan (appropriate for cyanobacteria!)
+        // Documented for future implementation
+        environmentalEffects: {
+            produces: [{ molecule: 'O2', rate: 0.1 }],
+            consumes: [
+                { molecule: 'CO2', rate: 0.1 },
+                { molecule: 'H2O', rate: 0.05 }
+            ],
+            description: 'Photosynthesis: 6CO2 + 6H2O → C6H12O6 + 6O2'
+        }
+    },
+
+    // E. coli - common model organism
+    ESCHERICHIA_COLI: {
+        id: 'e_coli',
+        name: 'E. coli',
+        species: 'Escherichia coli',
+        description: 'Common gut bacterium and model organism for molecular biology.',
+        requirements: {
+            membrane: {
+                polymerId: 'PHOSPHOLIPID',
+                minChainLength: 3,
+                count: 2,
+                description: 'Inner and outer membrane'
+            },
+            nucleoid: {
+                polymerId: 'DNA',
+                minChainLength: 4,
+                count: 1,
+                description: 'Single circular chromosome'
+            },
+            ribosomes: {
+                polymerId: 'STRUCTURAL_PROTEIN',
+                minChainLength: 3,
+                count: 2,
+                description: 'Thousands of ribosomes for protein production'
+            }
+        },
+        color: '#f472b6',  // Pink
+        environmentalEffects: null
+    },
+
+    // Thermophile - heat-loving extremophile
+    THERMOPHILE: {
+        id: 'thermophile',
+        name: 'Thermophile',
+        species: 'Thermus aquaticus',
+        description: 'Heat-loving bacteria. Source of Taq polymerase used in PCR.',
+        requirements: {
+            membrane: {
+                polymerId: 'PHOSPHOLIPID',
+                minChainLength: 4,
+                count: 2,
+                description: 'Heat-stable lipid bilayer'
+            },
+            nucleoid: {
+                polymerId: 'DNA',
+                minChainLength: 3,
+                count: 1,
+                description: 'Heat-stable DNA'
+            },
+            ribosomes: {
+                polymerId: 'STRUCTURAL_PROTEIN',
+                minChainLength: 3,
+                count: 1,
+                description: 'Heat-stable proteins'
+            }
+        },
+        color: '#f97316',  // Orange (for heat)
+        environmentalEffects: null
+    }
+};
+
+/**
+ * CellBlueprint - Template for creating cells from polymers
+ */
+class CellBlueprint {
+    constructor(template) {
+        this.id = template.id;
+        this.name = template.name;
+        this.species = template.species || null;
+        this.description = template.description || '';
+        this.requirements = template.requirements || {};
+        this.color = template.color || '#8b5cf6';
+        this.environmentalEffects = template.environmentalEffects || null;
+
+        // Calculate total polymers needed
+        this.totalPolymersRequired = 0;
+        for (const req of Object.values(this.requirements)) {
+            this.totalPolymersRequired += req.count;
+        }
+
+        // Generate fingerprint
+        this.fingerprint = this._generateFingerprint();
+    }
+
+    /**
+     * Generate unique fingerprint for this blueprint
+     */
+    _generateFingerprint() {
+        const parts = [];
+        for (const [role, req] of Object.entries(this.requirements)) {
+            parts.push(`${role}:${req.polymerId}:${req.minChainLength}:${req.count}`);
+        }
+        return `cell:${this.id}:${parts.sort().join('|')}`;
+    }
+
+    /**
+     * Check if a set of polymers satisfies this blueprint's requirements
+     * @param {Polymer[]} polymers - Array of polymers to check
+     * @returns {object} - { satisfied: boolean, missing: [], progress: {} }
+     */
+    checkRequirements(polymers) {
+        const progress = {};
+        const missing = [];
+
+        for (const [role, req] of Object.entries(this.requirements)) {
+            // Find polymers matching this requirement
+            const matching = polymers.filter(p => {
+                // Check polymer type matches the expected blueprint
+                const polymerBlueprint = CELL_ESSENTIAL_POLYMERS?.[req.polymerId];
+                if (!polymerBlueprint) return false;
+
+                // Check type matches
+                if (p.type !== polymerBlueprint.type) return false;
+
+                // Check chain length (number of monomers)
+                const chainLength = p.monomers?.length || p.molecules?.length || 0;
+                if (chainLength < req.minChainLength) return false;
+
+                return true;
+            });
+
+            progress[role] = {
+                have: matching.length,
+                need: req.count,
+                satisfied: matching.length >= req.count,
+                polymers: matching
+            };
+
+            if (matching.length < req.count) {
+                missing.push({
+                    role,
+                    polymerId: req.polymerId,
+                    need: req.count,
+                    have: matching.length,
+                    minChainLength: req.minChainLength
+                });
+            }
+        }
+
+        const satisfied = missing.length === 0;
+
+        return { satisfied, missing, progress };
+    }
+
+    /**
+     * Get detailed requirements for display
+     * @returns {object[]} - Array of requirement details
+     */
+    getDetailedRequirements() {
+        const details = [];
+
+        for (const [role, req] of Object.entries(this.requirements)) {
+            // Look up the polymer template to get monomer info
+            const polymerTemplate = CELL_ESSENTIAL_POLYMERS?.[req.polymerId];
+            let monomerTemplate = null;
+            let monomerFormula = null;
+
+            if (polymerTemplate?.monomerId && typeof getMonomerTemplate === 'function') {
+                monomerTemplate = getMonomerTemplate(polymerTemplate.monomerId);
+                monomerFormula = monomerTemplate?.formula;
+            }
+
+            details.push({
+                role,
+                polymerId: req.polymerId,
+                polymerName: polymerTemplate?.name || req.polymerId,
+                polymerType: polymerTemplate?.type || 'generic',
+                minChainLength: req.minChainLength,
+                count: req.count,
+                description: req.description || '',
+                monomerId: polymerTemplate?.monomerId || null,
+                monomerName: monomerTemplate?.name || null,
+                monomerFormula
+            });
+        }
+
+        return details;
+    }
+
+    /**
+     * Serialize for storage
+     */
+    serialize() {
+        return {
+            id: this.id,
+            name: this.name,
+            species: this.species,
+            requirements: this.requirements,
+            color: this.color
+        };
+    }
+}
+
+/**
+ * Get a cell blueprint by ID
+ * @param {string} id - Blueprint ID (e.g., 'MINIMAL_CELL', 'CYANOBACTERIA')
+ * @returns {CellBlueprint|null}
+ */
+function getCellBlueprint(id) {
+    const template = CELL_BLUEPRINTS[id];
+    if (!template) return null;
+    return new CellBlueprint(template);
+}
+
+/**
+ * Get all cell blueprints
+ * @returns {CellBlueprint[]}
+ */
+function getAllCellBlueprints() {
+    return Object.values(CELL_BLUEPRINTS).map(t => new CellBlueprint(t));
+}
+
+/**
+ * Get polymer name from polymer ID
+ * @param {string} polymerId - e.g., 'PHOSPHOLIPID', 'DNA'
+ * @returns {string}
+ */
+function getPolymerName(polymerId) {
+    const template = CELL_ESSENTIAL_POLYMERS?.[polymerId];
+    return template?.name || polymerId;
+}
+
+/**
+ * Get monomer template for a polymer ID
+ * @param {string} polymerId - e.g., 'PHOSPHOLIPID', 'DNA'
+ * @returns {object|null}
+ */
+function getMonomerForPolymer(polymerId) {
+    const polymerTemplate = CELL_ESSENTIAL_POLYMERS?.[polymerId];
+    if (!polymerTemplate?.monomerId) return null;
+
+    if (typeof getMonomerTemplate === 'function') {
+        return getMonomerTemplate(polymerTemplate.monomerId);
+    }
+    return null;
+}
+
+/**
+ * Get color for a polymer role
+ * @param {string} role - e.g., 'membrane', 'nucleoid', 'ribosomes'
+ * @returns {string}
+ */
+function getPolymerRoleColor(role) {
+    const colors = {
+        membrane: '#f59e0b',   // Amber for lipids
+        nucleoid: '#3b82f6',   // Blue for DNA
+        ribosomes: '#22c55e',  // Green for proteins
+        other: '#8b5cf6'       // Purple default
+    };
+    return colors[role] || colors.other;
+}
+
+// Make available globally
+window.CELL_BLUEPRINTS = CELL_BLUEPRINTS;
+window.CellBlueprint = CellBlueprint;
+window.getCellBlueprint = getCellBlueprint;
+window.getAllCellBlueprints = getAllCellBlueprints;
+window.getPolymerName = getPolymerName;
+window.getMonomerForPolymer = getMonomerForPolymer;
+window.getPolymerRoleColor = getPolymerRoleColor;
+
+
 // ==== src/catalogue/catalogue.js ====
 /**
  * Catalogue
@@ -12948,12 +13538,17 @@ class Controls {
             return;
         }
 
-        // At cell level (3+), place prokaryotes
+        // At cell level (3+), place cell intentions (attract polymers to form cells)
         if (this.viewer.level >= 3) {
-            const prokaryote = new Prokaryote({});
-            prokaryote.position = new Vector2(worldPos.x, worldPos.y);
-            prokaryote.cytoplasm.atp = 100;  // Start with some energy
-            this.environment.addProkaryote(prokaryote);
+            if (this.selectedCellBlueprint) {
+                // Create cell intention zone with selected blueprint
+                const intention = new Intention('cell', this.selectedCellBlueprint, worldPos.x, worldPos.y);
+                this.environment.addIntention(intention);
+                console.log(`Placed cell intention: ${this.selectedCellBlueprint.name}`);
+            } else {
+                // No blueprint selected - show hint
+                console.log('No cell blueprint selected. Select a cell type from the palette first.');
+            }
         }
         // At polymer level (2), create polymer intention (attract molecules)
         else if (this.viewer.level === 2) {
@@ -13215,15 +13810,27 @@ class Controls {
         } else if (result.type === 'prokaryote') {
             const prok = result.entity;
             const components = prok.getComponentSummary();
+
+            // Get cell name from blueprint or use generic label
+            const cellName = prok.cellName || 'Prokaryote';
+            const speciesLine = prok.species
+                ? `<p style="color: #94a3b8; font-style: italic;">${prok.species}</p>`
+                : '';
+
             content.innerHTML = `
                 <div class="inspector-item">
-                    <h3>Prokaryote (Gen ${prok.generation})</h3>
+                    <h3>${cellName}</h3>
+                    ${speciesLine}
+                    <p>Generation: ${prok.generation}</p>
+                    <hr style="border-color: #444; margin: 8px 0;">
                     <p>ATP: ${prok.cytoplasm.atp.toFixed(1)} / ${prok.cytoplasm.maxAtp}</p>
                     <p>Age: ${prok.age} ticks</p>
                     <p>Position: (${prok.position.x.toFixed(1)}, ${prok.position.y.toFixed(1)})</p>
-                    <p>Membrane: ${components.membrane} polymers</p>
-                    <p>Nucleoid: ${components.nucleoid} polymers</p>
-                    <p>Ribosomes: ${components.ribosomes} polymers</p>
+                    <hr style="border-color: #444; margin: 8px 0;">
+                    <p><strong>Components:</strong></p>
+                    <p>• Membrane: ${components.membrane} polymers</p>
+                    <p>• Nucleoid: ${components.nucleoid} polymers</p>
+                    <p>• Ribosomes: ${components.ribosomes} polymers</p>
                     <p>Alive: ${prok.isAlive ? 'Yes &#10003;' : 'No'}</p>
                 </div>
             `;
@@ -13279,6 +13886,53 @@ class Controls {
             } else if (requirements?.type === 'polymers') {
                 const roles = requirements.roles?.join(', ') || 'Various';
                 reqDetails = `<p><strong>Needs polymers with roles:</strong></p><p>${roles}</p>`;
+            } else if (requirements?.type === 'polymers_detailed') {
+                // NEW: Detailed cell recipe with polymer requirements
+                const cellName = requirements.cellName || 'Cell';
+                const species = requirements.species;
+                const color = requirements.color || '#8b5cf6';
+
+                let html = `<p style="color: ${color}; font-weight: bold;"><strong>Recipe: ${cellName}</strong></p>`;
+                if (species) {
+                    html += `<p style="color: #94a3b8; font-style: italic;">${species}</p>`;
+                }
+                html += '<hr style="border-color: #444; margin: 8px 0;">';
+                html += '<p><strong>Required Polymers:</strong></p>';
+
+                // Show each polymer requirement
+                for (const req of requirements.polymerRequirements || []) {
+                    const roleColors = {
+                        'membrane': '#f59e0b',
+                        'nucleoid': '#3b82f6',
+                        'ribosomes': '#22c55e'
+                    };
+                    const roleColor = roleColors[req.role] || '#8b5cf6';
+
+                    // Get current progress from intention's polymerFulfillment
+                    const have = intention.polymerFulfillment?.[req.role]?.have || 0;
+                    const progressIcon = have >= req.count ? '✓' : `${have}/${req.count}`;
+
+                    html += `
+                        <p style="color: ${roleColor}; margin-top: 4px;">
+                            <strong>${req.role}:</strong> ${req.count}× ${req.polymerName} 
+                            <span style="color: #666;">[${progressIcon}]</span>
+                        </p>
+                        <p style="color: #94a3b8; font-size: 0.85em; margin-left: 12px;">
+                            Chain: ${req.minChainLength}+ monomers
+                        </p>
+                    `;
+
+                    // Show what monomer to create
+                    if (req.monomerFormula) {
+                        html += `
+                            <p style="color: #4ade80; font-size: 0.85em; margin-left: 12px;">
+                                → Create ${req.monomerFormula} molecules
+                            </p>
+                        `;
+                    }
+                }
+
+                reqDetails = html;
             }
 
             content.innerHTML = `
@@ -15391,21 +16045,136 @@ class App {
     }
 
     /**
-     * Render cell/prokaryote palette
+     * Render cell/prokaryote palette with cell blueprints
      */
     _renderCellPalette(palette) {
-        palette.innerHTML = `
-            <button class="palette-btn cell-btn selected" data-type="prokaryote">
-                <span class="symbol">🦠</span>
-                <span class="info">New Prokaryote</span>
-            </button>
-            <p class="palette-hint">Click canvas to place a chemistry-based prokaryote</p>
+        // Get all cell blueprints
+        const blueprints = typeof getAllCellBlueprints === 'function'
+            ? getAllCellBlueprints()
+            : [];
+
+        if (blueprints.length === 0) {
+            palette.innerHTML = `
+                <p class="palette-hint">No cell blueprints available.</p>
+            `;
+            return;
+        }
+
+        let html = '<div class="cell-blueprint-list">';
+
+        for (const bp of blueprints) {
+            const color = bp.color || '#8b5cf6';
+            html += `
+                <button class="palette-btn cell-blueprint-btn" 
+                        data-blueprint-id="${bp.id}"
+                        style="border-left: 3px solid ${color};">
+                    <span class="symbol" style="color: ${color};">🦠</span>
+                    <span class="info">
+                        <strong>${bp.name}</strong>
+                        ${bp.species ? `<em style="font-size: 0.8em; color: #94a3b8;">${bp.species}</em>` : ''}
+                    </span>
+                </button>
+            `;
+        }
+
+        html += '</div>';
+        html += '<p class="palette-hint">Select a cell type, then click canvas to place intention</p>';
+
+        palette.innerHTML = html;
+
+        // Add click handlers for blueprints
+        palette.querySelectorAll('.cell-blueprint-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Clear previous selection
+                palette.querySelectorAll('.cell-blueprint-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+
+                const blueprintId = btn.dataset.blueprintId;
+                const blueprint = typeof getCellBlueprint === 'function'
+                    ? getCellBlueprint(blueprintId)
+                    : null;
+
+                if (blueprint) {
+                    // Store the selected blueprint in controls
+                    this.controls.selectedCellBlueprint = blueprint;
+                    this.controls.setTool('place');
+
+                    // Show blueprint requirements in inspector
+                    this._showCellBlueprintInspector(blueprint);
+                }
+            });
+        });
+
+        // Select first blueprint by default
+        const firstBtn = palette.querySelector('.cell-blueprint-btn');
+        if (firstBtn) {
+            firstBtn.click();
+        }
+    }
+
+    /**
+     * Show cell blueprint requirements in inspector panel
+     */
+    _showCellBlueprintInspector(blueprint) {
+        const content = document.getElementById('inspectorContent');
+        if (!content || !blueprint) return;
+
+        // Switch to inspector tab
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === 'inspector');
+        });
+        document.querySelectorAll('.tab-content').forEach(c => {
+            c.classList.toggle('active', c.id === 'inspectorTab');
+        });
+
+        const color = blueprint.color || '#8b5cf6';
+        let html = `
+            <div class="inspector-item">
+                <h3 style="color: ${color};">${blueprint.name}</h3>
+                ${blueprint.species ? `<p style="color: #94a3b8; font-style: italic;">${blueprint.species}</p>` : ''}
+                <p>${blueprint.description || ''}</p>
+                <hr style="border-color: #444; margin: 8px 0;">
+                <p><strong>Required Polymers:</strong></p>
         `;
 
-        palette.querySelector('.cell-btn')?.addEventListener('click', () => {
-            this.controls.setTool('place');
-        });
+        // Get detailed requirements
+        const details = blueprint.getDetailedRequirements ? blueprint.getDetailedRequirements() : [];
+
+        for (const req of details) {
+            const roleColors = {
+                'membrane': '#f59e0b',
+                'nucleoid': '#3b82f6',
+                'ribosomes': '#22c55e'
+            };
+            const roleColor = roleColors[req.role] || '#8b5cf6';
+
+            html += `
+                <p style="color: ${roleColor}; margin-top: 4px;">
+                    <strong>${req.role}:</strong> ${req.count}× ${req.polymerName}
+                </p>
+                <p style="color: #94a3b8; font-size: 0.85em; margin-left: 12px;">
+                    Chain: ${req.minChainLength}+ monomers
+                </p>
+            `;
+
+            if (req.monomerFormula) {
+                html += `
+                    <p style="color: #4ade80; font-size: 0.85em; margin-left: 12px;">
+                        → Create ${req.monomerFormula} molecules
+                    </p>
+                `;
+            }
+        }
+
+        html += `
+                <hr style="border-color: #444; margin: 8px 0;">
+                <p style="color: #94a3b8;"><em>Click in the view to place this cell intention</em></p>
+            </div>
+        `;
+
+        content.innerHTML = html;
     }
+
 
     /**
      * Update statistics display
@@ -15545,23 +16314,43 @@ class App {
         // Available atoms for spawning
         const availableAtoms = ['H', 'C', 'N', 'O', 'P', 'S', 'Cl', 'Na', 'K', 'Ca', 'Fe'];
 
-        // Populate atom pool selector
+        // Weight options for spawn probability
+        const weightOptions = [1, 2, 3, 4, 5, 6, 8];
+
+        // Populate atom pool selector with weight dropdowns
         atomPoolSelector.innerHTML = availableAtoms.map(symbol => {
             const element = getElement(symbol);
             const isSelected = this.atomSpawner.atomPool.includes(symbol);
+            const currentWeight = this.atomSpawner.getAtomWeight(symbol);
+            const weightOptionsHtml = weightOptions.map(w =>
+                `<option value="${w}" ${w === currentWeight ? 'selected' : ''}>${w}x</option>`
+            ).join('');
             return `
-                <button class="atom-pool-btn ${isSelected ? 'selected' : ''}" 
-                        data-symbol="${symbol}"
-                        style="color: ${element.color}; border-color: ${element.color}40;">
-                    ${symbol}
-                </button>
+                <div class="atom-pool-item ${isSelected ? 'selected' : ''}" data-symbol="${symbol}">
+                    <button class="atom-pool-btn ${isSelected ? 'selected' : ''}" 
+                            data-symbol="${symbol}"
+                            style="color: ${element.color}; border-color: ${element.color}40;">
+                        ${symbol}
+                    </button>
+                    <select class="atom-weight-select" data-symbol="${symbol}" 
+                            style="${isSelected ? '' : 'display: none;'}">
+                        ${weightOptionsHtml}
+                    </select>
+                </div>
             `;
         }).join('');
 
         // Toggle atom in pool on click
         atomPoolSelector.querySelectorAll('.atom-pool-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                btn.classList.toggle('selected');
+                const symbol = btn.dataset.symbol;
+                const item = btn.closest('.atom-pool-item');
+                const select = item.querySelector('.atom-weight-select');
+                const isSelected = !btn.classList.contains('selected');
+
+                btn.classList.toggle('selected', isSelected);
+                item.classList.toggle('selected', isSelected);
+                select.style.display = isSelected ? '' : 'none';
             });
         });
 
@@ -15618,10 +16407,18 @@ class App {
         if (widthInput) widthInput.value = Math.round(this.atomSpawner.zone.width);
         if (heightInput) heightInput.value = Math.round(this.atomSpawner.zone.height);
 
-        // Update atom pool selection
-        atomPoolSelector?.querySelectorAll('.atom-pool-btn').forEach(btn => {
-            const symbol = btn.dataset.symbol;
-            btn.classList.toggle('selected', this.atomSpawner.atomPool.includes(symbol));
+        // Update atom pool selection and weights
+        atomPoolSelector?.querySelectorAll('.atom-pool-item').forEach(item => {
+            const symbol = item.dataset.symbol;
+            const btn = item.querySelector('.atom-pool-btn');
+            const select = item.querySelector('.atom-weight-select');
+            const isSelected = this.atomSpawner.atomPool.includes(symbol);
+            const currentWeight = this.atomSpawner.getAtomWeight(symbol);
+
+            btn.classList.toggle('selected', isSelected);
+            item.classList.toggle('selected', isSelected);
+            select.style.display = isSelected ? '' : 'none';
+            select.value = currentWeight;
         });
 
         modal.style.display = 'flex';
@@ -15636,10 +16433,17 @@ class App {
         const heightInput = document.getElementById('zoneHeight');
         const atomPoolSelector = document.getElementById('atomPoolSelector');
 
-        // Get selected atoms
+        // Get selected atoms and their weights
         const selectedAtoms = [];
-        atomPoolSelector?.querySelectorAll('.atom-pool-btn.selected').forEach(btn => {
-            selectedAtoms.push(btn.dataset.symbol);
+        const atomWeights = {};
+        atomPoolSelector?.querySelectorAll('.atom-pool-item').forEach(item => {
+            const btn = item.querySelector('.atom-pool-btn');
+            const select = item.querySelector('.atom-weight-select');
+            if (btn.classList.contains('selected')) {
+                const symbol = btn.dataset.symbol;
+                selectedAtoms.push(symbol);
+                atomWeights[symbol] = parseInt(select.value) || 1;
+            }
         });
 
         // Apply tick interval
@@ -15647,9 +16451,10 @@ class App {
             this.atomSpawner.setTickInterval(parseInt(intervalInput.value) || 60);
         }
 
-        // Apply atom pool
+        // Apply atom pool and weights
         if (selectedAtoms.length > 0) {
             this.atomSpawner.setAtomPool(selectedAtoms);
+            this.atomSpawner.setAtomWeights(atomWeights);
         }
 
         // Apply zone size (centered on current zone center)
@@ -15671,6 +16476,7 @@ class App {
         console.log('Spawner config applied:', {
             interval: this.atomSpawner.tickInterval,
             pool: this.atomSpawner.atomPool,
+            weights: this.atomSpawner.atomWeights,
             zone: this.atomSpawner.zone
         });
     }

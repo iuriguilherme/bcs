@@ -525,21 +525,136 @@ class App {
     }
 
     /**
-     * Render cell/prokaryote palette
+     * Render cell/prokaryote palette with cell blueprints
      */
     _renderCellPalette(palette) {
-        palette.innerHTML = `
-            <button class="palette-btn cell-btn selected" data-type="prokaryote">
-                <span class="symbol">🦠</span>
-                <span class="info">New Prokaryote</span>
-            </button>
-            <p class="palette-hint">Click canvas to place a chemistry-based prokaryote</p>
+        // Get all cell blueprints
+        const blueprints = typeof getAllCellBlueprints === 'function'
+            ? getAllCellBlueprints()
+            : [];
+
+        if (blueprints.length === 0) {
+            palette.innerHTML = `
+                <p class="palette-hint">No cell blueprints available.</p>
+            `;
+            return;
+        }
+
+        let html = '<div class="cell-blueprint-list">';
+
+        for (const bp of blueprints) {
+            const color = bp.color || '#8b5cf6';
+            html += `
+                <button class="palette-btn cell-blueprint-btn" 
+                        data-blueprint-id="${bp.id}"
+                        style="border-left: 3px solid ${color};">
+                    <span class="symbol" style="color: ${color};">🦠</span>
+                    <span class="info">
+                        <strong>${bp.name}</strong>
+                        ${bp.species ? `<em style="font-size: 0.8em; color: #94a3b8;">${bp.species}</em>` : ''}
+                    </span>
+                </button>
+            `;
+        }
+
+        html += '</div>';
+        html += '<p class="palette-hint">Select a cell type, then click canvas to place intention</p>';
+
+        palette.innerHTML = html;
+
+        // Add click handlers for blueprints
+        palette.querySelectorAll('.cell-blueprint-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Clear previous selection
+                palette.querySelectorAll('.cell-blueprint-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+
+                const blueprintId = btn.dataset.blueprintId;
+                const blueprint = typeof getCellBlueprint === 'function'
+                    ? getCellBlueprint(blueprintId)
+                    : null;
+
+                if (blueprint) {
+                    // Store the selected blueprint in controls
+                    this.controls.selectedCellBlueprint = blueprint;
+                    this.controls.setTool('place');
+
+                    // Show blueprint requirements in inspector
+                    this._showCellBlueprintInspector(blueprint);
+                }
+            });
+        });
+
+        // Select first blueprint by default
+        const firstBtn = palette.querySelector('.cell-blueprint-btn');
+        if (firstBtn) {
+            firstBtn.click();
+        }
+    }
+
+    /**
+     * Show cell blueprint requirements in inspector panel
+     */
+    _showCellBlueprintInspector(blueprint) {
+        const content = document.getElementById('inspectorContent');
+        if (!content || !blueprint) return;
+
+        // Switch to inspector tab
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === 'inspector');
+        });
+        document.querySelectorAll('.tab-content').forEach(c => {
+            c.classList.toggle('active', c.id === 'inspectorTab');
+        });
+
+        const color = blueprint.color || '#8b5cf6';
+        let html = `
+            <div class="inspector-item">
+                <h3 style="color: ${color};">${blueprint.name}</h3>
+                ${blueprint.species ? `<p style="color: #94a3b8; font-style: italic;">${blueprint.species}</p>` : ''}
+                <p>${blueprint.description || ''}</p>
+                <hr style="border-color: #444; margin: 8px 0;">
+                <p><strong>Required Polymers:</strong></p>
         `;
 
-        palette.querySelector('.cell-btn')?.addEventListener('click', () => {
-            this.controls.setTool('place');
-        });
+        // Get detailed requirements
+        const details = blueprint.getDetailedRequirements ? blueprint.getDetailedRequirements() : [];
+
+        for (const req of details) {
+            const roleColors = {
+                'membrane': '#f59e0b',
+                'nucleoid': '#3b82f6',
+                'ribosomes': '#22c55e'
+            };
+            const roleColor = roleColors[req.role] || '#8b5cf6';
+
+            html += `
+                <p style="color: ${roleColor}; margin-top: 4px;">
+                    <strong>${req.role}:</strong> ${req.count}× ${req.polymerName}
+                </p>
+                <p style="color: #94a3b8; font-size: 0.85em; margin-left: 12px;">
+                    Chain: ${req.minChainLength}+ monomers
+                </p>
+            `;
+
+            if (req.monomerFormula) {
+                html += `
+                    <p style="color: #4ade80; font-size: 0.85em; margin-left: 12px;">
+                        → Create ${req.monomerFormula} molecules
+                    </p>
+                `;
+            }
+        }
+
+        html += `
+                <hr style="border-color: #444; margin: 8px 0;">
+                <p style="color: #94a3b8;"><em>Click in the view to place this cell intention</em></p>
+            </div>
+        `;
+
+        content.innerHTML = html;
     }
+
 
     /**
      * Update statistics display

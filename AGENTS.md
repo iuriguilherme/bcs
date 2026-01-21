@@ -689,6 +689,47 @@ Polymers are classified by elemental composition:
 
 ---
 
+## 🦠 Cell Blueprints
+
+Cells (Prokaryotes) are formed from polymers using the intention system, similar to molecules and polymers. Cell blueprints define the required polymers and their minimum chain lengths.
+
+### Cell Blueprint Format
+
+| Field | Description |
+|-------|-------------|
+| `id` | Unique identifier (e.g., `minimal_cell`, `cyanobacteria`) |
+| `name` | Display name |
+| `species` | Scientific name (optional) |
+| `requirements` | Map of role → polymer requirement |
+| `color` | Display color for UI |
+| `environmentalEffects` | Future: what the cell produces/consumes |
+
+### Polymer Requirements
+
+Each requirement in `requirements` specifies:
+- `polymerId`: Which polymer template (e.g., `PHOSPHOLIPID`, `DNA`)
+- `minChainLength`: Minimum monomers in the polymer chain
+- `count`: How many of this polymer needed
+- `description`: Human-readable description
+
+### Current Cell Types
+
+| Blueprint | Requirements | Description |
+|-----------|--------------|-------------|
+| `MINIMAL_CELL` | 1× LIPID (2+ monomers), 1× DNA (2+ monomers) | Simplest living cell |
+| `CYANOBACTERIA` | 1× LIPID (3+), 1× DNA (3+), 1× PROTEIN (2+) | Photosynthetic bacteria |
+| `ESCHERICHIA_COLI` | 2× LIPID (3+), 1× DNA (4+), 2× PROTEIN (3+) | Common gut bacterium |
+| `THERMOPHILE` | 2× LIPID (4+), 1× DNA (3+), 1× PROTEIN (3+) | Heat-loving extremophile |
+
+### Files
+
+- **`src/catalogue/cell-blueprints.js`** - Cell blueprint definitions and `CellBlueprint` class
+- **`src/entities/intention.js`** - `_formCell()` creates Prokaryotes from polymers
+- **`src/viewer/controls.js`** - Inspector displays cell recipe info
+- **`src/main.js`** - `_renderCellPalette()` shows cell blueprints
+
+---
+
 ## ✅ Testing Checklist
 
 Before considering a change complete, verify:

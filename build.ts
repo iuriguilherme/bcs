@@ -37,6 +37,7 @@ const scriptOrder = [
     'src/catalogue/blueprint.js',
     'src/catalogue/monomer-templates.js',
     'src/catalogue/polymer-blueprints.js',
+    'src/catalogue/cell-blueprints.js',
     'src/catalogue/catalogue.js',
     'src/viewer/viewer.js',
     'src/viewer/controls.js',
