@@ -646,6 +646,12 @@ class Intention {
             if (!environment.atoms.has(atom.id)) continue;
 
             if (seedMol) {
+                // Don't add atoms to a reshaping seed — the atom-to-template mapping
+                // was computed for the current atom count. Adding new atoms mid-reshaping
+                // makes the mapping stale and causes _restructureBonds to leave the new
+                // atoms without bonds, which creates a permanently stuck hasValidValence=false state.
+                if (seedMol.isReshaping) return;
+
                 // Try to bond this atom to an appropriate atom in the seed molecule
                 const bondingRadius = (atom.radius + 15) * 2.5; // Generous bonding distance
 
@@ -729,6 +735,14 @@ class Intention {
         // Step 1: Check chemical stability (all valences satisfied)
         // Use hasValidValence() NOT isStable() - seed molecules skip normal lifecycle
         if (!seedMol.hasValidValence()) {
+            // Fix 4: Cancel any reshaping that started before this molecule became a seed
+            // (e.g. regular molecule lifecycle called startReshaping(Dicarbon) on a C2 pair
+            // BEFORE the intention could claim it). Seeds with too few atoms will never advance
+            // their reshaping timer — the updateReshaping() call below requires atoms.length >= totalNeeded.
+            if (seedMol.isReshaping && seedMol.atoms.length < totalNeeded) {
+                seedMol.cancelReshaping();
+            }
+
             // Special case: molecule might need double/triple bonds (e.g. ethylene C=C).
             // With only order-1 bonds, C's in C=C have availableValence=1 and will never
             // satisfy valence naturally. If atom count matches target, try template reshaping
@@ -750,6 +764,15 @@ class Intention {
                         }
                     }
                 }
+            } else if (seedMol.geometryVerified && !seedMol.isReshaping) {
+                // Reshaping previously completed but hasValidValence is still false.
+                // This means _restructureBonds used a stale/wrong template and left some
+                // atoms without bonds. Reset geometry so reshaping retries with a fresh
+                // atom-to-template mapping based on the current molecule composition.
+                seedMol.geometryVerified = false;
+                seedMol.targetTemplate = null;
+                seedMol.targetPositions = null;
+                seedMol.atomToTemplateIndex = null;
             }
             return;
         }

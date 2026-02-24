@@ -452,6 +452,21 @@ class Molecule {
             return;
         }
 
+        // Validate that the mapping covers ALL atoms in the molecule.
+        // If atoms were added after startReshaping() (e.g. by _rule6 during the 200-tick
+        // animation), the mapping only covers the original atoms and is now stale.
+        // Creating bonds with a partial map leaves new atoms unbonded → hasValidValence=false.
+        if (this.atomToTemplateIndex.size !== this.atoms.length) {
+            if (typeof Debug !== 'undefined') {
+                Debug.logMolecule('reshape', 'ABORT: stale mapping (atom count changed during reshaping)', this, {
+                    mappingSize: this.atomToTemplateIndex.size,
+                    atomCount: this.atoms.length
+                });
+            }
+            this.cancelReshaping();
+            return;
+        }
+
         // Build reverse mapping: template index -> atom
         const templateIndexToAtom = new Map();
         for (const [atom, templateIndex] of this.atomToTemplateIndex) {
