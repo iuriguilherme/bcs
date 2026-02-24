@@ -249,7 +249,7 @@ class Viewer {
             }
 
             if (shouldRender) {
-                intention.render(this.ctx, scale, offset);
+                intention.render(this.ctx, scale, offset, this.environment);
             }
         }
     }

@@ -39,6 +39,10 @@ class Intention {
         this.excludedMoleculeIds = new Set();
         this.exclusionInitialized = false;
 
+        // Seed molecule tracking (molecule intents only)
+        // The seed molecule is the partially-formed target molecule being assembled
+        this.seedMoleculeId = null;
+
         // Visual state
         this.pulsePhase = 0;
         this.selected = false;
@@ -272,11 +276,486 @@ class Intention {
         // NOTE: No timeout - intentions persist until fulfilled or manually deleted
         // (Bug #6 fix from AGENTS.md)
 
-        // Find and attract nearby components
-        this._attractComponents(environment);
+        if (this.type === 'molecule') {
+            // Rule-based system for molecule intents
+            // Each rule executes in order, sharing a cached state object
+            this._validateSeed(environment);
+            const state = this._buildState(environment);
+            this._rule1_repelIrrelevantAtoms(environment, state);
+            this._rule2_repelIrrelevantMolecules(environment, state);
+            this._rule3_claimFreeAtoms(environment, state);
+            this._rule4_extractFromMolecules(environment, state);
+            this._rule5_attractClaimed(environment, state);
+            this._rule6_bondClaimed(environment, state);
+            this._rule7_checkCompletion(environment, state);
+            this._updateProgress(state);
+        } else {
+            // Polymer/cell intents use existing logic (unchanged)
+            this._attractComponents(environment);
+            this._checkCompletion(environment);
+        }
+    }
 
-        // Check if requirements are met
-        this._checkCompletion(environment);
+    // =====================================================
+    // MOLECULE INTENT: Rule-Based Assembly System
+    // =====================================================
+
+    /**
+     * Build shared state object for this tick.
+     * Performs a SINGLE spatial query (cached) rather than 6 separate ones,
+     * giving ~6x performance improvement per intent per tick.
+     */
+    _buildState(environment) {
+        const nearbyAtoms = environment.getAtomsNear(
+            this.position.x, this.position.y, this.radius * 1.2
+        );
+        const targetComp = this.getTargetComposition() || {};
+        const targetFormula = this.blueprint ? this.blueprint.formula : null;
+        const totalNeeded = Object.values(targetComp).reduce((s, n) => s + n, 0);
+
+        // Get seed molecule if it exists
+        const seedMol = this.seedMoleculeId
+            ? environment.seedMolecules.get(this.seedMoleculeId)
+            : null;
+        const seedAtomIds = new Set(seedMol ? seedMol.atoms.map(a => a.id) : []);
+
+        // Separate nearby atoms into categories for rule consumption
+        const claimed = []; // Atoms claimed by THIS intent
+        const free = [];    // Unclaimed, unbonded atoms
+
+        for (const atom of nearbyAtoms) {
+            if (seedAtomIds.has(atom.id)) continue; // Seed atoms handled by seed mol
+            if (atom.claimedByIntentId === this.id) {
+                claimed.push(atom);
+            } else if (!atom.claimedByIntentId && !atom.moleculeId) {
+                free.push(atom);
+            }
+        }
+
+        return {
+            nearbyAtoms,
+            targetComp,
+            targetFormula,
+            totalNeeded,
+            seedMol,
+            seedAtomIds,
+            claimed,
+            free,
+            extractedThisTick: false // Rule 4 sets this to prevent multiple extractions
+        };
+    }
+
+    /**
+     * Validate the seed molecule still exists and its atoms are live.
+     * Called at start of each tick to handle external deletions gracefully.
+     */
+    _validateSeed(environment) {
+        if (!this.seedMoleculeId) return;
+
+        const seedMol = environment.seedMolecules.get(this.seedMoleculeId);
+        if (!seedMol) {
+            // Seed was deleted externally - clear claims and reset
+            this._clearAllClaims(environment);
+            this.seedMoleculeId = null;
+            return;
+        }
+
+        // Remove atoms that no longer exist in the environment
+        seedMol.atoms = seedMol.atoms.filter(a => environment.atoms.has(a.id));
+
+        if (seedMol.atoms.length === 0) {
+            // Seed is empty - full reset
+            this._resetSeed(environment);
+        }
+    }
+
+    /**
+     * Get all atoms currently claimed by this intention that still exist.
+     * Safe to call even if claimed atoms were deleted since last tick.
+     */
+    _getClaimedAtoms(environment) {
+        const claimed = [];
+        for (const atom of environment.atoms.values()) {
+            if (atom.claimedByIntentId === this.id) {
+                claimed.push(atom);
+            }
+        }
+        return claimed;
+    }
+
+    /**
+     * Release all atom claims belonging to this intention.
+     */
+    _clearAllClaims(environment) {
+        for (const atom of environment.atoms.values()) {
+            if (atom.claimedByIntentId === this.id) {
+                atom.claimedByIntentId = null;
+            }
+        }
+    }
+
+    /**
+     * Fully reset the seed molecule: break bonds, release atoms, remove from environment.
+     * Called when seed is destroyed or intent is being cleaned up.
+     */
+    _resetSeed(environment) {
+        if (this.seedMoleculeId) {
+            const seedMol = environment.seedMolecules.get(this.seedMoleculeId);
+            if (seedMol) {
+                // Break all bonds in the seed molecule
+                for (const bond of [...seedMol.bonds]) {
+                    bond.break(false); // No energy release during cleanup
+                    environment.bonds.delete(bond.id);
+                }
+                // Release all seed atoms
+                for (const atom of seedMol.atoms) {
+                    atom.moleculeId = null;
+                    atom.claimedByIntentId = null;
+                }
+                environment.seedMolecules.delete(this.seedMoleculeId);
+            }
+            this.seedMoleculeId = null;
+        }
+        this._clearAllClaims(environment);
+    }
+
+    /**
+     * Update progress based on how many of the needed atoms are gathered
+     * (in seed + claimed but not yet bonded).
+     */
+    _updateProgress(state) {
+        const { totalNeeded, seedMol, claimed } = state;
+        if (totalNeeded === 0) return;
+
+        const seedCount = seedMol ? seedMol.atoms.length : 0;
+        const claimedCount = claimed.length;
+        this.progress = Math.min(1, (seedCount + claimedCount) / totalNeeded);
+    }
+
+    // --- Rule stubs (implemented in Phases 3–7) ---
+
+    _rule1_repelIrrelevantAtoms(environment, state) {
+        const { nearbyAtoms, targetComp, seedAtomIds } = state;
+        const targetElements = new Set(Object.keys(targetComp));
+
+        for (const atom of nearbyAtoms) {
+            // Skip seed atoms and atoms already claimed by this intent
+            if (seedAtomIds.has(atom.id)) continue;
+            if (atom.claimedByIntentId === this.id) continue;
+            // Skip atoms claimed by other intents (their intent handles them)
+            if (atom.claimedByIntentId) continue;
+            // Skip atoms in molecules (handled by Rule 2 via the molecule)
+            if (atom.moleculeId) continue;
+
+            if (!targetElements.has(atom.symbol)) {
+                const dist = atom.position.distanceTo(this.position);
+                if (dist < this.radius && dist > 1) {
+                    const dir = atom.position.sub(this.position).normalize();
+                    const strength = Math.max(
+                        this.repulsionForce * (1 - dist / this.radius),
+                        this.repulsionForce * 0.3
+                    );
+                    atom.applyForce(dir.mul(strength));
+                }
+            }
+        }
+    }
+
+    _rule2_repelIrrelevantMolecules(environment, state) {
+        const { targetFormula } = state;
+        if (!targetFormula) return;
+
+        for (const mol of environment.molecules.values()) {
+            // Only repel STABLE molecules that don't match target formula
+            if (!mol.isStable()) continue;
+            if (mol.isReshaping) continue;
+            if (mol.formula === targetFormula) continue;
+            if (mol.isSeedFor) continue; // Never repel seed molecules
+
+            const center = mol.centerOfMass;
+            const dist = center.distanceTo(this.position);
+            if (dist < this.radius && dist > 10) {
+                const dir = center.sub(this.position).normalize();
+                const strength = Math.max(
+                    this.repulsionForce * (1 - dist / this.radius),
+                    this.repulsionForce * 0.3
+                );
+                mol.applyForce(dir.mul(strength));
+            }
+        }
+    }
+
+    _rule3_claimFreeAtoms(environment, state) {
+        const { free, targetComp, seedMol, claimed, totalNeeded } = state;
+
+        // Calculate current composition deficit
+        const deficit = Object.assign({}, targetComp);
+        if (seedMol) {
+            for (const atom of seedMol.atoms) {
+                if (deficit[atom.symbol] !== undefined) {
+                    deficit[atom.symbol]--;
+                }
+            }
+        }
+        for (const atom of claimed) {
+            if (deficit[atom.symbol] !== undefined) {
+                deficit[atom.symbol]--;
+            }
+        }
+
+        // Calculate this intent's progress (for priority in contests)
+        const myProgress = state.totalNeeded > 0
+            ? ((seedMol ? seedMol.atoms.length : 0) + claimed.length) / totalNeeded
+            : 0;
+
+        for (const atom of free) {
+            const need = deficit[atom.symbol];
+            if (!need || need <= 0) continue; // Don't need this element
+
+            const dist = atom.position.distanceTo(this.position);
+            if (dist > this.radius) continue; // Out of range
+
+            // Priority check: only claim if we have higher progress than competing intent
+            if (atom.claimedByIntentId && atom.claimedByIntentId !== this.id) {
+                const competitor = environment.intentions.get(atom.claimedByIntentId);
+                if (competitor && competitor.progress >= myProgress) continue; // Yield
+                // We have higher priority - steal the claim
+            }
+
+            atom.claimedByIntentId = this.id;
+            deficit[atom.symbol]--;
+        }
+    }
+
+    _rule4_extractFromMolecules(environment, state) {
+        const { targetComp, seedMol, claimed, totalNeeded } = state;
+
+        // Calculate deficit - how many of each element do we still need?
+        const deficit = Object.assign({}, targetComp);
+        if (seedMol) {
+            for (const a of seedMol.atoms) {
+                if (deficit[a.symbol] !== undefined) deficit[a.symbol]--;
+            }
+        }
+        for (const a of claimed) {
+            if (deficit[a.symbol] !== undefined) deficit[a.symbol]--;
+        }
+
+        // Check if there's actually a deficit worth extracting for
+        const hasDeficit = Object.values(deficit).some(n => n > 0);
+        if (!hasDeficit) return;
+        if (state.extractedThisTick) return;
+
+        // Build list of molecules with useful atoms, prioritizing unstable ones
+        const candidates = [];
+        for (const mol of environment.molecules.values()) {
+            if (mol.isSeedFor) continue;      // Never extract from seed molecules
+            if (mol.polymerId) continue;       // Never break polymer-protected molecules
+            if (mol.isReshaping) continue;     // Don't disturb reshaping molecules
+
+            // Check if this molecule has any atoms we need
+            let hasNeededAtom = false;
+            for (const symbol of Object.keys(deficit)) {
+                if (deficit[symbol] > 0 && mol.atoms.some(a => a.symbol === symbol)) {
+                    hasNeededAtom = true;
+                    break;
+                }
+            }
+            if (!hasNeededAtom) continue;
+
+            const center = mol.centerOfMass;
+            const dist = center.distanceTo(this.position);
+            if (dist > this.radius) continue;
+
+            candidates.push({ mol, dist, unstable: !mol.isStable() });
+        }
+
+        if (candidates.length === 0) return;
+
+        // Sort: unstable molecules first (easier to extract from), then by distance
+        candidates.sort((a, b) => {
+            if (a.unstable && !b.unstable) return -1;
+            if (!a.unstable && b.unstable) return 1;
+            return a.dist - b.dist;
+        });
+
+        // Extract one atom from the best candidate
+        for (const { mol } of candidates) {
+            for (const symbol of Object.keys(deficit)) {
+                if (deficit[symbol] <= 0) continue;
+                const extracted = mol.extractAtom(symbol);
+                if (extracted) {
+                    state.extractedThisTick = true;
+                    if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                        console.log(`[Intention ${this.id.substring(0, 8)}] Rule4: extracted ${symbol} from ${mol.formula}`);
+                    }
+                    return; // One extraction per tick
+                }
+            }
+        }
+    }
+
+    _rule5_attractClaimed(environment, state) {
+        const { claimed, seedMol } = state;
+        // Attract toward seed center if it exists, otherwise toward intention center
+        const target = seedMol ? seedMol.centerOfMass : this.position;
+
+        for (const atom of claimed) {
+            // Validate atom still exists
+            if (!environment.atoms.has(atom.id)) continue;
+
+            const dist = atom.position.distanceTo(target);
+            if (dist > 1) {
+                const dir = target.sub(atom.position).normalize();
+                // Strong attraction force - pulled directly to seed
+                const force = dir.mul(this.attractionForce * 2.5 * (1 - Math.min(1, dist / this.radius)));
+                atom.applyForce(force);
+            }
+        }
+    }
+
+    _rule6_bondClaimed(environment, state) {
+        const { claimed, seedMol, targetComp } = state;
+        if (claimed.length === 0) return;
+
+        // Find a claimed atom that is close enough to bond
+        for (const atom of claimed) {
+            if (!environment.atoms.has(atom.id)) continue;
+
+            if (seedMol) {
+                // Try to bond this atom to an appropriate atom in the seed molecule
+                const bondingRadius = (atom.radius + 15) * 2.5; // Generous bonding distance
+
+                for (const seedAtom of seedMol.atoms) {
+                    if (!seedAtom.availableValence) continue;
+
+                    const dist = atom.position.distanceTo(seedAtom.position);
+                    if (dist > bondingRadius) continue;
+
+                    // Context-aware bonding: bypasses claim restriction for this intent's atoms
+                    if (!atom.canBondWith(seedAtom, 1, { intentId: this.id })) continue;
+                    if (!seedAtom.canBondWith(atom, 1)) continue;
+
+                    // Create the bond
+                    const bond = new Bond(atom, seedAtom, 1);
+                    environment.bonds.set(bond.id, bond);
+
+                    // Add atom to seed molecule
+                    seedMol.atoms.push(atom);
+                    atom.moleculeId = seedMol.id;
+                    atom.claimedByIntentId = null; // Clear claim - now part of seed
+                    seedMol.updateProperties();
+
+                    if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                        console.log(`[Intention ${this.id.substring(0, 8)}] Rule6: bonded ${atom.symbol} to seed ${seedMol.formula}`);
+                    }
+                    return; // One bond per tick for stability
+                }
+            } else {
+                // No seed molecule yet - this atom becomes the initial seed nucleus
+                // Find another claimed atom to pair with as seed start
+                for (const other of claimed) {
+                    if (other === atom) continue;
+                    if (!environment.atoms.has(other.id)) continue;
+
+                    const dist = atom.position.distanceTo(other.position);
+                    const bondingRadius = (atom.radius + other.radius) * 2.5;
+                    if (dist > bondingRadius) continue;
+
+                    if (!atom.canBondWith(other, 1, { intentId: this.id })) continue;
+                    if (!other.canBondWith(atom, 1, { intentId: this.id })) continue;
+
+                    // Create bond between two claimed atoms → this forms the initial seed
+                    const bond = new Bond(atom, other, 1);
+                    environment.bonds.set(bond.id, bond);
+
+                    // Create seed molecule from these two atoms
+                    const seedMolNew = new Molecule([atom, other]);
+                    seedMolNew.isSeedFor = this.id;
+                    // Override ID assignment from Molecule constructor (it already set moleculeId)
+                    environment.seedMolecules.set(seedMolNew.id, seedMolNew);
+                    this.seedMoleculeId = seedMolNew.id;
+
+                    atom.claimedByIntentId = null;
+                    other.claimedByIntentId = null;
+
+                    if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+                        console.log(`[Intention ${this.id.substring(0, 8)}] Rule6: created initial seed ${seedMolNew.formula}`);
+                    }
+                    return;
+                }
+            }
+        }
+    }
+
+    _rule7_checkCompletion(environment, state) {
+        const { seedMol, targetFormula } = state;
+        if (!seedMol) return;
+
+        // Step 1: Check chemical stability (all valences satisfied)
+        // Use hasValidValence() NOT isStable() - seed molecules skip normal lifecycle
+        if (!seedMol.hasValidValence()) return;
+
+        // Step 2: Check formula matches blueprint
+        if (targetFormula && seedMol.formula !== targetFormula) return;
+
+        // Step 3: Handle geometry check
+        if (!seedMol.geometryVerified) {
+            // Check if geometry needs reshaping
+            if (typeof matchesStableTemplate === 'function' && typeof needsReshaping === 'function') {
+                const template = matchesStableTemplate(seedMol);
+                if (template && needsReshaping(seedMol, template)) {
+                    // Geometry wrong - manually trigger reshaping and WAIT
+                    if (!seedMol.isReshaping) {
+                        seedMol.startReshaping(template);
+                    }
+                    // Process one reshaping step
+                    if (seedMol.isReshaping) {
+                        const done = seedMol.updateReshaping(1);
+                        if (done) {
+                            seedMol.geometryVerified = true;
+                            // Sync newly created bonds into environment
+                            environment.syncBonds();
+                        }
+                    }
+                    return; // Wait for geometry to be correct
+                } else {
+                    // Formula matches template but geometry is OK, or no template exists
+                    seedMol.geometryVerified = true;
+                }
+            } else {
+                // No template checking available - mark verified
+                seedMol.geometryVerified = true;
+            }
+        }
+
+        // Step 4: Seed is complete! Promote to normal molecule
+        if (seedMol.geometryVerified) {
+            this._completeSeedMolecule(environment, seedMol);
+        }
+    }
+
+    /**
+     * Promote the completed seed molecule to a normal molecule,
+     * clean up all claims, and mark this intention as fulfilled.
+     */
+    _completeSeedMolecule(environment, seedMol) {
+        // Remove from seed molecules and add to normal molecules
+        environment.seedMolecules.delete(seedMol.id);
+        seedMol.isSeedFor = null;
+        environment.molecules.set(seedMol.id, seedMol);
+
+        // Clear all atom claims (some may still be claimed if we completed early)
+        this._clearAllClaims(environment);
+
+        // Mark intent fulfilled
+        this.createdEntity = seedMol;
+        this.fulfilled = true;
+        this.seedMoleculeId = null;
+
+        if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
+            console.log(`[Intention ${this.id.substring(0, 8)}] FULFILLED: molecule ${seedMol.formula} complete`);
+        }
     }
 
     /**
@@ -987,8 +1466,12 @@ class Intention {
 
     /**
      * Render the intention zone
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {number} scale
+     * @param {Vector2} offset
+     * @param {Environment|null} environment - Optional; enables claimed-atom lines and seed glow
      */
-    render(ctx, scale = 1, offset = { x: 0, y: 0 }) {
+    render(ctx, scale = 1, offset = { x: 0, y: 0 }, environment = null) {
         const screenX = (this.position.x + offset.x) * scale;
         const screenY = (this.position.y + offset.y) * scale;
         const screenRadius = this.radius * scale;
@@ -1033,6 +1516,49 @@ class Intention {
             ctx.stroke();
         }
 
+        // --- Molecule-intent visual overlays (require environment access) ---
+        if (this.type === 'molecule' && environment !== null) {
+            // 1. Thin lines from each claimed atom to the intent center
+            ctx.save();
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = colors.border;
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.5;
+            for (const atom of environment.atoms.values()) {
+                if (atom.claimedByIntentId !== this.id) continue;
+                const ax = (atom.position.x + offset.x) * scale;
+                const ay = (atom.position.y + offset.y) * scale;
+                ctx.beginPath();
+                ctx.moveTo(ax, ay);
+                ctx.lineTo(screenX, screenY);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // 2. Pulsing glow around the seed molecule
+            if (this.seedMoleculeId) {
+                const seedMol = environment.seedMolecules.get(this.seedMoleculeId);
+                if (seedMol && seedMol.atoms.size > 0) {
+                    const com = seedMol.centerOfMass;
+                    const sx = (com.x + offset.x) * scale;
+                    const sy = (com.y + offset.y) * scale;
+                    // Approximate radius from atom count
+                    const glowR = (12 + seedMol.atoms.length * 8) * scale * pulse;
+                    const seedGrad = ctx.createRadialGradient(sx, sy, 0, sx, sy, glowR);
+                    seedGrad.addColorStop(0, colors.glowInner);
+                    seedGrad.addColorStop(0.6, colors.glowMid);
+                    seedGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.save();
+                    ctx.globalAlpha = 0.45 * pulse;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, glowR, 0, Math.PI * 2);
+                    ctx.fillStyle = seedGrad;
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+        }
+
         // Draw center icon/preview
         this._renderPreview(ctx, screenX, screenY, scale, pulse, colors);
 
@@ -1043,9 +1569,16 @@ class Intention {
         ctx.textBaseline = 'top';
         ctx.fillText(this.blueprint.name || this.type, screenX, screenY + screenRadius * 0.6);
 
-        // Draw progress percentage
+        // Draw progress text: "X/Y atoms" for molecule intents, percentage for others
         ctx.font = `${10 * scale}px sans-serif`;
-        ctx.fillText(`${Math.round(this.progress * 100)}%`, screenX, screenY + screenRadius * 0.6 + 15);
+        if (this.type === 'molecule') {
+            const targetComp = this.getTargetComposition() || {};
+            const totalNeeded = Object.values(targetComp).reduce((s, n) => s + n, 0);
+            const gathered = Math.round(this.progress * totalNeeded);
+            ctx.fillText(`${gathered}/${totalNeeded} atoms`, screenX, screenY + screenRadius * 0.6 + 15);
+        } else {
+            ctx.fillText(`${Math.round(this.progress * 100)}%`, screenX, screenY + screenRadius * 0.6 + 15);
+        }
     }
 
     /**

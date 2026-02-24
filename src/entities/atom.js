@@ -31,7 +31,8 @@ class Atom {
         // State
         this.selected = false;
         this.highlighted = false;
-        this.moleculeId = null;  // Reference to parent molecule if bonded
+        this.moleculeId = null;       // Reference to parent molecule if bonded
+        this.claimedByIntentId = null; // Intent that has claimed this atom (null = free)
 
         // Physics properties
         this.mass = this.element.mass;
@@ -60,9 +61,25 @@ class Atom {
      * Check if this atom can bond with another
      * @param {Atom} other - The other atom
      * @param {number} order - Bond order (1, 2, or 3)
+     * @param {Object} context - Optional context for intent-controlled bonding
+     * @param {string} [context.intentId] - Intent ID for bypassing claim restrictions
      */
-    canBondWith(other, order = 1) {
+    canBondWith(other, order = 1, context = {}) {
         if (this === other) return false;
+
+        // Context-aware bonding: intent-controlled bonds bypass claim restrictions
+        if (context.intentId) {
+            // This bond is being formed by an intent that claims this atom
+            if (context.intentId === this.claimedByIntentId) {
+                return this.availableValence >= order
+                    && other.availableValence >= order
+                    && !this.isBondedTo(other);
+            }
+        }
+
+        // Claimed atoms refuse bonds from non-intent sources
+        if (this.claimedByIntentId) return false;
+
         if (this.availableValence < order) return false;
         if (other.availableValence < order) return false;
 
@@ -71,7 +88,7 @@ class Atom {
 
         // Check if already bonded
         if (this.isBondedTo(other)) return false;
-        
+
         // Check if this atom is repelled from the other atom's molecule
         if (other.moleculeId && this.repulsions.has(other.moleculeId)) return false;
         // Check if the other atom is repelled from this atom's molecule
@@ -300,7 +317,8 @@ class Atom {
             vx: this.velocity.x,
             vy: this.velocity.y,
             charge: this.charge,
-            moleculeId: this.moleculeId
+            moleculeId: this.moleculeId,
+            claimedByIntentId: this.claimedByIntentId || null
         };
     }
 
@@ -313,6 +331,7 @@ class Atom {
         atom.velocity = new Vector2(data.vx, data.vy);
         atom.charge = data.charge || 0;
         atom.moleculeId = data.moleculeId;
+        atom.claimedByIntentId = data.claimedByIntentId || null;
         return atom;
     }
 }

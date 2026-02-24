@@ -14,14 +14,15 @@ class Environment {
         this.height = height;
 
         // Entity storage
-        this.atoms = new Map();      // id -> Atom
-        this.bonds = new Map();      // id -> Bond
-        this.molecules = new Map();  // id -> Molecule
-        this.proteins = new Map();   // id -> Protein (polymers)
-        this.cells = new Map();      // id -> Cell
-        this.prokaryotes = new Map(); // id -> Prokaryote (chemistry-based cells)
-        this.organisms = new Map();  // id -> Organism (future)
-        this.intentions = new Map(); // id -> Intention (blueprint attraction zones)
+        this.atoms = new Map();        // id -> Atom
+        this.bonds = new Map();        // id -> Bond
+        this.molecules = new Map();    // id -> Molecule
+        this.seedMolecules = new Map(); // id -> Molecule (seed molecules managed by intentions)
+        this.proteins = new Map();     // id -> Protein (polymers)
+        this.cells = new Map();        // id -> Cell
+        this.prokaryotes = new Map();  // id -> Prokaryote (chemistry-based cells)
+        this.organisms = new Map();    // id -> Organism (future)
+        this.intentions = new Map();   // id -> Intention (blueprint attraction zones)
 
         // Spatial partitioning for performance
         this.gridSize = 100;
@@ -321,10 +322,18 @@ class Environment {
     }
 
     /**
-     * Remove an intention from the environment
+     * Remove an intention from the environment.
+     * For molecule intents, cleans up the seed molecule and all atom claims.
      * @param {string} intentionId - Intention ID to remove
      */
     removeIntention(intentionId) {
+        const intention = this.intentions.get(intentionId);
+        if (intention && intention.type === 'molecule') {
+            // Clean up seed molecule and atom claims before removing
+            if (typeof intention._resetSeed === 'function') {
+                intention._resetSeed(this);
+            }
+        }
         this.intentions.delete(intentionId);
         this.stats.intentionCount = this.intentions.size;
     }
@@ -637,6 +646,8 @@ class Environment {
 
         for (const atom1 of atoms) {
             if (atom1.availableValence === 0) continue;
+            // Skip atoms in seed molecules - bonding is controlled by intentions
+            if (this._isInSeedMolecule(atom1)) continue;
 
             const nearby = this.getAtomsNear(
                 atom1.position.x,
@@ -648,7 +659,9 @@ class Environment {
                 if (atom1 === atom2) continue;
                 if (atom1.isBondedTo(atom2)) continue;
                 if (atom2.availableValence === 0) continue;
-                
+                // Skip seed molecule atoms
+                if (this._isInSeedMolecule(atom2)) continue;
+
                 // Check for active repulsion (used by molecule decay to prevent rebonding)
                 // Repulsion map stores molecule IDs that released this atom
                 if (atom1.repulsions && atom2.moleculeId && atom1.repulsions.has(atom2.moleculeId)) continue;
@@ -720,18 +733,39 @@ class Environment {
     }
 
     /**
+     * Check if an atom belongs to a seed molecule (managed by an intention)
+     * Seed atoms are excluded from normal molecule formation logic.
+     * @param {Atom} atom
+     * @returns {boolean}
+     */
+    _isInSeedMolecule(atom) {
+        return atom.moleculeId !== null && this.seedMolecules.has(atom.moleculeId);
+    }
+
+    /**
      * Detect and register new molecules, merge connected groups
      * Simple logic: Find bond-connected groups, each group = one molecule
      */
     updateMolecules() {
-        // Step 1: Get all atoms that have at least one bond
+        // Collect seed molecule atom IDs - these are managed separately by intentions
+        // and must not be touched by the normal molecule formation logic
+        const seedAtomIds = new Set();
+        for (const seedMol of this.seedMolecules.values()) {
+            for (const atom of seedMol.atoms) {
+                seedAtomIds.add(atom.id);
+            }
+        }
+
+        // Step 1: Get all atoms that have at least one bond (excluding seed molecule atoms)
         const bondedAtoms = Array.from(this.atoms.values())
-            .filter(a => a.bonds.length > 0);
+            .filter(a => a.bonds.length > 0 && !seedAtomIds.has(a.id));
 
         if (bondedAtoms.length === 0) {
-            // Clear all molecules and reset assignments
+            // Clear all molecules and reset assignments (skip seed atoms)
             for (const atom of this.atoms.values()) {
-                atom.moleculeId = null;
+                if (!seedAtomIds.has(atom.id)) {
+                    atom.moleculeId = null;
+                }
             }
             this.molecules.clear();
             this.stats.moleculeCount = 0;
@@ -785,7 +819,9 @@ class Environment {
 
         // Step 6: Clear molecule ID from atoms not in any molecule
         // Also clear atoms that claim a moleculeId but aren't in that molecule's atom list
+        // Skip seed molecule atoms - they are managed by the intention system
         for (const atom of this.atoms.values()) {
+            if (seedAtomIds.has(atom.id)) continue; // Skip seed atoms
             if (atom.bonds.length === 0) {
                 atom.moleculeId = null;
             } else if (atom.moleculeId) {
@@ -966,6 +1002,7 @@ class Environment {
         this.atoms.clear();
         this.bonds.clear();
         this.molecules.clear();
+        this.seedMolecules.clear();
         this.proteins.clear();
         this.cells.clear();
         this.prokaryotes.clear();

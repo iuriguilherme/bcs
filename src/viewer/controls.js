@@ -545,6 +545,7 @@ class Controls {
                     <p>Bonds: ${atom.bonds.length}</p>
                     <p>Position: (${atom.position.x.toFixed(1)}, ${atom.position.y.toFixed(1)})</p>
                     ${atom.moleculeId ? `<p>Molecule ID: ${atom.moleculeId}</p>` : ''}
+                    ${atom.claimedByIntentId ? `<p style="color: #f59e0b;">&#9670; Claimed by intent</p>` : ''}
                     ${polymerIdStr}
                 </div>
             `;
@@ -573,6 +574,7 @@ class Controls {
                     <p>Bonds: ${mol.bonds.length}</p>
                     <p>Stable: ${mol.isStable() ? 'Yes &#10003;' : 'No'}</p>
                     ${mol.isReshaping ? '<p style="color: #4ade80;">Reshaping...</p>' : ''}
+                    ${mol.isSeedFor ? `<p style="color: #f59e0b;">&#9670; Seed for intent</p>` : ''}
                     ${mol.polymerId ? `<p>Polymer ID: ${mol.polymerId}</p>` : ''}
                     ${catalogueBtn}
                 </div>

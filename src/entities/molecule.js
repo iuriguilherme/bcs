@@ -30,6 +30,10 @@ class Molecule {
         // Polymer membership
         this.polymerId = null;
 
+        // Seed molecule tracking - when set, this molecule is being constructed by an intention
+        // Seed molecules skip normal decay and reshaping lifecycle (managed by the intention)
+        this.isSeedFor = null; // Intent ID that owns this seed molecule (null = normal molecule)
+
         // Monomer properties - for proper biological polymerization
         this.isMonomer = false;         // Is this molecule a known monomer type?
         this.monomerTemplate = null;    // Reference to the monomer template this matches
@@ -543,6 +547,18 @@ class Molecule {
      * @returns {object|null} - Returns decay info if atom was released, null otherwise
      */
     update(dt, environment = null) {
+        // Seed molecules skip normal lifecycle - they are managed by the intention system
+        // Their atoms are being gathered; decay/reshape would destroy the partially-formed molecule
+        if (this.isSeedFor) {
+            // If the owning intent no longer exists, release seed status
+            if (environment && !environment.intentions.has(this.isSeedFor)) {
+                this.isSeedFor = null;
+                // Fall through to normal lifecycle below
+            } else {
+                return null; // Skip all lifecycle - intention handles everything
+            }
+        }
+
         // If molecule is stable and abstracted, skip individual atom physics
         if (this.abstracted && this.isStable()) {
             // Just update center position based on velocity if moving
@@ -745,6 +761,46 @@ class Molecule {
         }
 
         return null;
+    }
+
+    /**
+     * Extract an atom of a specific element type from this molecule.
+     * Breaks the weakest bond of an atom with the given symbol.
+     * Used by intention Rule 4 to extract useful atoms from molecules.
+     * @param {string} symbol - Element symbol to extract (e.g., 'C', 'H')
+     * @returns {Atom|null} The extracted atom, or null if not possible
+     */
+    extractAtom(symbol) {
+        // Cannot extract from seed molecules or polymer-protected molecules
+        if (this.isSeedFor) return null;
+        if (this.polymerId) return null;
+
+        // Find an atom of the requested type with the weakest bond
+        let bestAtom = null;
+        let lowestBondCount = Infinity;
+
+        for (const atom of this.atoms) {
+            if (atom.symbol !== symbol) continue;
+            if (atom.bonds.length === 0) continue;
+            if (atom.bondCount < lowestBondCount) {
+                lowestBondCount = atom.bondCount;
+                bestAtom = atom;
+            }
+        }
+
+        if (!bestAtom) return null;
+
+        // Break the weakest bond (first bond = lowest indexed)
+        const bondToBreak = bestAtom.bonds[0];
+        bondToBreak.break(false); // No energy release - intent-controlled extraction
+
+        // Give atom a small push away from molecule center
+        const center = this.centerOfMass;
+        const dir = bestAtom.position.sub(center).normalize();
+        bestAtom.velocity = bestAtom.velocity.add(dir.mul(3));
+
+        bestAtom.moleculeId = null;
+        return bestAtom;
     }
 
     /**
@@ -1082,6 +1138,7 @@ class Molecule {
             id: this.id,
             name: this.name,
             formula: this.formula,
+            isSeedFor: this.isSeedFor || null,
             atoms: this.atoms.map(a => a.serialize()),
             bonds: this.bonds.map(b => b.serialize())
         };
@@ -1107,6 +1164,7 @@ class Molecule {
         const molecule = new Molecule(atoms);
         molecule.id = data.id;
         molecule.name = data.name;
+        molecule.isSeedFor = data.isSeedFor || null;
 
         return molecule;
     }
