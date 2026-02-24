@@ -614,6 +614,20 @@ class Intention {
                 atom.applyForce(force);
             }
         }
+
+        // Anchor the seed molecule to this intention's center so it doesn't drift away.
+        // Without this, the seed floats freely and claimed atoms can never catch up to it.
+        if (seedMol) {
+            for (const seedAtom of seedMol.atoms) {
+                if (!environment.atoms.has(seedAtom.id)) continue;
+                const dist = seedAtom.position.distanceTo(this.position);
+                if (dist > 1) {
+                    const dir = this.position.sub(seedAtom.position).normalize();
+                    const forceMag = this.attractionForce * 3.0 * seedAtom.mass;
+                    seedAtom.applyForce(dir.mul(forceMag));
+                }
+            }
+        }
     }
 
     _rule6_bondClaimed(environment, state) {
@@ -662,7 +676,15 @@ class Intention {
                 }
             } else {
                 // No seed molecule yet - this atom becomes the initial seed nucleus
-                // Guard: only the highest-valence atom(s) may act as seed nucleus.
+                // Guard 1: all required element types must be represented in claimed set.
+                // Prevents H-H seeds when C hasn't arrived yet (e.g., for C2H4).
+                if (targetComp) {
+                    const claimedSymbols = new Set(claimed.map(a => a.symbol));
+                    for (const sym of Object.keys(targetComp)) {
+                        if (targetComp[sym] > 0 && !claimedSymbols.has(sym)) return;
+                    }
+                }
+                // Guard 2: only the highest-valence atom(s) may act as seed nucleus.
                 // If C (val=4) hasn't found a partner yet, don't fall through to H-H (val=1).
                 if (atom.maxBonds < maxValenceInClaimed) break;
                 // Find another claimed atom to pair with as seed start
@@ -701,15 +723,47 @@ class Intention {
     }
 
     _rule7_checkCompletion(environment, state) {
-        const { seedMol, targetFormula } = state;
+        const { seedMol, targetFormula, totalNeeded } = state;
         if (!seedMol) return;
 
         // Step 1: Check chemical stability (all valences satisfied)
         // Use hasValidValence() NOT isStable() - seed molecules skip normal lifecycle
-        if (!seedMol.hasValidValence()) return;
+        if (!seedMol.hasValidValence()) {
+            // Special case: molecule might need double/triple bonds (e.g. ethylene C=C).
+            // With only order-1 bonds, C's in C=C have availableValence=1 and will never
+            // satisfy valence naturally. If atom count matches target, try template reshaping
+            // first - this will fix bond orders (creating double bonds) and satisfy valence.
+            if (seedMol.atoms.length >= totalNeeded && totalNeeded > 0 && !seedMol.geometryVerified) {
+                if (typeof matchesStableTemplate === 'function') {
+                    const template = matchesStableTemplate(seedMol);
+                    if (template) {
+                        if (!seedMol.isReshaping) {
+                            seedMol.startReshaping(template);
+                        }
+                        if (seedMol.isReshaping) {
+                            const done = seedMol.updateReshaping(1);
+                            if (done) {
+                                seedMol.geometryVerified = true;
+                                environment.syncBonds();
+                                // valence now satisfied via double bonds - next tick will complete
+                            }
+                        }
+                    }
+                }
+            }
+            return;
+        }
 
         // Step 2: Check formula matches blueprint
-        if (targetFormula && seedMol.formula !== targetFormula) return;
+        if (targetFormula && seedMol.formula !== targetFormula) {
+            // If all atoms are bond-saturated (valid valence) but formula is wrong,
+            // the seed is permanently stuck — no new atoms can bond to it.
+            // Reset it so the atoms are released and we can try again.
+            if (seedMol.hasValidValence()) {
+                this._resetSeed(environment);
+            }
+            return;
+        }
 
         // Step 3: Handle geometry check
         if (!seedMol.geometryVerified) {
@@ -916,15 +970,23 @@ class Intention {
                 const isCorrectMonomer = mol.isMonomer &&
                     (!requiredFormula || mol.formula === requiredFormula);
 
-                if (dist < this.radius && dist > 10) {
+                if (dist > 10) {
                     const direction = this.position.sub(center).normalize();
 
                     if (isCorrectMonomer) {
-                        // Attract correct monomers
-                        const force = direction.mul(this.attractionForce * (1 - dist / this.radius));
-                        mol.applyForce(force);
-                    } else if (mol.isStable()) {
-                        // Only repel STABLE molecules that are NOT the required monomer
+                        // Attract correct monomers with extended range (2x radius).
+                        // Use a minimum force floor so escaped monomers are always
+                        // pulled back even if they drift beyond the normal radius.
+                        if (dist < this.radius * 2) {
+                            const normalized = Math.max(0, 1 - dist / this.radius);
+                            // Use a strong minimum force (1.5x) so escaped monomers are
+                            // reliably pulled back against environmental turbulence.
+                            const forceMag = Math.max(this.attractionForce * 1.5, this.attractionForce * 3.0 * normalized);
+                            mol.applyForce(direction.mul(forceMag));
+                        }
+                    } else if (mol.isStable() && dist < this.radius) {
+                        // Only repel STABLE molecules that are NOT the required monomer,
+                        // and only within the normal radius.
                         // Unstable molecules may still transform into the needed monomer
                         const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
                         const repelForce = direction.mul(-repelStrength);
@@ -1148,7 +1210,9 @@ class Intention {
                 if (mol.claimedByIntentionId && mol.claimedByIntentionId !== this.id) continue;
 
                 const dist = mol.getCenter().distanceTo(this.position);
-                if (dist < this.radius * 0.5) {
+                // Use 0.8x radius (generous) so strongly-attracted monomers can
+                // trigger completion without needing to be perfectly centered.
+                if (dist < this.radius * 0.8) {
                     nearbyMonomers.push(mol);
                 }
             }
