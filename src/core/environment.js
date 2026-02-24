@@ -648,6 +648,8 @@ class Environment {
             if (atom1.availableValence === 0) continue;
             // Skip atoms in seed molecules - bonding is controlled by intentions
             if (this._isInSeedMolecule(atom1)) continue;
+            // Skip claimed atoms - their bonding is controlled exclusively by Rule 6
+            if (atom1.claimedByIntentId) continue;
 
             const nearby = this.getAtomsNear(
                 atom1.position.x,
@@ -661,6 +663,8 @@ class Environment {
                 if (atom2.availableValence === 0) continue;
                 // Skip seed molecule atoms
                 if (this._isInSeedMolecule(atom2)) continue;
+                // Skip claimed atoms - Rule 6 handles their bonding
+                if (atom2.claimedByIntentId) continue;
 
                 // Check for active repulsion (used by molecule decay to prevent rebonding)
                 // Repulsion map stores molecule IDs that released this atom

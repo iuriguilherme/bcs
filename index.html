@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.2-1-gbdfffa1"
-                    class="version-link" target="_blank">v0.22.2-1-gbdfffa1</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.2-2-g856c3aa"
+                    class="version-link" target="_blank">v0.22.2-2-g856c3aa</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1375,8 +1375,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.22.2-1-gbdfffa1
-// Generated: 2026-02-24T06:16:55.093Z
+// Version: v0.22.2-2-g856c3aa
+// Generated: 2026-02-24T06:45:17.444Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -7098,8 +7098,10 @@ class Intention {
             const dist = atom.position.distanceTo(target);
             if (dist > 1) {
                 const dir = target.sub(atom.position).normalize();
-                // Strong attraction force - pulled directly to seed
-                const force = dir.mul(this.attractionForce * 2.5 * (1 - Math.min(1, dist / this.radius)));
+                // Scale force by atom mass so all atoms get equal acceleration (F=ma, a=F/m).
+                // Without this, heavy atoms (C mass=12) converge 12x slower than H (mass=1).
+                const forceMag = this.attractionForce * 2.5 * (1 - Math.min(1, dist / this.radius)) * atom.mass;
+                const force = dir.mul(forceMag);
                 atom.applyForce(force);
             }
         }
@@ -7110,7 +7112,14 @@ class Intention {
         if (claimed.length === 0) return;
 
         // Find a claimed atom that is close enough to bond
-        for (const atom of claimed) {
+        // Sort claimed atoms by valence descending so the "hub" atom (e.g. C in CH4)
+        // is tried first — prevents H-H seeds forming before a C-H seed
+        const claimedByValence = [...claimed].sort((a, b) => b.maxBonds - a.maxBonds);
+        // Only allow the highest-valence claimed atom(s) to act as the seed nucleus.
+        // This prevents falling through to H-H when C can't yet reach an H.
+        const maxValenceInClaimed = claimedByValence.length > 0 ? claimedByValence[0].maxBonds : 0;
+
+        for (const atom of claimedByValence) {
             if (!environment.atoms.has(atom.id)) continue;
 
             if (seedMol) {
@@ -7144,8 +7153,11 @@ class Intention {
                 }
             } else {
                 // No seed molecule yet - this atom becomes the initial seed nucleus
+                // Guard: only the highest-valence atom(s) may act as seed nucleus.
+                // If C (val=4) hasn't found a partner yet, don't fall through to H-H (val=1).
+                if (atom.maxBonds < maxValenceInClaimed) break;
                 // Find another claimed atom to pair with as seed start
-                for (const other of claimed) {
+                for (const other of claimedByValence) {
                     if (other === atom) continue;
                     if (!environment.atoms.has(other.id)) continue;
 
@@ -10680,6 +10692,8 @@ class Environment {
             if (atom1.availableValence === 0) continue;
             // Skip atoms in seed molecules - bonding is controlled by intentions
             if (this._isInSeedMolecule(atom1)) continue;
+            // Skip claimed atoms - their bonding is controlled exclusively by Rule 6
+            if (atom1.claimedByIntentId) continue;
 
             const nearby = this.getAtomsNear(
                 atom1.position.x,
@@ -10693,6 +10707,8 @@ class Environment {
                 if (atom2.availableValence === 0) continue;
                 // Skip seed molecule atoms
                 if (this._isInSeedMolecule(atom2)) continue;
+                // Skip claimed atoms - Rule 6 handles their bonding
+                if (atom2.claimedByIntentId) continue;
 
                 // Check for active repulsion (used by molecule decay to prevent rebonding)
                 // Repulsion map stores molecule IDs that released this atom
