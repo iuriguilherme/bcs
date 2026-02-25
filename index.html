@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.2-4-g9240480"
-                    class="version-link" target="_blank">v0.22.2-4-g9240480</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.2-5-ga43df50"
+                    class="version-link" target="_blank">v0.22.2-5-ga43df50</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1374,8 +1374,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.22.2-4-g9240480
-// Generated: 2026-02-24T17:18:44.622Z
+// Version: v0.22.2-5-ga43df50
+// Generated: 2026-02-25T05:57:08.511Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -5335,9 +5335,14 @@ class Molecule {
 
         if (!bestAtom) return null;
 
-        // Break the weakest bond (first bond = lowest indexed)
-        const bondToBreak = bestAtom.bonds[0];
-        bondToBreak.break(false); // No energy release - intent-controlled extraction
+        // Break ALL bonds on this atom so it fully separates from the molecule.
+        // Breaking only bonds[0] (the previous approach) leaves other bonds intact;
+        // updateMolecules then reconstitutes the atom back into the source molecule
+        // on the same tick, making extraction a no-op for multi-bonded atoms.
+        const bondsToBreak = [...bestAtom.bonds]; // copy — bonds array mutates during break
+        for (const bond of bondsToBreak) {
+            bond.break(false); // No energy release - intent-controlled extraction
+        }
 
         // Give atom a small push away from molecule center
         const center = this.centerOfMass;
@@ -6967,25 +6972,38 @@ class Intention {
     }
 
     _rule2_repelIrrelevantMolecules(environment, state) {
-        const { targetFormula } = state;
+        const { targetFormula, totalNeeded } = state;
         if (!targetFormula) return;
 
         for (const mol of environment.molecules.values()) {
-            // Only repel STABLE molecules that don't match target formula
-            if (!mol.isStable()) continue;
-            if (mol.isReshaping) continue;
-            if (mol.formula === targetFormula) continue;
-            if (mol.isSeedFor) continue; // Never repel seed molecules
+            if (mol.isSeedFor) continue;    // Never repel seed molecules
+            if (mol.polymerId) continue;    // Never repel polymer-protected molecules
+            if (mol.formula === targetFormula) continue; // Already target formula
+
+            // Repel stable molecules always (they block assembly space).
+            // Also repel large unstable molecules larger than the target (tar-balls):
+            // they create dense repulsion fields that push seeds away from intent center
+            // and occupy atoms the intent needs. Small unstable molecules (e.g. C2H2 when
+            // assembling C2H4) are left alone — Rule 4 can extract atoms from them.
+            const shouldRepel = mol.isStable() || mol.atoms.length > totalNeeded;
+            if (!shouldRepel) continue;
 
             const center = mol.centerOfMass;
             const dist = center.distanceTo(this.position);
-            if (dist < this.radius && dist > 10) {
-                const dir = center.sub(this.position).normalize();
-                const strength = Math.max(
-                    this.repulsionForce * (1 - dist / this.radius),
-                    this.repulsionForce * 0.3
-                );
-                mol.applyForce(dir.mul(strength));
+            if (dist >= this.radius || dist <= 10) continue;
+
+            const dir = center.sub(this.position).normalize();
+            const strength = Math.max(
+                this.repulsionForce * (1 - dist / this.radius),
+                this.repulsionForce * 0.3
+            );
+            // Apply force per atom (not via mol.applyForce which divides by total mass).
+            // mol.applyForce gives each atom force * atom_mass/total_mass → acceleration
+            // of force/total_mass, which is negligible for a 200-atom tar-ball.
+            // Per-atom application gives each atom acceleration = strength/atom_mass,
+            // strong enough to actually move large clusters out of the intent zone.
+            for (const atom of mol.atoms) {
+                atom.applyForce(dir.mul(strength));
             }
         }
     }
@@ -7114,22 +7132,35 @@ class Intention {
                 const dir = target.sub(atom.position).normalize();
                 // Scale force by atom mass so all atoms get equal acceleration (F=ma, a=F/m).
                 // Without this, heavy atoms (C mass=12) converge 12x slower than H (mass=1).
-                const forceMag = this.attractionForce * 2.5 * (1 - Math.min(1, dist / this.radius)) * atom.mass;
-                const force = dir.mul(forceMag);
-                atom.applyForce(force);
+                const normalized = Math.max(0, 1 - dist / this.radius);
+                // Minimum force floor: ensure atoms that have escaped the intent radius
+                // (where normalized = 0) are still pulled back. Without the floor, atoms
+                // claimed at high velocity drift beyond radius and get zero force forever.
+                const forceMag = Math.max(
+                    this.attractionForce * 2.5 * normalized * atom.mass,
+                    this.attractionForce * 2.0 * atom.mass
+                );
+                atom.applyForce(dir.mul(forceMag));
             }
         }
 
         // Anchor the seed molecule to this intention's center so it doesn't drift away.
         // Without this, the seed floats freely and claimed atoms can never catch up to it.
+        // Force multiplied by 15 (was 3) to resist repulsion from nearby molecules.
+        // Velocity correction cancels outward motion each tick so seeds converge quickly.
         if (seedMol) {
             for (const seedAtom of seedMol.atoms) {
                 if (!environment.atoms.has(seedAtom.id)) continue;
                 const dist = seedAtom.position.distanceTo(this.position);
                 if (dist > 1) {
                     const dir = this.position.sub(seedAtom.position).normalize();
-                    const forceMag = this.attractionForce * 3.0 * seedAtom.mass;
-                    seedAtom.applyForce(dir.mul(forceMag));
+                    seedAtom.applyForce(dir.mul(this.attractionForce * 15.0 * seedAtom.mass));
+                    // Cancel any velocity component pointing away from intent center
+                    // so accumulated momentum doesn't carry the seed further out
+                    const outward = seedAtom.velocity.dot(dir) * -1; // positive = moving away
+                    if (outward > 0) {
+                        seedAtom.velocity = seedAtom.velocity.add(dir.mul(outward * 0.5));
+                    }
                 }
             }
         }
@@ -10745,6 +10776,18 @@ class Environment {
             for (const atom2 of nearby) {
                 if (atom1 === atom2) continue;
 
+                // Claimed atoms are guided by their intent's attraction force, not the atomic gas.
+                // Skip physics interactions between a claimed atom and an unclaimed free atom
+                // (i.e. one that has neither a claim nor a molecule membership).
+                // Without this, 150+ unclaimed free atoms bouncing in a dense intent zone
+                // displace claimed atoms faster than intent attraction can counteract (repulsion
+                // strength 500 >> attraction force ~2, giving atomic repulsion 230x advantage).
+                const atom1Claimed = !!atom1.claimedByIntentId;
+                const atom2Claimed = !!atom2.claimedByIntentId;
+                const atom2Free = !atom2.claimedByIntentId && !atom2.moleculeId;
+                const atom1Free = !atom1.claimedByIntentId && !atom1.moleculeId;
+                if ((atom1Claimed && atom2Free) || (atom2Claimed && atom1Free)) continue;
+
                 const delta = atom1.position.sub(atom2.position);
                 const distSq = delta.lengthSquared();
                 const minDist = atom1.radius + atom2.radius;
@@ -10827,47 +10870,13 @@ class Environment {
                     const intention1 = this.getIntentionForAtom(atom1);
                     const intention2 = this.getIntentionForAtom(atom2);
                     
-                    // If atoms are in different intentions, heavily reduce bonding
-                    if (intention1 && intention2 && intention1.id !== intention2.id) {
-                        prob *= 0.05; // 95% reduction for cross-intention bonds
-                    }
-                    // If one or both atoms are in an intention
-                    else if (intention1 || intention2) {
-                        const intention = intention1 || intention2;
-                        
-                        // Check if one atom is in a molecule - use smart priority
-                        const atom1InMolecule = atom1.moleculeId && this.molecules.has(atom1.moleculeId);
-                        const atom2InMolecule = atom2.moleculeId && this.molecules.has(atom2.moleculeId);
-                        
-                        if (atom1InMolecule || atom2InMolecule) {
-                            // One atom is in a molecule, the other is potentially free
-                            const moleculeAtom = atom1InMolecule ? atom1 : atom2;
-                            const freeAtom = atom1InMolecule ? atom2 : atom1;
-                            
-                            const priority = this.getAtomBondingPriority(freeAtom, moleculeAtom, intention);
-                            
-                            if (priority === 'needed') {
-                                // This atom is needed by the molecule to reach target - boost!
-                                prob *= 2.0;
-                            } else if (priority === 'excess') {
-                                // This atom would make the molecule further from target - reduce
-                                prob *= 0.05;
-                            } else if (priority === 'stabilizing') {
-                                // Molecule has right composition, trying to stabilize - reduce but allow
-                                prob *= 0.15;
-                            }
-                            // 'neutral' keeps normal probability
-                        } else {
-                            // Neither in a molecule yet - use simple relevance check
-                            const atom1Relevant = this.isAtomRelevantToIntention(atom1, intention);
-                            const atom2Relevant = this.isAtomRelevantToIntention(atom2, intention);
-                            
-                            if (atom1Relevant && atom2Relevant) {
-                                prob *= 1.5;
-                            } else if (!atom1Relevant || !atom2Relevant) {
-                                prob *= 0.1;
-                            }
-                        }
+                    // If either atom is inside a molecule intent zone, block spontaneous bonding.
+                    // Free unclaimed atoms in intent zones must wait to be claimed by Rule 3
+                    // and bonded by Rule 6. Allowing spontaneous bonding here causes all
+                    // unclaimed atoms to merge into a tar-ball mega-molecule, preventing
+                    // the intent from claiming individual atoms.
+                    if (intention1 || intention2) {
+                        prob = 0;
                     }
                     
                     if (Math.random() < prob * 0.3) {

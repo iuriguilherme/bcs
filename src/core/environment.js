@@ -600,6 +600,18 @@ class Environment {
             for (const atom2 of nearby) {
                 if (atom1 === atom2) continue;
 
+                // Claimed atoms are guided by their intent's attraction force, not the atomic gas.
+                // Skip physics interactions between a claimed atom and an unclaimed free atom
+                // (i.e. one that has neither a claim nor a molecule membership).
+                // Without this, 150+ unclaimed free atoms bouncing in a dense intent zone
+                // displace claimed atoms faster than intent attraction can counteract (repulsion
+                // strength 500 >> attraction force ~2, giving atomic repulsion 230x advantage).
+                const atom1Claimed = !!atom1.claimedByIntentId;
+                const atom2Claimed = !!atom2.claimedByIntentId;
+                const atom2Free = !atom2.claimedByIntentId && !atom2.moleculeId;
+                const atom1Free = !atom1.claimedByIntentId && !atom1.moleculeId;
+                if ((atom1Claimed && atom2Free) || (atom2Claimed && atom1Free)) continue;
+
                 const delta = atom1.position.sub(atom2.position);
                 const distSq = delta.lengthSquared();
                 const minDist = atom1.radius + atom2.radius;
@@ -682,47 +694,13 @@ class Environment {
                     const intention1 = this.getIntentionForAtom(atom1);
                     const intention2 = this.getIntentionForAtom(atom2);
                     
-                    // If atoms are in different intentions, heavily reduce bonding
-                    if (intention1 && intention2 && intention1.id !== intention2.id) {
-                        prob *= 0.05; // 95% reduction for cross-intention bonds
-                    }
-                    // If one or both atoms are in an intention
-                    else if (intention1 || intention2) {
-                        const intention = intention1 || intention2;
-                        
-                        // Check if one atom is in a molecule - use smart priority
-                        const atom1InMolecule = atom1.moleculeId && this.molecules.has(atom1.moleculeId);
-                        const atom2InMolecule = atom2.moleculeId && this.molecules.has(atom2.moleculeId);
-                        
-                        if (atom1InMolecule || atom2InMolecule) {
-                            // One atom is in a molecule, the other is potentially free
-                            const moleculeAtom = atom1InMolecule ? atom1 : atom2;
-                            const freeAtom = atom1InMolecule ? atom2 : atom1;
-                            
-                            const priority = this.getAtomBondingPriority(freeAtom, moleculeAtom, intention);
-                            
-                            if (priority === 'needed') {
-                                // This atom is needed by the molecule to reach target - boost!
-                                prob *= 2.0;
-                            } else if (priority === 'excess') {
-                                // This atom would make the molecule further from target - reduce
-                                prob *= 0.05;
-                            } else if (priority === 'stabilizing') {
-                                // Molecule has right composition, trying to stabilize - reduce but allow
-                                prob *= 0.15;
-                            }
-                            // 'neutral' keeps normal probability
-                        } else {
-                            // Neither in a molecule yet - use simple relevance check
-                            const atom1Relevant = this.isAtomRelevantToIntention(atom1, intention);
-                            const atom2Relevant = this.isAtomRelevantToIntention(atom2, intention);
-                            
-                            if (atom1Relevant && atom2Relevant) {
-                                prob *= 1.5;
-                            } else if (!atom1Relevant || !atom2Relevant) {
-                                prob *= 0.1;
-                            }
-                        }
+                    // If either atom is inside a molecule intent zone, block spontaneous bonding.
+                    // Free unclaimed atoms in intent zones must wait to be claimed by Rule 3
+                    // and bonded by Rule 6. Allowing spontaneous bonding here causes all
+                    // unclaimed atoms to merge into a tar-ball mega-molecule, preventing
+                    // the intent from claiming individual atoms.
+                    if (intention1 || intention2) {
+                        prob = 0;
                     }
                     
                     if (Math.random() < prob * 0.3) {

@@ -462,25 +462,38 @@ class Intention {
     }
 
     _rule2_repelIrrelevantMolecules(environment, state) {
-        const { targetFormula } = state;
+        const { targetFormula, totalNeeded } = state;
         if (!targetFormula) return;
 
         for (const mol of environment.molecules.values()) {
-            // Only repel STABLE molecules that don't match target formula
-            if (!mol.isStable()) continue;
-            if (mol.isReshaping) continue;
-            if (mol.formula === targetFormula) continue;
-            if (mol.isSeedFor) continue; // Never repel seed molecules
+            if (mol.isSeedFor) continue;    // Never repel seed molecules
+            if (mol.polymerId) continue;    // Never repel polymer-protected molecules
+            if (mol.formula === targetFormula) continue; // Already target formula
+
+            // Repel stable molecules always (they block assembly space).
+            // Also repel large unstable molecules larger than the target (tar-balls):
+            // they create dense repulsion fields that push seeds away from intent center
+            // and occupy atoms the intent needs. Small unstable molecules (e.g. C2H2 when
+            // assembling C2H4) are left alone — Rule 4 can extract atoms from them.
+            const shouldRepel = mol.isStable() || mol.atoms.length > totalNeeded;
+            if (!shouldRepel) continue;
 
             const center = mol.centerOfMass;
             const dist = center.distanceTo(this.position);
-            if (dist < this.radius && dist > 10) {
-                const dir = center.sub(this.position).normalize();
-                const strength = Math.max(
-                    this.repulsionForce * (1 - dist / this.radius),
-                    this.repulsionForce * 0.3
-                );
-                mol.applyForce(dir.mul(strength));
+            if (dist >= this.radius || dist <= 10) continue;
+
+            const dir = center.sub(this.position).normalize();
+            const strength = Math.max(
+                this.repulsionForce * (1 - dist / this.radius),
+                this.repulsionForce * 0.3
+            );
+            // Apply force per atom (not via mol.applyForce which divides by total mass).
+            // mol.applyForce gives each atom force * atom_mass/total_mass → acceleration
+            // of force/total_mass, which is negligible for a 200-atom tar-ball.
+            // Per-atom application gives each atom acceleration = strength/atom_mass,
+            // strong enough to actually move large clusters out of the intent zone.
+            for (const atom of mol.atoms) {
+                atom.applyForce(dir.mul(strength));
             }
         }
     }
@@ -609,22 +622,35 @@ class Intention {
                 const dir = target.sub(atom.position).normalize();
                 // Scale force by atom mass so all atoms get equal acceleration (F=ma, a=F/m).
                 // Without this, heavy atoms (C mass=12) converge 12x slower than H (mass=1).
-                const forceMag = this.attractionForce * 2.5 * (1 - Math.min(1, dist / this.radius)) * atom.mass;
-                const force = dir.mul(forceMag);
-                atom.applyForce(force);
+                const normalized = Math.max(0, 1 - dist / this.radius);
+                // Minimum force floor: ensure atoms that have escaped the intent radius
+                // (where normalized = 0) are still pulled back. Without the floor, atoms
+                // claimed at high velocity drift beyond radius and get zero force forever.
+                const forceMag = Math.max(
+                    this.attractionForce * 2.5 * normalized * atom.mass,
+                    this.attractionForce * 2.0 * atom.mass
+                );
+                atom.applyForce(dir.mul(forceMag));
             }
         }
 
         // Anchor the seed molecule to this intention's center so it doesn't drift away.
         // Without this, the seed floats freely and claimed atoms can never catch up to it.
+        // Force multiplied by 15 (was 3) to resist repulsion from nearby molecules.
+        // Velocity correction cancels outward motion each tick so seeds converge quickly.
         if (seedMol) {
             for (const seedAtom of seedMol.atoms) {
                 if (!environment.atoms.has(seedAtom.id)) continue;
                 const dist = seedAtom.position.distanceTo(this.position);
                 if (dist > 1) {
                     const dir = this.position.sub(seedAtom.position).normalize();
-                    const forceMag = this.attractionForce * 3.0 * seedAtom.mass;
-                    seedAtom.applyForce(dir.mul(forceMag));
+                    seedAtom.applyForce(dir.mul(this.attractionForce * 15.0 * seedAtom.mass));
+                    // Cancel any velocity component pointing away from intent center
+                    // so accumulated momentum doesn't carry the seed further out
+                    const outward = seedAtom.velocity.dot(dir) * -1; // positive = moving away
+                    if (outward > 0) {
+                        seedAtom.velocity = seedAtom.velocity.add(dir.mul(outward * 0.5));
+                    }
                 }
             }
         }

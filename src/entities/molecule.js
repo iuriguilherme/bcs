@@ -805,9 +805,14 @@ class Molecule {
 
         if (!bestAtom) return null;
 
-        // Break the weakest bond (first bond = lowest indexed)
-        const bondToBreak = bestAtom.bonds[0];
-        bondToBreak.break(false); // No energy release - intent-controlled extraction
+        // Break ALL bonds on this atom so it fully separates from the molecule.
+        // Breaking only bonds[0] (the previous approach) leaves other bonds intact;
+        // updateMolecules then reconstitutes the atom back into the source molecule
+        // on the same tick, making extraction a no-op for multi-bonded atoms.
+        const bondsToBreak = [...bestAtom.bonds]; // copy — bonds array mutates during break
+        for (const bond of bondsToBreak) {
+            bond.break(false); // No energy release - intent-controlled extraction
+        }
 
         // Give atom a small push away from molecule center
         const center = this.centerOfMass;
