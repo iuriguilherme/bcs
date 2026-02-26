@@ -159,7 +159,7 @@ const MONOMER_TEMPLATES = {
     ADENINE_NUCLEOTIDE: {
         id: 'adenine_nucleotide',
         name: 'Adenine Nucleotide',
-        formula: 'C10H14N5O6P',  // Simplified AMP
+        formula: 'C6H5N3O5P',  // Actual formula from simplified 20-atom layout (C10H14N5O6P is real AMP)
         polymerizationType: PolymerizationType.CONDENSATION,
         polymerName: 'Nucleic Acid',
         polymerCategory: 'nucleic_acid',
