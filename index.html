@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.2-8-g4ace3ec"
-                    class="version-link" target="_blank">v0.22.2-8-g4ace3ec</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.2-11-g6110e72"
+                    class="version-link" target="_blank">v0.22.2-11-g6110e72</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1374,8 +1374,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.22.2-8-g4ace3ec
-// Generated: 2026-02-26T06:03:11.089Z
+// Version: v0.22.2-11-g6110e72
+// Generated: 2026-02-26T06:34:13.389Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -3597,11 +3597,71 @@ const STABLE_MOLECULES = {
         ],
         description: 'Butyric acid - short chain fatty acid (CH3-CH2-CH2-COOH)'
     },
+    'C6H5N3O5P': {
+        name: 'Adenine Nucleotide (simplified)',
+        formula: 'C6H5N3O5P',
+        isMonomer: true,
+        polymerName: 'Nucleic Acid',
+        atoms: [
+            // Phosphate group
+            { symbol: 'P', relX: -40, relY: 0 },
+            { symbol: 'O', relX: -55, relY: -15 },
+            { symbol: 'O', relX: -55, relY: 15 },
+            { symbol: 'O', relX: -40, relY: -25 },
+            { symbol: 'O', relX: -25, relY: 0 },
+            // Ribose sugar (simplified)
+            { symbol: 'C', relX: -5, relY: 0 },
+            { symbol: 'C', relX: 10, relY: -15 },
+            { symbol: 'C', relX: 25, relY: -5 },
+            { symbol: 'O', relX: 15, relY: 10 },
+            // Adenine base (simplified)
+            { symbol: 'N', relX: 40, relY: -10 },
+            { symbol: 'C', relX: 55, relY: -20 },
+            { symbol: 'N', relX: 70, relY: -10 },
+            { symbol: 'C', relX: 70, relY: 10 },
+            { symbol: 'C', relX: 55, relY: 20 },
+            { symbol: 'N', relX: 40, relY: 10 },
+            // Hydrogens (representative)
+            { symbol: 'H', relX: -60, relY: -25 },
+            { symbol: 'H', relX: -60, relY: 25 },
+            { symbol: 'H', relX: 55, relY: -35 },
+            { symbol: 'H', relX: 85, relY: -15 },
+            { symbol: 'H', relX: 55, relY: 35 }
+        ],
+        bonds: [
+            // Phosphate
+            { atom1: 0, atom2: 1, order: 2 },
+            { atom1: 0, atom2: 2, order: 1 },
+            { atom1: 0, atom2: 3, order: 1 },
+            { atom1: 0, atom2: 4, order: 1 },
+            // Phosphate to sugar
+            { atom1: 4, atom2: 5, order: 1 },
+            // Sugar ring
+            { atom1: 5, atom2: 6, order: 1 },
+            { atom1: 6, atom2: 7, order: 1 },
+            { atom1: 7, atom2: 8, order: 1 },
+            { atom1: 8, atom2: 5, order: 1 },
+            // Sugar to base
+            { atom1: 7, atom2: 9, order: 1 },
+            // Adenine base
+            { atom1: 9, atom2: 10, order: 1 },
+            { atom1: 10, atom2: 11, order: 2 },
+            { atom1: 11, atom2: 12, order: 1 },
+            { atom1: 12, atom2: 13, order: 2 },
+            { atom1: 13, atom2: 14, order: 1 },
+            { atom1: 14, atom2: 9, order: 1 },
+            // Hydrogens
+            { atom1: 1, atom2: 15, order: 1 },
+            { atom1: 2, atom2: 16, order: 1 },
+            { atom1: 10, atom2: 17, order: 1 },
+            { atom1: 11, atom2: 18, order: 1 },
+            { atom1: 13, atom2: 19, order: 1 }
+        ],
+        description: 'Adenine nucleotide (simplified 20-atom layout) - DNA/RNA building block'
+    },
     'C10H14N5O6P': {
         name: 'Adenine Nucleotide (AMP)',
         formula: 'C10H14N5O6P',
-        isMonomer: true,
-        polymerName: 'Nucleic Acid',
         atoms: [
             // Phosphate group
             { symbol: 'P', relX: -40, relY: 0 },
@@ -3936,6 +3996,16 @@ class Atom {
      */
     get availableValence() {
         return Math.max(0, this.maxBonds - this.bondCount);
+    }
+
+    /**
+     * Whether this atom is isolated from normal inter-particle physics.
+     * Claimed atoms are guided by intention attraction forces and must not be
+     * displaced by free-atom repulsion (repulsion strength 500 >> intent attraction ~2).
+     */
+    get isPhysicsIsolated() {
+        return !!this.claimedByIntentId;
+        // Future: add || !!this.controlledByCellId when cell physics isolation is needed
     }
 
     /**
@@ -4950,6 +5020,7 @@ class Molecule {
         // Copy monomer flag from template if present
         if (this.targetTemplate.isMonomer) {
             this.isMonomer = true;
+            this._detectMonomerType(); // ensure monomerTemplate + monomerId are populated when isMonomer=true
         }
 
         // Final state log
@@ -5335,10 +5406,6 @@ class Molecule {
 
         if (!bestAtom) return null;
 
-        // Break ALL bonds on this atom so it fully separates from the molecule.
-        // Breaking only bonds[0] (the previous approach) leaves other bonds intact;
-        // updateMolecules then reconstitutes the atom back into the source molecule
-        // on the same tick, making extraction a no-op for multi-bonded atoms.
         const bondsToBreak = [...bestAtom.bonds]; // copy — bonds array mutates during break
         for (const bond of bondsToBreak) {
             bond.break(false); // No energy release - intent-controlled extraction
@@ -7120,6 +7187,11 @@ class Intention {
 
     _rule5_attractClaimed(environment, state) {
         const { claimed, seedMol } = state;
+        // Rule 5 force constants (tuned for ~300 atoms, 4 intentions):
+        // CLAIMED_PEAK   = 2.5  (distance-scaled, active in inner 80% of radius)
+        // CLAIMED_FLOOR  = 2.0  (minimum; also active in outer 20%+beyond — prevents freeze)
+        // SEED_ANCHOR    = 15.0 (was 3.0; increased to resist tar-ball repulsion ~8/atom)
+        // SEED_DAMP_FRAC = 0.5  (fraction of outward velocity cancelled per tick, mass-normalised)
         // Attract toward seed center if it exists, otherwise toward intention center
         const target = seedMol ? seedMol.centerOfMass : this.position;
 
@@ -7132,10 +7204,13 @@ class Intention {
                 const dir = target.sub(atom.position).normalize();
                 // Scale force by atom mass so all atoms get equal acceleration (F=ma, a=F/m).
                 // Without this, heavy atoms (C mass=12) converge 12x slower than H (mass=1).
-                const normalized = Math.max(0, 1 - dist / this.radius);
+                const normalized = 1 - dist / this.radius;
                 // Minimum force floor: ensure atoms that have escaped the intent radius
                 // (where normalized = 0) are still pulled back. Without the floor, atoms
                 // claimed at high velocity drift beyond radius and get zero force forever.
+                // Note: floor (2.0) also activates in outer 20% of zone (dist > 0.8*radius) where
+                // normalized < 0.8. This creates a stronger flat pull near the boundary, preventing
+                // atoms from hovering at the zone edge. Intentional behaviour.
                 const forceMag = Math.max(
                     this.attractionForce * 2.5 * normalized * atom.mass,
                     this.attractionForce * 2.0 * atom.mass
@@ -7157,9 +7232,9 @@ class Intention {
                     seedAtom.applyForce(dir.mul(this.attractionForce * 15.0 * seedAtom.mass));
                     // Cancel any velocity component pointing away from intent center
                     // so accumulated momentum doesn't carry the seed further out
-                    const outward = seedAtom.velocity.dot(dir) * -1; // positive = moving away
-                    if (outward > 0) {
-                        seedAtom.velocity = seedAtom.velocity.add(dir.mul(outward * 0.5));
+                    const awayComponent = -seedAtom.velocity.dot(dir); // positive when moving away from center
+                    if (awayComponent > 0) {
+                        seedAtom.applyForce(dir.mul(awayComponent * 0.5 * seedAtom.mass));
                     }
                 }
             }
@@ -10322,12 +10397,8 @@ class Environment {
         
         for (const bond of this.bonds.values()) {
             if (bond.atom1 && bond.atom2) {
-                if (!bond.atom1.bonds.includes(bond)) {
-                    bond.atom1.bonds.push(bond);
-                }
-                if (!bond.atom2.bonds.includes(bond)) {
-                    bond.atom2.bonds.push(bond);
-                }
+                bond.atom1.bonds.push(bond);
+                bond.atom2.bonds.push(bond);
             }
         }
     }
@@ -10485,7 +10556,7 @@ class Environment {
 
         // For polymer intentions, ensure the monomer blueprint exists in the catalogue
         if (intention.type === 'polymer' && intention.blueprint) {
-            const cat = catalogue || (typeof window !== 'undefined' ? window.catalogue : null);
+            const cat = catalogue || window.cellApp?.catalogue || null;
             if (cat && typeof cat.ensureMonomerForPolymer === 'function') {
                 const monomerBlueprint = cat.ensureMonomerForPolymer(intention.blueprint);
                 if (monomerBlueprint) {
@@ -10537,65 +10608,6 @@ class Environment {
             }
         }
         return null;
-    }
-
-    /**
-     * Check if an atom's element is relevant to a molecule intention
-     * @param {Atom} atom - The atom to check
-     * @param {Intention} intention - The intention to check against
-     * @returns {boolean} - True if the atom's element is needed by the intention
-     */
-    isAtomRelevantToIntention(atom, intention) {
-        if (!intention || intention.type !== 'molecule') return false;
-        
-        const targetComp = intention.getTargetComposition();
-        if (!targetComp) return false;
-        
-        // Check if this atom's element is in the target composition
-        return targetComp[atom.symbol] !== undefined && targetComp[atom.symbol] > 0;
-    }
-
-    /**
-     * Check if an atom would help an unstable molecule inside an intention reach its target
-     * @param {Atom} freeAtom - The free atom being considered for bonding
-     * @param {Atom} moleculeAtom - An atom that's part of a molecule inside an intention
-     * @param {Intention} intention - The intention the molecule is inside
-     * @returns {string} - 'needed', 'excess', or 'neutral'
-     */
-    getAtomBondingPriority(freeAtom, moleculeAtom, intention) {
-        if (!intention || intention.type !== 'molecule') return 'neutral';
-        if (!moleculeAtom.moleculeId) return 'neutral';
-        
-        const molecule = this.molecules.get(moleculeAtom.moleculeId);
-        if (!molecule) return 'neutral';
-        
-        // Get the composition delta for this molecule
-        const delta = intention.getCompositionDelta(molecule);
-        if (!delta) return 'neutral';
-        
-        // If the molecule already matches the target composition,
-        // it should try harder not to bond but can still do so
-        if (delta.isMatch) {
-            return 'stabilizing';  // Reduced bonding, but not blocked
-        }
-        
-        // Check if the free atom's element is needed
-        if (delta.needed[freeAtom.symbol]) {
-            return 'needed';
-        }
-        
-        // Check if the free atom's element is already in excess
-        if (delta.excess[freeAtom.symbol]) {
-            return 'excess';
-        }
-        
-        // Check if adding this atom would create excess
-        const targetComp = intention.getTargetComposition();
-        if (!targetComp[freeAtom.symbol]) {
-            return 'excess';  // Not in target at all
-        }
-        
-        return 'neutral';
     }
 
     /**
@@ -10776,17 +10788,13 @@ class Environment {
             for (const atom2 of nearby) {
                 if (atom1 === atom2) continue;
 
-                // Claimed atoms are guided by their intent's attraction force, not the atomic gas.
-                // Skip physics interactions between a claimed atom and an unclaimed free atom
-                // (i.e. one that has neither a claim nor a molecule membership).
-                // Without this, 150+ unclaimed free atoms bouncing in a dense intent zone
-                // displace claimed atoms faster than intent attraction can counteract (repulsion
-                // strength 500 >> attraction force ~2, giving atomic repulsion 230x advantage).
-                const atom1Claimed = !!atom1.claimedByIntentId;
-                const atom2Claimed = !!atom2.claimedByIntentId;
-                const atom2Free = !atom2.claimedByIntentId && !atom2.moleculeId;
-                const atom1Free = !atom1.claimedByIntentId && !atom1.moleculeId;
-                if ((atom1Claimed && atom2Free) || (atom2Claimed && atom1Free)) continue;
+                const atom1Isolated = atom1.isPhysicsIsolated;
+                const atom2Isolated = atom2.isPhysicsIsolated;
+                const atom1FullyFree = !atom1Isolated && !atom1.moleculeId;
+                const atom2FullyFree = !atom2Isolated && !atom2.moleculeId;
+                // Skip inter-particle forces between a claimed atom and a fully free atom.
+                // Claimed atoms are being attracted by intentions; free atoms should not repel them.
+                if ((atom1Isolated && atom2FullyFree) || (atom2Isolated && atom1FullyFree)) continue;
 
                 const delta = atom1.position.sub(atom2.position);
                 const distSq = delta.lengthSquared();
@@ -10845,6 +10853,9 @@ class Environment {
                 bondingRadius
             );
 
+            // Hoist intention check outside inner loop — one call per atom1 iteration
+            const intention1 = this.getIntentionForAtom(atom1);
+
             for (const atom2 of nearby) {
                 if (atom1 === atom2) continue;
                 if (atom1.isBondedTo(atom2)) continue;
@@ -10865,20 +10876,19 @@ class Environment {
                 if (dist < bondDist) {
                     // Base probability increases as atoms get closer
                     let prob = 1 - (dist / bondDist);
-                    
-                    // Check if either atom is inside a molecule intention
-                    const intention1 = this.getIntentionForAtom(atom1);
-                    const intention2 = this.getIntentionForAtom(atom2);
-                    
+
                     // If either atom is inside a molecule intent zone, block spontaneous bonding.
                     // Free unclaimed atoms in intent zones must wait to be claimed by Rule 3
                     // and bonded by Rule 6. Allowing spontaneous bonding here causes all
                     // unclaimed atoms to merge into a tar-ball mega-molecule, preventing
                     // the intent from claiming individual atoms.
-                    if (intention1 || intention2) {
+                    if (intention1) {
                         prob = 0;
+                    } else {
+                        const intention2 = this.getIntentionForAtom(atom2);
+                        if (intention2) prob = 0;
                     }
-                    
+
                     if (Math.random() < prob * 0.3) {
                         const bond = tryFormBond(atom1, atom2, 1);
                         if (bond) {
@@ -11558,6 +11568,27 @@ class MoleculeBlueprint extends Blueprint {
             data
         );
         return blueprint;
+    }
+
+    static isBlueprintStable(bp) {
+        if (!bp.atomData || bp.atomData.length < 2) return false;
+        if (!bp.bondData || bp.bondData.length < 1) return false;
+        const atomValences = {};
+        for (const atom of bp.atomData) {
+            const element = getElement(atom.symbol);
+            if (!element) return false;
+            atomValences[atom.index] = { max: element.valence, used: 0 };
+        }
+        for (const bond of bp.bondData) {
+            const order = bond.order || 1;
+            if (atomValences[bond.atom1Index]) atomValences[bond.atom1Index].used += order;
+            if (atomValences[bond.atom2Index]) atomValences[bond.atom2Index].used += order;
+        }
+        for (const idx in atomValences) {
+            const v = atomValences[idx];
+            if (v.used !== v.max) return false;
+        }
+        return true;
     }
 }
 
@@ -13099,8 +13130,7 @@ class Catalogue {
         for (const [fingerprint, blueprint] of this.molecules) {
             // Monomers have intentional free valence — never treat them as invalid
             if (blueprint.isMonomer) {
-                seenFormulas.set(blueprint.formula, fingerprint);
-                continue;
+                continue; // Monomers are never duplicates of stable molecules
             }
 
             // Check if this is a valid stable molecule
@@ -13145,34 +13175,7 @@ class Catalogue {
      * Check if a blueprint is valid (stable molecule with proper structure)
      */
     _isBlueprintValid(bp) {
-        if (!bp.atomData || bp.atomData.length < 2) return false;
-        if (!bp.bondData || bp.bondData.length < 1) return false;
-
-        // Calculate valence usage for each atom
-        const atomValences = {};
-        for (const atom of bp.atomData) {
-            const element = getElement(atom.symbol);
-            if (!element) return false;
-            atomValences[atom.index] = { max: element.valence, used: 0 };
-        }
-
-        // Count bonds for each atom
-        for (const bond of bp.bondData) {
-            const order = bond.order || 1;
-            if (atomValences[bond.atom1Index]) {
-                atomValences[bond.atom1Index].used += order;
-            }
-            if (atomValences[bond.atom2Index]) {
-                atomValences[bond.atom2Index].used += order;
-            }
-        }
-
-        // Check all atoms have filled valence
-        for (const idx in atomValences) {
-            const v = atomValences[idx];
-            if (v.used !== v.max) return false;
-        }
-        return true;
+        return MoleculeBlueprint.isBlueprintStable(bp);
     }
 
     /**
@@ -13437,6 +13440,9 @@ class Catalogue {
         if (!this.autoRegisterStable) return;
 
         for (const molecule of molecules) {
+            // Note: this guard only short-circuits for stable-molecule JSON fingerprints.
+            // Monomer blueprints use 'monomer:id:formula' format — live monomer molecules
+            // always proceed to isStable() since their fingerprint format never matches.
             if (this.molecules.has(molecule.fingerprint)) continue; // already registered
             if (molecule.isStable()) {
                 this.registerMolecule(molecule);
@@ -14141,6 +14147,15 @@ window.Viewer = Viewer;
  * User interaction handling
  */
 
+function escHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 class Controls {
     /**
      * Create controls handler
@@ -14456,7 +14471,7 @@ class Controls {
             if (this.selectedCellBlueprint) {
                 // Create cell intention zone with selected blueprint
                 const intention = new Intention('cell', this.selectedCellBlueprint, worldPos.x, worldPos.y);
-                this.environment.addIntention(intention);
+                this.environment.addIntention(intention, this.catalogue);
                 console.log(`Placed cell intention: ${this.selectedCellBlueprint.name}`);
             } else {
                 // No blueprint selected - show hint
@@ -14468,12 +14483,12 @@ class Controls {
             if (this.selectedPolymerTemplate) {
                 // Create polymer intention zone
                 const intention = new Intention('polymer', this.selectedPolymerTemplate, worldPos.x, worldPos.y);
-                this.environment.addIntention(intention);
+                this.environment.addIntention(intention, this.catalogue);
                 console.log(`Placed polymer intention: ${this.selectedPolymerTemplate.name}`);
             } else if (this.selectedBlueprint) {
                 // Fall back to molecule intention
                 const intention = new Intention('molecule', this.selectedBlueprint, worldPos.x, worldPos.y);
-                this.environment.addIntention(intention);
+                this.environment.addIntention(intention, this.catalogue);
                 console.log(`Placed molecule intention: ${this.selectedBlueprint.name || this.selectedBlueprint.formula}`);
             }
         }
@@ -14482,7 +14497,7 @@ class Controls {
             if (this.selectedBlueprint) {
                 // Create molecule intention zone
                 const intention = new Intention('molecule', this.selectedBlueprint, worldPos.x, worldPos.y);
-                this.environment.addIntention(intention);
+                this.environment.addIntention(intention, this.catalogue);
                 console.log(`Placed molecule intention: ${this.selectedBlueprint.name || this.selectedBlueprint.formula}`);
             }
             // Don't place atoms at molecule level - require blueprint selection
@@ -14801,7 +14816,7 @@ class Controls {
                     `;
 
                     reqDetails = `
-                        <p><strong>Formula:</strong> ${blueprint.formula || 'Unknown'}</p>
+                        <p><strong>Formula:</strong> ${escHtml(blueprint.formula || 'Unknown')}</p>
                         <p><strong>Configuration:</strong></p>
                         <p style="margin-left: 12px;">• Atoms: ${atomCount} (${elementList})</p>
                         <p style="margin-left: 12px;">• Bonds: ${bondCount}</p>
@@ -14887,9 +14902,9 @@ class Controls {
 
             content.innerHTML = `
                 <div class="inspector-item">
-                    <h3>Intention: ${bpName}</h3>
+                    <h3>Intention: ${escHtml(bpName)}</h3>
                     <p>Type: ${intention.type}</p>
-                    <p>Target: ${bpName}</p>
+                    <p>Target: ${escHtml(bpName)}</p>
                     ${blueprintPreview}
                     <hr style="border-color: #444; margin: 8px 0;">
                     ${reqDetails}
@@ -15246,6 +15261,15 @@ window.Controls = Controls;
  * User interface for the catalogue panel
  */
 
+function escHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 class CatalogueUI {
     /**
      * Create catalogue UI
@@ -15296,36 +15320,7 @@ class CatalogueUI {
         if (!this.listContainer) return;
 
         // Helper: calculate if blueprint is truly stable from its data
-        const isBlueprintStable = (bp) => {
-            if (!bp.atomData || bp.atomData.length < 2) return false;
-            if (!bp.bondData || bp.bondData.length < 1) return false;
-
-            // Calculate valence usage for each atom
-            const atomValences = {};
-            for (const atom of bp.atomData) {
-                const element = getElement(atom.symbol);
-                if (!element) return false;
-                atomValences[atom.index] = { max: element.valence, used: 0 };
-            }
-
-            // Count bonds for each atom
-            for (const bond of bp.bondData) {
-                const order = bond.order || 1;
-                if (atomValences[bond.atom1Index]) {
-                    atomValences[bond.atom1Index].used += order;
-                }
-                if (atomValences[bond.atom2Index]) {
-                    atomValences[bond.atom2Index].used += order;
-                }
-            }
-
-            // Check all atoms have filled valence
-            for (const idx in atomValences) {
-                const v = atomValences[idx];
-                if (v.used !== v.max) return false;
-            }
-            return true;
-        };
+        const isBlueprintStable = (bp) => MoleculeBlueprint.isBlueprintStable(bp);
 
         let html = '';
         const filterLower = filter.toLowerCase();
@@ -15532,16 +15527,18 @@ class CatalogueUI {
 
         content.innerHTML = `
             <div class="inspector-item">
-                <h3>📋 ${blueprint.name || blueprint.formula}</h3>
+                <h3>📋 ${escHtml(blueprint.name || blueprint.formula)}</h3>
                 <p style="color: #94a3b8; font-style: italic; margin-bottom: 8px;">Click on canvas to place intention</p>
                 <div class="inspector-shape-preview">
                     <canvas id="${canvasId}" width="140" height="140"></canvas>
                 </div>
-                <p><strong>Formula:</strong> ${blueprint.formula}</p>
+                <p><strong>Formula:</strong> ${escHtml(blueprint.formula)}</p>
                 <p><strong>Atoms:</strong> ${atomCount} (${elementList})</p>
                 <p><strong>Bonds:</strong> ${bondCount}</p>
                 <p><strong>Mass:</strong> ${blueprint.mass?.toFixed(3) || '?'} u</p>
-                <p style="color: #4ade80;">✓ Stable Configuration</p>
+                ${blueprint.isMonomer
+                    ? '<p style="color: #4ade80;">Monomer — free valence for polymerization</p>'
+                    : '<p style="color: #4ade80;">&#10003; Stable Configuration</p>'}
             </div>
         `;
 
@@ -15773,7 +15770,6 @@ style.textContent = `
         border: 1px solid var(--success);
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        white-space: nowrap;
     }
     
     .inspector-item {
@@ -17345,6 +17341,26 @@ class App {
                 this.catalogueUI.render();
             }
         }
+    }
+
+    /**
+     * Place a monomer intention at a world position
+     * @param {string} monomerId - The monomer template ID (e.g. 'ETHYLENE', 'GLYCINE')
+     * @param {number} x - World X coordinate
+     * @param {number} y - World Y coordinate
+     * @returns {Intention|null} The placed intention or null if monomer not found
+     */
+    placeMonomerIntention(monomerId, x, y) {
+        const bp = this.catalogue.getMonomerById(monomerId);
+        if (!bp) {
+            console.warn(`placeMonomerIntention: no monomer found for id '${monomerId}'`);
+            return null;
+        }
+        const intention = new Intention('molecule', bp, x, y);
+        this.environment.addIntention(intention, this.catalogue);
+        intention.initializeExclusions(this.environment);
+        this.viewer.render();
+        return intention;
     }
 
     /**

@@ -610,6 +610,11 @@ class Intention {
 
     _rule5_attractClaimed(environment, state) {
         const { claimed, seedMol } = state;
+        // Rule 5 force constants (tuned for ~300 atoms, 4 intentions):
+        // CLAIMED_PEAK   = 2.5  (distance-scaled, active in inner 80% of radius)
+        // CLAIMED_FLOOR  = 2.0  (minimum; also active in outer 20%+beyond — prevents freeze)
+        // SEED_ANCHOR    = 15.0 (was 3.0; increased to resist tar-ball repulsion ~8/atom)
+        // SEED_DAMP_FRAC = 0.5  (fraction of outward velocity cancelled per tick, mass-normalised)
         // Attract toward seed center if it exists, otherwise toward intention center
         const target = seedMol ? seedMol.centerOfMass : this.position;
 
@@ -622,10 +627,13 @@ class Intention {
                 const dir = target.sub(atom.position).normalize();
                 // Scale force by atom mass so all atoms get equal acceleration (F=ma, a=F/m).
                 // Without this, heavy atoms (C mass=12) converge 12x slower than H (mass=1).
-                const normalized = Math.max(0, 1 - dist / this.radius);
+                const normalized = 1 - dist / this.radius;
                 // Minimum force floor: ensure atoms that have escaped the intent radius
                 // (where normalized = 0) are still pulled back. Without the floor, atoms
                 // claimed at high velocity drift beyond radius and get zero force forever.
+                // Note: floor (2.0) also activates in outer 20% of zone (dist > 0.8*radius) where
+                // normalized < 0.8. This creates a stronger flat pull near the boundary, preventing
+                // atoms from hovering at the zone edge. Intentional behaviour.
                 const forceMag = Math.max(
                     this.attractionForce * 2.5 * normalized * atom.mass,
                     this.attractionForce * 2.0 * atom.mass
@@ -647,9 +655,9 @@ class Intention {
                     seedAtom.applyForce(dir.mul(this.attractionForce * 15.0 * seedAtom.mass));
                     // Cancel any velocity component pointing away from intent center
                     // so accumulated momentum doesn't carry the seed further out
-                    const outward = seedAtom.velocity.dot(dir) * -1; // positive = moving away
-                    if (outward > 0) {
-                        seedAtom.velocity = seedAtom.velocity.add(dir.mul(outward * 0.5));
+                    const awayComponent = -seedAtom.velocity.dot(dir); // positive when moving away from center
+                    if (awayComponent > 0) {
+                        seedAtom.applyForce(dir.mul(awayComponent * 0.5 * seedAtom.mass));
                     }
                 }
             }

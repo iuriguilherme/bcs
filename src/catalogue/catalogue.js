@@ -136,8 +136,7 @@ class Catalogue {
         for (const [fingerprint, blueprint] of this.molecules) {
             // Monomers have intentional free valence — never treat them as invalid
             if (blueprint.isMonomer) {
-                seenFormulas.set(blueprint.formula, fingerprint);
-                continue;
+                continue; // Monomers are never duplicates of stable molecules
             }
 
             // Check if this is a valid stable molecule
@@ -182,34 +181,7 @@ class Catalogue {
      * Check if a blueprint is valid (stable molecule with proper structure)
      */
     _isBlueprintValid(bp) {
-        if (!bp.atomData || bp.atomData.length < 2) return false;
-        if (!bp.bondData || bp.bondData.length < 1) return false;
-
-        // Calculate valence usage for each atom
-        const atomValences = {};
-        for (const atom of bp.atomData) {
-            const element = getElement(atom.symbol);
-            if (!element) return false;
-            atomValences[atom.index] = { max: element.valence, used: 0 };
-        }
-
-        // Count bonds for each atom
-        for (const bond of bp.bondData) {
-            const order = bond.order || 1;
-            if (atomValences[bond.atom1Index]) {
-                atomValences[bond.atom1Index].used += order;
-            }
-            if (atomValences[bond.atom2Index]) {
-                atomValences[bond.atom2Index].used += order;
-            }
-        }
-
-        // Check all atoms have filled valence
-        for (const idx in atomValences) {
-            const v = atomValences[idx];
-            if (v.used !== v.max) return false;
-        }
-        return true;
+        return MoleculeBlueprint.isBlueprintStable(bp);
     }
 
     /**
@@ -474,6 +446,9 @@ class Catalogue {
         if (!this.autoRegisterStable) return;
 
         for (const molecule of molecules) {
+            // Note: this guard only short-circuits for stable-molecule JSON fingerprints.
+            // Monomer blueprints use 'monomer:id:formula' format — live monomer molecules
+            // always proceed to isStable() since their fingerprint format never matches.
             if (this.molecules.has(molecule.fingerprint)) continue; // already registered
             if (molecule.isStable()) {
                 this.registerMolecule(molecule);

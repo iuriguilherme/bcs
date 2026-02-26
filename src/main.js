@@ -720,6 +720,26 @@ class App {
     }
 
     /**
+     * Place a monomer intention at a world position
+     * @param {string} monomerId - The monomer template ID (e.g. 'ETHYLENE', 'GLYCINE')
+     * @param {number} x - World X coordinate
+     * @param {number} y - World Y coordinate
+     * @returns {Intention|null} The placed intention or null if monomer not found
+     */
+    placeMonomerIntention(monomerId, x, y) {
+        const bp = this.catalogue.getMonomerById(monomerId);
+        if (!bp) {
+            console.warn(`placeMonomerIntention: no monomer found for id '${monomerId}'`);
+            return null;
+        }
+        const intention = new Intention('molecule', bp, x, y);
+        this.environment.addIntention(intention, this.catalogue);
+        intention.initializeExclusions(this.environment);
+        this.viewer.render();
+        return intention;
+    }
+
+    /**
      * Delete an intention by ID
      * @param {string} intentionId - The intention ID to delete
      */

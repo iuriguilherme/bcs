@@ -3,6 +3,15 @@
  * User interface for the catalogue panel
  */
 
+function escHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 class CatalogueUI {
     /**
      * Create catalogue UI
@@ -53,36 +62,7 @@ class CatalogueUI {
         if (!this.listContainer) return;
 
         // Helper: calculate if blueprint is truly stable from its data
-        const isBlueprintStable = (bp) => {
-            if (!bp.atomData || bp.atomData.length < 2) return false;
-            if (!bp.bondData || bp.bondData.length < 1) return false;
-
-            // Calculate valence usage for each atom
-            const atomValences = {};
-            for (const atom of bp.atomData) {
-                const element = getElement(atom.symbol);
-                if (!element) return false;
-                atomValences[atom.index] = { max: element.valence, used: 0 };
-            }
-
-            // Count bonds for each atom
-            for (const bond of bp.bondData) {
-                const order = bond.order || 1;
-                if (atomValences[bond.atom1Index]) {
-                    atomValences[bond.atom1Index].used += order;
-                }
-                if (atomValences[bond.atom2Index]) {
-                    atomValences[bond.atom2Index].used += order;
-                }
-            }
-
-            // Check all atoms have filled valence
-            for (const idx in atomValences) {
-                const v = atomValences[idx];
-                if (v.used !== v.max) return false;
-            }
-            return true;
-        };
+        const isBlueprintStable = (bp) => MoleculeBlueprint.isBlueprintStable(bp);
 
         let html = '';
         const filterLower = filter.toLowerCase();
@@ -289,16 +269,18 @@ class CatalogueUI {
 
         content.innerHTML = `
             <div class="inspector-item">
-                <h3>📋 ${blueprint.name || blueprint.formula}</h3>
+                <h3>📋 ${escHtml(blueprint.name || blueprint.formula)}</h3>
                 <p style="color: #94a3b8; font-style: italic; margin-bottom: 8px;">Click on canvas to place intention</p>
                 <div class="inspector-shape-preview">
                     <canvas id="${canvasId}" width="140" height="140"></canvas>
                 </div>
-                <p><strong>Formula:</strong> ${blueprint.formula}</p>
+                <p><strong>Formula:</strong> ${escHtml(blueprint.formula)}</p>
                 <p><strong>Atoms:</strong> ${atomCount} (${elementList})</p>
                 <p><strong>Bonds:</strong> ${bondCount}</p>
                 <p><strong>Mass:</strong> ${blueprint.mass?.toFixed(3) || '?'} u</p>
-                <p style="color: #4ade80;">✓ Stable Configuration</p>
+                ${blueprint.isMonomer
+                    ? '<p style="color: #4ade80;">Monomer — free valence for polymerization</p>'
+                    : '<p style="color: #4ade80;">&#10003; Stable Configuration</p>'}
             </div>
         `;
 
@@ -530,7 +512,6 @@ style.textContent = `
         border: 1px solid var(--success);
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        white-space: nowrap;
     }
     
     .inspector-item {

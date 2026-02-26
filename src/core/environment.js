@@ -146,12 +146,8 @@ class Environment {
         
         for (const bond of this.bonds.values()) {
             if (bond.atom1 && bond.atom2) {
-                if (!bond.atom1.bonds.includes(bond)) {
-                    bond.atom1.bonds.push(bond);
-                }
-                if (!bond.atom2.bonds.includes(bond)) {
-                    bond.atom2.bonds.push(bond);
-                }
+                bond.atom1.bonds.push(bond);
+                bond.atom2.bonds.push(bond);
             }
         }
     }
@@ -309,7 +305,7 @@ class Environment {
 
         // For polymer intentions, ensure the monomer blueprint exists in the catalogue
         if (intention.type === 'polymer' && intention.blueprint) {
-            const cat = catalogue || (typeof window !== 'undefined' ? window.catalogue : null);
+            const cat = catalogue || window.cellApp?.catalogue || null;
             if (cat && typeof cat.ensureMonomerForPolymer === 'function') {
                 const monomerBlueprint = cat.ensureMonomerForPolymer(intention.blueprint);
                 if (monomerBlueprint) {
@@ -361,65 +357,6 @@ class Environment {
             }
         }
         return null;
-    }
-
-    /**
-     * Check if an atom's element is relevant to a molecule intention
-     * @param {Atom} atom - The atom to check
-     * @param {Intention} intention - The intention to check against
-     * @returns {boolean} - True if the atom's element is needed by the intention
-     */
-    isAtomRelevantToIntention(atom, intention) {
-        if (!intention || intention.type !== 'molecule') return false;
-        
-        const targetComp = intention.getTargetComposition();
-        if (!targetComp) return false;
-        
-        // Check if this atom's element is in the target composition
-        return targetComp[atom.symbol] !== undefined && targetComp[atom.symbol] > 0;
-    }
-
-    /**
-     * Check if an atom would help an unstable molecule inside an intention reach its target
-     * @param {Atom} freeAtom - The free atom being considered for bonding
-     * @param {Atom} moleculeAtom - An atom that's part of a molecule inside an intention
-     * @param {Intention} intention - The intention the molecule is inside
-     * @returns {string} - 'needed', 'excess', or 'neutral'
-     */
-    getAtomBondingPriority(freeAtom, moleculeAtom, intention) {
-        if (!intention || intention.type !== 'molecule') return 'neutral';
-        if (!moleculeAtom.moleculeId) return 'neutral';
-        
-        const molecule = this.molecules.get(moleculeAtom.moleculeId);
-        if (!molecule) return 'neutral';
-        
-        // Get the composition delta for this molecule
-        const delta = intention.getCompositionDelta(molecule);
-        if (!delta) return 'neutral';
-        
-        // If the molecule already matches the target composition,
-        // it should try harder not to bond but can still do so
-        if (delta.isMatch) {
-            return 'stabilizing';  // Reduced bonding, but not blocked
-        }
-        
-        // Check if the free atom's element is needed
-        if (delta.needed[freeAtom.symbol]) {
-            return 'needed';
-        }
-        
-        // Check if the free atom's element is already in excess
-        if (delta.excess[freeAtom.symbol]) {
-            return 'excess';
-        }
-        
-        // Check if adding this atom would create excess
-        const targetComp = intention.getTargetComposition();
-        if (!targetComp[freeAtom.symbol]) {
-            return 'excess';  // Not in target at all
-        }
-        
-        return 'neutral';
     }
 
     /**
@@ -600,17 +537,13 @@ class Environment {
             for (const atom2 of nearby) {
                 if (atom1 === atom2) continue;
 
-                // Claimed atoms are guided by their intent's attraction force, not the atomic gas.
-                // Skip physics interactions between a claimed atom and an unclaimed free atom
-                // (i.e. one that has neither a claim nor a molecule membership).
-                // Without this, 150+ unclaimed free atoms bouncing in a dense intent zone
-                // displace claimed atoms faster than intent attraction can counteract (repulsion
-                // strength 500 >> attraction force ~2, giving atomic repulsion 230x advantage).
-                const atom1Claimed = !!atom1.claimedByIntentId;
-                const atom2Claimed = !!atom2.claimedByIntentId;
-                const atom2Free = !atom2.claimedByIntentId && !atom2.moleculeId;
-                const atom1Free = !atom1.claimedByIntentId && !atom1.moleculeId;
-                if ((atom1Claimed && atom2Free) || (atom2Claimed && atom1Free)) continue;
+                const atom1Isolated = atom1.isPhysicsIsolated;
+                const atom2Isolated = atom2.isPhysicsIsolated;
+                const atom1FullyFree = !atom1Isolated && !atom1.moleculeId;
+                const atom2FullyFree = !atom2Isolated && !atom2.moleculeId;
+                // Skip inter-particle forces between a claimed atom and a fully free atom.
+                // Claimed atoms are being attracted by intentions; free atoms should not repel them.
+                if ((atom1Isolated && atom2FullyFree) || (atom2Isolated && atom1FullyFree)) continue;
 
                 const delta = atom1.position.sub(atom2.position);
                 const distSq = delta.lengthSquared();
@@ -669,6 +602,9 @@ class Environment {
                 bondingRadius
             );
 
+            // Hoist intention check outside inner loop — one call per atom1 iteration
+            const intention1 = this.getIntentionForAtom(atom1);
+
             for (const atom2 of nearby) {
                 if (atom1 === atom2) continue;
                 if (atom1.isBondedTo(atom2)) continue;
@@ -689,20 +625,19 @@ class Environment {
                 if (dist < bondDist) {
                     // Base probability increases as atoms get closer
                     let prob = 1 - (dist / bondDist);
-                    
-                    // Check if either atom is inside a molecule intention
-                    const intention1 = this.getIntentionForAtom(atom1);
-                    const intention2 = this.getIntentionForAtom(atom2);
-                    
+
                     // If either atom is inside a molecule intent zone, block spontaneous bonding.
                     // Free unclaimed atoms in intent zones must wait to be claimed by Rule 3
                     // and bonded by Rule 6. Allowing spontaneous bonding here causes all
                     // unclaimed atoms to merge into a tar-ball mega-molecule, preventing
                     // the intent from claiming individual atoms.
-                    if (intention1 || intention2) {
+                    if (intention1) {
                         prob = 0;
+                    } else {
+                        const intention2 = this.getIntentionForAtom(atom2);
+                        if (intention2) prob = 0;
                     }
-                    
+
                     if (Math.random() < prob * 0.3) {
                         const bond = tryFormBond(atom1, atom2, 1);
                         if (bond) {

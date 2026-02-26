@@ -58,6 +58,16 @@ class Atom {
     }
 
     /**
+     * Whether this atom is isolated from normal inter-particle physics.
+     * Claimed atoms are guided by intention attraction forces and must not be
+     * displaced by free-atom repulsion (repulsion strength 500 >> intent attraction ~2).
+     */
+    get isPhysicsIsolated() {
+        return !!this.claimedByIntentId;
+        // Future: add || !!this.controlledByCellId when cell physics isolation is needed
+    }
+
+    /**
      * Check if this atom can bond with another
      * @param {Atom} other - The other atom
      * @param {number} order - Bond order (1, 2, or 3)

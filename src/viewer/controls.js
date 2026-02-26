@@ -3,6 +3,15 @@
  * User interaction handling
  */
 
+function escHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 class Controls {
     /**
      * Create controls handler
@@ -318,7 +327,7 @@ class Controls {
             if (this.selectedCellBlueprint) {
                 // Create cell intention zone with selected blueprint
                 const intention = new Intention('cell', this.selectedCellBlueprint, worldPos.x, worldPos.y);
-                this.environment.addIntention(intention);
+                this.environment.addIntention(intention, this.catalogue);
                 console.log(`Placed cell intention: ${this.selectedCellBlueprint.name}`);
             } else {
                 // No blueprint selected - show hint
@@ -330,12 +339,12 @@ class Controls {
             if (this.selectedPolymerTemplate) {
                 // Create polymer intention zone
                 const intention = new Intention('polymer', this.selectedPolymerTemplate, worldPos.x, worldPos.y);
-                this.environment.addIntention(intention);
+                this.environment.addIntention(intention, this.catalogue);
                 console.log(`Placed polymer intention: ${this.selectedPolymerTemplate.name}`);
             } else if (this.selectedBlueprint) {
                 // Fall back to molecule intention
                 const intention = new Intention('molecule', this.selectedBlueprint, worldPos.x, worldPos.y);
-                this.environment.addIntention(intention);
+                this.environment.addIntention(intention, this.catalogue);
                 console.log(`Placed molecule intention: ${this.selectedBlueprint.name || this.selectedBlueprint.formula}`);
             }
         }
@@ -344,7 +353,7 @@ class Controls {
             if (this.selectedBlueprint) {
                 // Create molecule intention zone
                 const intention = new Intention('molecule', this.selectedBlueprint, worldPos.x, worldPos.y);
-                this.environment.addIntention(intention);
+                this.environment.addIntention(intention, this.catalogue);
                 console.log(`Placed molecule intention: ${this.selectedBlueprint.name || this.selectedBlueprint.formula}`);
             }
             // Don't place atoms at molecule level - require blueprint selection
@@ -663,7 +672,7 @@ class Controls {
                     `;
 
                     reqDetails = `
-                        <p><strong>Formula:</strong> ${blueprint.formula || 'Unknown'}</p>
+                        <p><strong>Formula:</strong> ${escHtml(blueprint.formula || 'Unknown')}</p>
                         <p><strong>Configuration:</strong></p>
                         <p style="margin-left: 12px;">• Atoms: ${atomCount} (${elementList})</p>
                         <p style="margin-left: 12px;">• Bonds: ${bondCount}</p>
@@ -749,9 +758,9 @@ class Controls {
 
             content.innerHTML = `
                 <div class="inspector-item">
-                    <h3>Intention: ${bpName}</h3>
+                    <h3>Intention: ${escHtml(bpName)}</h3>
                     <p>Type: ${intention.type}</p>
-                    <p>Target: ${bpName}</p>
+                    <p>Target: ${escHtml(bpName)}</p>
                     ${blueprintPreview}
                     <hr style="border-color: #444; margin: 8px 0;">
                     ${reqDetails}

@@ -160,6 +160,27 @@ class MoleculeBlueprint extends Blueprint {
         );
         return blueprint;
     }
+
+    static isBlueprintStable(bp) {
+        if (!bp.atomData || bp.atomData.length < 2) return false;
+        if (!bp.bondData || bp.bondData.length < 1) return false;
+        const atomValences = {};
+        for (const atom of bp.atomData) {
+            const element = getElement(atom.symbol);
+            if (!element) return false;
+            atomValences[atom.index] = { max: element.valence, used: 0 };
+        }
+        for (const bond of bp.bondData) {
+            const order = bond.order || 1;
+            if (atomValences[bond.atom1Index]) atomValences[bond.atom1Index].used += order;
+            if (atomValences[bond.atom2Index]) atomValences[bond.atom2Index].used += order;
+        }
+        for (const idx in atomValences) {
+            const v = atomValences[idx];
+            if (v.used !== v.max) return false;
+        }
+        return true;
+    }
 }
 
 /**
