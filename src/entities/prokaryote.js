@@ -247,7 +247,7 @@ class Prokaryote {
     /**
      * Cell death
      */
-    die(environment) {
+    die(_environment) {
         this.isAlive = false;
 
         // Unlink polymers

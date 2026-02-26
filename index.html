@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.2-11-g6110e72"
-                    class="version-link" target="_blank">v0.22.2-11-g6110e72</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.2-14-gb798a3c"
+                    class="version-link" target="_blank">v0.22.2-14-gb798a3c</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1374,8 +1374,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.22.2-11-g6110e72
-// Generated: 2026-02-26T06:34:13.389Z
+// Version: v0.22.2-14-gb798a3c
+// Generated: 2026-02-26T08:03:24.436Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -1437,7 +1437,7 @@ const Debug = {
     },
 
     category(name, enabled) {
-        if (this.categories.hasOwnProperty(name)) {
+        if (Object.hasOwn(this.categories, name)) {
             this.categories[name] = enabled;
             console.log(`%c[Debug] Category '${name}' ${enabled ? 'ENABLED' : 'DISABLED'}`, 'color: #ffff00');
         } else {
@@ -4943,7 +4943,7 @@ class Molecule {
      * @param {number} dt - Delta time
      * @returns {boolean} True if reshaping completed this tick
      */
-    updateReshaping(dt) {
+    updateReshaping(_dt) {
         if (!this.isReshaping || !this.targetPositions) return false;
 
         // Progress the timer
@@ -6205,7 +6205,7 @@ class Polymer {
         if (this.molecules.length < 2) return;
 
         this.folded = true;
-        const center = this.getCenter();
+        const _center = this.getCenter();
         const numMols = this.molecules.length;
         const spacing = 50;
 
@@ -6846,7 +6846,7 @@ class Intention {
      * @param {Environment} environment - The environment
      * @param {number} dt - Delta time
      */
-    update(environment, dt) {
+    update(environment, _dt) {
         this.age++;
         this.pulsePhase += 0.05;
 
@@ -7011,7 +7011,7 @@ class Intention {
 
     // --- Rule stubs (implemented in Phases 3–7) ---
 
-    _rule1_repelIrrelevantAtoms(environment, state) {
+    _rule1_repelIrrelevantAtoms(_environment, state) {
         const { nearbyAtoms, targetComp, seedAtomIds } = state;
         const targetElements = new Set(Object.keys(targetComp));
 
@@ -7118,7 +7118,7 @@ class Intention {
     }
 
     _rule4_extractFromMolecules(environment, state) {
-        const { targetComp, seedMol, claimed, totalNeeded } = state;
+        const { targetComp, seedMol, claimed, _totalNeeded } = state;
 
         // Calculate deficit - how many of each element do we still need?
         const deficit = Object.assign({}, targetComp);
@@ -7937,7 +7937,7 @@ class Intention {
             if (allSatisfied) {
                 // Gather all matching polymers and form the cell
                 const polymersToUse = [];
-                for (const [role, status] of Object.entries(fulfillment)) {
+                for (const [_role, status] of Object.entries(fulfillment)) {
                     for (let i = 0; i < status.need && i < status.polymers.length; i++) {
                         polymersToUse.push(status.polymers[i]);
                     }
@@ -8310,7 +8310,7 @@ class Intention {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        const icons = { molecule: '&#9883;', polymer: '&#128279;', cell: '&#9678;' };
+        const _icons = { molecule: '&#9883;', polymer: '&#128279;', cell: '&#9678;' };
         ctx.fillText(this.type === 'molecule' ? 'M' : this.type === 'polymer' ? 'P' : 'C', screenX, screenY);
     }
 
@@ -8521,7 +8521,7 @@ class AtomSpawner {
      * Update spawner - called every simulation tick
      * @param {number} dt - Delta time
      */
-    update(dt) {
+    update(_dt) {
         if (!this.active) return;
 
         this.tickCounter++;
@@ -8645,7 +8645,7 @@ class AtomSpawner {
     /**
      * Render spawn indicator
      */
-    _renderSpawnIcon(ctx, x, y, w, h) {
+    _renderSpawnIcon(ctx, x, y, w, _h) {
         const centerX = x + w / 2;
         const centerY = y + 20;
 
@@ -9520,7 +9520,7 @@ class Cell {
     /**
      * Cell death
      */
-    die(environment) {
+    die(_environment) {
         this.isAlive = false;
 
         // Could spawn molecules as remains
@@ -9900,7 +9900,7 @@ class Prokaryote {
     /**
      * Cell death
      */
-    die(environment) {
+    die(_environment) {
         this.isAlive = false;
 
         // Unlink polymers
@@ -11020,7 +11020,7 @@ class Environment {
      * @param {Atom[]} atoms - Atoms to group
      */
     _findAllConnectedGroups(atoms) {
-        const atomSet = new Set(atoms);
+        const _atomSet = new Set(atoms);
         const visited = new Set();
         const groups = [];
 
@@ -11721,7 +11721,7 @@ class OrganismBlueprint extends Blueprint {
         this.phenotype = null;
     }
 
-    instantiate(x, y) {
+    instantiate(_x, _y) {
         // TODO: Implement in Phase 3
         console.warn('OrganismBlueprint.instantiate not yet implemented');
         return null;
@@ -12588,7 +12588,7 @@ function isPolymerUseful(polymer) {
 function getEssentialPolymerTemplates() {
     return Object.entries(CELL_ESSENTIAL_POLYMERS)
         .filter(([_, t]) => t.essential)
-        .map(([key, template]) => new PolymerBlueprint(template));
+        .map(([_key, template]) => new PolymerBlueprint(template));
 }
 
 /**
@@ -12596,7 +12596,7 @@ function getEssentialPolymerTemplates() {
  */
 function getAllPolymerTemplates() {
     return Object.entries(CELL_ESSENTIAL_POLYMERS)
-        .map(([key, template]) => new PolymerBlueprint(template));
+        .map(([_key, template]) => new PolymerBlueprint(template));
 }
 
 /**
@@ -14364,7 +14364,7 @@ class Controls {
     /**
      * Handle mouse up
      */
-    _onMouseUp(event) {
+    _onMouseUp(_event) {
         // End spawner resize if active
         const spawner = window.cellApp?.atomSpawner;
         if (spawner && spawner.resizing) {
@@ -14560,7 +14560,7 @@ class Controls {
      * Handle delete action
      */
     _handleDelete(screenX, screenY) {
-        const worldPos = this.viewer.screenToWorld(screenX, screenY);
+        const _worldPos = this.viewer.screenToWorld(screenX, screenY);
         const scale = this.viewer.camera.zoom;
         const offset = this.viewer.getOffset();
 
@@ -14784,7 +14784,7 @@ class Controls {
             const bpName = intention.blueprint?.name || intention.blueprint?.formula || 'Unknown';
             const requirements = intention.getRequirements();
             const reqCount = requirements?.count || '?';
-            const reqType = requirements?.type || 'components';
+            const _reqType = requirements?.type || 'components';
 
             // Unique canvas ID for blueprint preview
             const canvasId = 'intention-blueprint-preview-' + intention.id.substring(0, 8);
@@ -15308,7 +15308,7 @@ class CatalogueUI {
     /**
      * Callback when new blueprint is added
      */
-    _onBlueprintAdded(blueprint) {
+    _onBlueprintAdded(_blueprint) {
         this.render();
     }
 
@@ -17467,7 +17467,7 @@ class App {
         // Toggle atom in pool on click
         atomPoolSelector.querySelectorAll('.atom-pool-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                const symbol = btn.dataset.symbol;
+                const _symbol = btn.dataset.symbol;
                 const item = btn.closest('.atom-pool-item');
                 const select = item.querySelector('.atom-weight-select');
                 const isSelected = !btn.classList.contains('selected');

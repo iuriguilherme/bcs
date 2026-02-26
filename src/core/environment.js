@@ -769,7 +769,7 @@ class Environment {
      * @param {Atom[]} atoms - Atoms to group
      */
     _findAllConnectedGroups(atoms) {
-        const atomSet = new Set(atoms);
+        const _atomSet = new Set(atoms);
         const visited = new Set();
         const groups = [];
 

@@ -306,7 +306,7 @@ class Cell {
     /**
      * Cell death
      */
-    die(environment) {
+    die(_environment) {
         this.isAlive = false;
 
         // Could spawn molecules as remains

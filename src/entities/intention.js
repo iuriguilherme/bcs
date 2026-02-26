@@ -269,7 +269,7 @@ class Intention {
      * @param {Environment} environment - The environment
      * @param {number} dt - Delta time
      */
-    update(environment, dt) {
+    update(environment, _dt) {
         this.age++;
         this.pulsePhase += 0.05;
 
@@ -434,7 +434,7 @@ class Intention {
 
     // --- Rule stubs (implemented in Phases 3–7) ---
 
-    _rule1_repelIrrelevantAtoms(environment, state) {
+    _rule1_repelIrrelevantAtoms(_environment, state) {
         const { nearbyAtoms, targetComp, seedAtomIds } = state;
         const targetElements = new Set(Object.keys(targetComp));
 
@@ -541,7 +541,7 @@ class Intention {
     }
 
     _rule4_extractFromMolecules(environment, state) {
-        const { targetComp, seedMol, claimed, totalNeeded } = state;
+        const { targetComp, seedMol, claimed, _totalNeeded } = state;
 
         // Calculate deficit - how many of each element do we still need?
         const deficit = Object.assign({}, targetComp);
@@ -1360,7 +1360,7 @@ class Intention {
             if (allSatisfied) {
                 // Gather all matching polymers and form the cell
                 const polymersToUse = [];
-                for (const [role, status] of Object.entries(fulfillment)) {
+                for (const [_role, status] of Object.entries(fulfillment)) {
                     for (let i = 0; i < status.need && i < status.polymers.length; i++) {
                         polymersToUse.push(status.polymers[i]);
                     }
@@ -1733,7 +1733,7 @@ class Intention {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        const icons = { molecule: '&#9883;', polymer: '&#128279;', cell: '&#9678;' };
+        const _icons = { molecule: '&#9883;', polymer: '&#128279;', cell: '&#9678;' };
         ctx.fillText(this.type === 'molecule' ? 'M' : this.type === 'polymer' ? 'P' : 'C', screenX, screenY);
     }
 

@@ -140,7 +140,7 @@ class AtomSpawner {
      * Update spawner - called every simulation tick
      * @param {number} dt - Delta time
      */
-    update(dt) {
+    update(_dt) {
         if (!this.active) return;
 
         this.tickCounter++;
@@ -264,7 +264,7 @@ class AtomSpawner {
     /**
      * Render spawn indicator
      */
-    _renderSpawnIcon(ctx, x, y, w, h) {
+    _renderSpawnIcon(ctx, x, y, w, _h) {
         const centerX = x + w / 2;
         const centerY = y + 20;
 

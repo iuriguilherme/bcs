@@ -56,7 +56,7 @@ const Debug = {
     },
 
     category(name, enabled) {
-        if (this.categories.hasOwnProperty(name)) {
+        if (Object.hasOwn(this.categories, name)) {
             this.categories[name] = enabled;
             console.log(`%c[Debug] Category '${name}' ${enabled ? 'ENABLED' : 'DISABLED'}`, 'color: #ffff00');
         } else {

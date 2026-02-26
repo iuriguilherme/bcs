@@ -312,7 +312,7 @@ class OrganismBlueprint extends Blueprint {
         this.phenotype = null;
     }
 
-    instantiate(x, y) {
+    instantiate(_x, _y) {
         // TODO: Implement in Phase 3
         console.warn('OrganismBlueprint.instantiate not yet implemented');
         return null;

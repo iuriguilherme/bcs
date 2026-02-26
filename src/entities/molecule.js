@@ -343,7 +343,7 @@ class Molecule {
      * @param {number} dt - Delta time
      * @returns {boolean} True if reshaping completed this tick
      */
-    updateReshaping(dt) {
+    updateReshaping(_dt) {
         if (!this.isReshaping || !this.targetPositions) return false;
 
         // Progress the timer

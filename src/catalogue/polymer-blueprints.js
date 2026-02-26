@@ -341,7 +341,7 @@ function isPolymerUseful(polymer) {
 function getEssentialPolymerTemplates() {
     return Object.entries(CELL_ESSENTIAL_POLYMERS)
         .filter(([_, t]) => t.essential)
-        .map(([key, template]) => new PolymerBlueprint(template));
+        .map(([_key, template]) => new PolymerBlueprint(template));
 }
 
 /**
@@ -349,7 +349,7 @@ function getEssentialPolymerTemplates() {
  */
 function getAllPolymerTemplates() {
     return Object.entries(CELL_ESSENTIAL_POLYMERS)
-        .map(([key, template]) => new PolymerBlueprint(template));
+        .map(([_key, template]) => new PolymerBlueprint(template));
 }
 
 /**

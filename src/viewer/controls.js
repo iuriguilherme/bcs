@@ -220,7 +220,7 @@ class Controls {
     /**
      * Handle mouse up
      */
-    _onMouseUp(event) {
+    _onMouseUp(_event) {
         // End spawner resize if active
         const spawner = window.cellApp?.atomSpawner;
         if (spawner && spawner.resizing) {
@@ -416,7 +416,7 @@ class Controls {
      * Handle delete action
      */
     _handleDelete(screenX, screenY) {
-        const worldPos = this.viewer.screenToWorld(screenX, screenY);
+        const _worldPos = this.viewer.screenToWorld(screenX, screenY);
         const scale = this.viewer.camera.zoom;
         const offset = this.viewer.getOffset();
 
@@ -640,7 +640,7 @@ class Controls {
             const bpName = intention.blueprint?.name || intention.blueprint?.formula || 'Unknown';
             const requirements = intention.getRequirements();
             const reqCount = requirements?.count || '?';
-            const reqType = requirements?.type || 'components';
+            const _reqType = requirements?.type || 'components';
 
             // Unique canvas ID for blueprint preview
             const canvasId = 'intention-blueprint-preview-' + intention.id.substring(0, 8);

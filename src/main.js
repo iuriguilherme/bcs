@@ -843,7 +843,7 @@ class App {
         // Toggle atom in pool on click
         atomPoolSelector.querySelectorAll('.atom-pool-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                const symbol = btn.dataset.symbol;
+                const _symbol = btn.dataset.symbol;
                 const item = btn.closest('.atom-pool-item');
                 const select = item.querySelector('.atom-weight-select');
                 const isSelected = !btn.classList.contains('selected');

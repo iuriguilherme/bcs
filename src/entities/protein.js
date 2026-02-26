@@ -102,7 +102,7 @@ class Protein {
         this.folded = true;
 
         // Simple folding: arrange molecules in a spiral pattern
-        const center = this.getCenter();
+        const _center = this.getCenter();
         const numMols = this.molecules.length;
         const spacing = 50;  // Distance between molecules
 

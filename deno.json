@@ -1,0 +1,8 @@
+{
+  "lint": {
+    "include": ["src/", "build.ts"],
+    "rules": {
+      "exclude": ["no-window", "no-window-prefix", "require-await"]
+    }
+  }
+}

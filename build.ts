@@ -9,7 +9,7 @@
  *   deno run --allow-read --allow-write --allow-run build.ts v1.2.3  # Uses specified version
  */
 
-const sourceDir = './src';
+const _sourceDir = './src';
 const devHtml = './dev.html';        // Development entry point (separate scripts)
 const outputFile = './index.html';   // Production bundle for GitHub Pages
 const cssFile = './index.css';

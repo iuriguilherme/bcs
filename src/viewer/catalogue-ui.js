@@ -50,7 +50,7 @@ class CatalogueUI {
     /**
      * Callback when new blueprint is added
      */
-    _onBlueprintAdded(blueprint) {
+    _onBlueprintAdded(_blueprint) {
         this.render();
     }
 

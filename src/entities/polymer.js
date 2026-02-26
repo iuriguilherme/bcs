@@ -361,7 +361,7 @@ class Polymer {
         if (this.molecules.length < 2) return;
 
         this.folded = true;
-        const center = this.getCenter();
+        const _center = this.getCenter();
         const numMols = this.molecules.length;
         const spacing = 50;
 
