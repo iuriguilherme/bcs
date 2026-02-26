@@ -29,6 +29,34 @@ It is auto-generated from source files and will be overwritten on rebuild. Alway
 
 ---
 
+## Critical: Git Safety Rules
+
+**NEVER run destructive git commands without checking for uncommitted work first.**
+
+### Before ANY of these commands:
+- `git reset --hard`
+- `git checkout .`
+- `git clean -f`
+- `git stash drop`
+
+### ALWAYS do this first:
+1. Run `git status` to check for uncommitted changes
+2. If there are modified/untracked files, **STOP and warn the user**
+3. Ask if they want to stash or commit the changes first
+4. Only proceed with explicit user confirmation
+
+### Safe alternatives:
+- Use `git reset --soft` instead of `--hard` to preserve working directory
+- Use `git stash` before destructive operations
+- Use `git revert` instead of `reset` to undo commits safely
+
+### Why this matters:
+On 2026-01-23, a `git reset --hard HEAD~2` command destroyed all uncommitted work in this repository (16 modified files). Uncommitted changes CANNOT be recovered from git. This rule exists to prevent that from ever happening again.
+
+**If the user asks to undo commits and there are uncommitted changes: REFUSE to run `git reset --hard`. Offer `git revert` or ask them to commit/stash first.**
+
+---
+
 ## Project Architecture
 
 ### High-Level Data Flow

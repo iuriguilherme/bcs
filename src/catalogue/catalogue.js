@@ -134,6 +134,12 @@ class Catalogue {
         const toRemove = [];
 
         for (const [fingerprint, blueprint] of this.molecules) {
+            // Monomers have intentional free valence — never treat them as invalid
+            if (blueprint.isMonomer) {
+                seenFormulas.set(blueprint.formula, fingerprint);
+                continue;
+            }
+
             // Check if this is a valid stable molecule
             const isValid = this._isBlueprintValid(blueprint);
 
