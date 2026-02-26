@@ -113,7 +113,7 @@ class CatalogueUI {
         const allBlueprints = filter
             ? this.catalogue.search(filter)
             : this.catalogue.getAllMolecules();
-        const blueprints = allBlueprints.filter(bp => isBlueprintStable(bp));
+        const blueprints = allBlueprints.filter(bp => isBlueprintStable(bp) || bp.isMonomer);
         blueprints.sort((a, b) => b.createdAt - a.createdAt);
 
         if (blueprints.length > 0) {
@@ -212,7 +212,9 @@ class CatalogueUI {
                     <div class="catalogue-item-formula">${atomCount} atoms</div>
                 </div>
                 <div class="catalogue-item-status">
-                    ${blueprint.isStable ? '&#10003;' : '!'}
+                    ${blueprint.isMonomer
+                        ? '<span class="monomer-badge">Monomer</span>'
+                        : blueprint.isStable ? '&#10003;' : '!'}
                 </div>
             </div>
         `;
@@ -516,6 +518,19 @@ style.textContent = `
     
     .catalogue-item-status {
         font-size: 1rem;
+    }
+
+    .monomer-badge {
+        font-size: 0.6rem;
+        font-weight: 700;
+        color: var(--success);
+        background: color-mix(in srgb, var(--success) 12%, transparent);
+        padding: 2px 5px;
+        border-radius: 8px;
+        border: 1px solid var(--success);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        white-space: nowrap;
     }
     
     .inspector-item {

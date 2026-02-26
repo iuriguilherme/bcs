@@ -468,7 +468,8 @@ class Catalogue {
         if (!this.autoRegisterStable) return;
 
         for (const molecule of molecules) {
-            if (molecule.isStable() && !this.hasMolecule(molecule.fingerprint)) {
+            if (this.molecules.has(molecule.fingerprint)) continue; // already registered
+            if (molecule.isStable()) {
                 this.registerMolecule(molecule);
             }
         }

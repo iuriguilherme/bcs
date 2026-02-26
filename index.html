@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.2-5-ga43df50"
-                    class="version-link" target="_blank">v0.22.2-5-ga43df50</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.2-6-g5d85d71"
+                    class="version-link" target="_blank">v0.22.2-6-g5d85d71</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1374,8 +1374,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.22.2-5-ga43df50
-// Generated: 2026-02-25T05:57:08.511Z
+// Version: v0.22.2-6-g5d85d71
+// Generated: 2026-02-26T05:38:49.542Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -13431,7 +13431,8 @@ class Catalogue {
         if (!this.autoRegisterStable) return;
 
         for (const molecule of molecules) {
-            if (molecule.isStable() && !this.hasMolecule(molecule.fingerprint)) {
+            if (this.molecules.has(molecule.fingerprint)) continue; // already registered
+            if (molecule.isStable()) {
                 this.registerMolecule(molecule);
             }
         }
@@ -15349,7 +15350,7 @@ class CatalogueUI {
         const allBlueprints = filter
             ? this.catalogue.search(filter)
             : this.catalogue.getAllMolecules();
-        const blueprints = allBlueprints.filter(bp => isBlueprintStable(bp));
+        const blueprints = allBlueprints.filter(bp => isBlueprintStable(bp) || bp.isMonomer);
         blueprints.sort((a, b) => b.createdAt - a.createdAt);
 
         if (blueprints.length > 0) {
@@ -15448,7 +15449,9 @@ class CatalogueUI {
                     <div class="catalogue-item-formula">${atomCount} atoms</div>
                 </div>
                 <div class="catalogue-item-status">
-                    ${blueprint.isStable ? '&#10003;' : '!'}
+                    ${blueprint.isMonomer
+                        ? '<span class="monomer-badge">Monomer</span>'
+                        : blueprint.isStable ? '&#10003;' : '!'}
                 </div>
             </div>
         `;
@@ -15752,6 +15755,19 @@ style.textContent = `
     
     .catalogue-item-status {
         font-size: 1rem;
+    }
+
+    .monomer-badge {
+        font-size: 0.6rem;
+        font-weight: 700;
+        color: var(--success);
+        background: color-mix(in srgb, var(--success) 12%, transparent);
+        padding: 2px 5px;
+        border-radius: 8px;
+        border: 1px solid var(--success);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        white-space: nowrap;
     }
     
     .inspector-item {
