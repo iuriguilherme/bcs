@@ -33,7 +33,7 @@ Open `index.html` which is the bundled file containing all CSS and JavaScript in
 ### Building the Bundle
 To rebuild `index.html` from source files:
 ```bash
-deno run --allow-read --allow-write build.ts
+deno run --allow-read --allow-write --allow-run build.ts
 ```
 
 **Important**: Changes to source files in `src/` do NOT automatically update `index.html`. You must run the build script.
@@ -42,35 +42,52 @@ deno run --allow-read --allow-write build.ts
 
 ```
 cs1/
-├── index.html          # Production bundle (served by GitHub Pages)
-├── dev.html            # Development entry point (loads separate scripts)
-├── index.css           # Main stylesheet
-├── build.ts            # Deno build script to generate index.html
+├── index.html           # Production bundle (served by GitHub Pages)
+├── dev.html             # Development entry point (loads individual scripts)
+├── index.css            # Main stylesheet
+├── build.ts             # Deno build script
+├── deno.json            # Deno configuration (lint scope, task aliases)
+├── package.json         # npm dependencies (Playwright test runner)
+├── playwright.config.js # Playwright test configuration
 ├── src/
-│   ├── main.js         # Application entry point
+│   ├── main.js          # Application initialization
 │   ├── core/
-│   │   ├── environment.js  # Entity container with spatial management
-│   │   ├── simulation.js   # Main update loop and timing
-│   │   └── utils.js        # Helper functions, Vector2, etc.
+│   │   ├── environment.js   # Entity container, spatial grid, physics
+│   │   ├── simulation.js    # Main update loop and timing
+│   │   └── utils.js         # Helpers (Vector2, random, Debug)
 │   ├── data/
-│   │   └── periodic-table.js  # Element definitions with valence/mass/color
+│   │   ├── periodic-table.js   # Element definitions (valence, mass, color)
+│   │   └── stable-molecules.js # Pre-defined stable molecule patterns
 │   ├── entities/
-│   │   ├── atom.js       # Fundamental particle with valence bonding
-│   │   ├── bond.js       # Chemical bonds with spring physics
-│   │   ├── molecule.js   # Bonded atom groups
-│   │   ├── polymer.js    # Molecule chains (proteins, lipids, etc.)
-│   │   ├── protein.js    # Legacy protein entity
-│   │   ├── cell.js       # Living cell with neural network brain
-│   │   ├── cell-memory.js # Cell memory system
-│   │   └── intention.js  # Blueprint attraction zones
+│   │   ├── atom.js               # Chemical particle with valence bonding
+│   │   ├── bond.js               # Chemical bonds (spring physics)
+│   │   ├── molecule.js           # Bonded atom groups with stability detection
+│   │   ├── polymer.js            # Molecule chains (proteins, lipids, nucleic acids)
+│   │   ├── cell.js               # Living unit with neural network behavior
+│   │   ├── intention.js          # Blueprint attraction zones
+│   │   ├── cell-memory.js        # Memory system for cell behavior
+│   │   ├── prokaryote.js         # Prokaryotic cell implementation
+│   │   └── prokaryote-factory.js # Blueprint factory for prokaryotes
 │   ├── catalogue/
-│   │   ├── blueprint.js       # Blueprint base classes
-│   │   ├── catalogue.js       # IndexedDB-backed blueprint storage
-│   │   └── polymer-blueprints.js # Polymer template definitions
+│   │   ├── blueprint.js          # Base blueprint classes
+│   │   ├── catalogue.js          # IndexedDB-backed discovery and storage
+│   │   ├── monomer-templates.js  # Essential monomer definitions
+│   │   ├── polymer-blueprints.js # Polymer templates (lipids, proteins, DNA)
+│   │   └── cell-blueprints.js    # Cell type definitions
+│   ├── systems/
+│   │   ├── atom-spawner.js    # Continuous atom spawning
+│   │   └── neural-network.js  # Neural network for cell behavior
 │   └── viewer/
-│       ├── viewer.js       # Multi-level rendering
-│       ├── controls.js     # Input handling (mouse, keyboard)
-│       └── catalogue-ui.js # Right panel UI for catalogue
+│       ├── viewer.js       # Multi-level rendering engine
+│       ├── controls.js     # Input handling (mouse, keyboard, tools)
+│       ├── catalogue-ui.js # Right-panel blueprint UI
+│       └── tutorial.js     # Interactive tutorial system
+└── tests/
+    ├── fixtures/
+    │   └── app.js          # Shared test helpers
+    ├── scenarios/          # Playwright test scenarios (t01–t06)
+    ├── stub_test.ts        # Deno CI placeholder
+    └── README.md           # Test documentation and spawn rate reference
 ```
 
 ## Core Concepts
@@ -149,25 +166,32 @@ The following elements are available in the atom palette:
 
 ### Building the Bundle
 
-The project uses a Deno build script to generate `cell-simulator.html` from source files:
-
 ```bash
-# Build the bundle
-deno run --allow-read --allow-write build.ts
+deno run --allow-read --allow-write --allow-run build.ts
 ```
 
-This concatenates all JavaScript from `src/` and inlines CSS into a single HTML file.
+Concatenates all JavaScript from `src/` and inlines CSS into `index.html`.
 
-**Note**: The bundle still references `assets/css/all.min.css` for Font Awesome icons. For complete offline usage, include the `assets/` folder alongside the bundle.
-
-### Project Files
+### Key Files
 
 | File | Purpose |
 |------|---------|
-| `index.html` | Development entry - loads individual scripts |
-| `cell-simulator.html` | Production bundle - generated by build.ts |
-| `build.ts` | Deno build script |
-| `bundle.js` | Legacy bundle (not used) |
+| `dev.html` | Development entry — loads individual scripts for easy debugging |
+| `index.html` | Production bundle — auto-generated, served by GitHub Pages |
+| `build.ts` | Deno build script (requires `--allow-run` for `git describe`) |
+| `deno.json` | Lint scope (`src/`, `build.ts`) and rule exclusions |
+
+### Testing
+
+Playwright automated tests cover core simulation behaviors end-to-end:
+
+```bash
+npm install && npx playwright install chromium  # first time only
+npm test          # run all scenarios (dev.html + index.html)
+npm run test:dev  # dev.html only
+```
+
+Tests live in `tests/scenarios/`. Every fix must pass `npm test` before being considered complete — see `CLAUDE.md` Testing Requirements for full rules.
 
 
 ## License

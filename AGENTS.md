@@ -731,9 +731,45 @@ Each requirement in `requirements` specifies:
 
 ---
 
-## ✅ Testing Checklist
+## 🤖 Automated Testing (Playwright)
 
-Before considering a change complete, verify:
+Playwright tests are **mandatory** before marking any fix complete. See `CLAUDE.md` Testing Requirements section for full rules.
+
+```bash
+npm test             # all scenarios, both dev.html and index.html
+npm run test:dev     # dev.html only
+npx playwright test t01  # specific scenario
+```
+
+| Scenario | Status | What it covers |
+|----------|--------|----------------|
+| `t01-molecule-formation` | ✅ Pass | C2H4 forms from spawned atoms |
+| `t02-molecule-intent` | ✅ Pass | Competing intents don't cannibalize each other |
+| `t03-polymer-formation` | ✅ Pass | Polyethylene from overlapping molecule intents |
+| `t04-polymer-intent` | ✅ Pass | Polymer intent drives full monomer→polymer pipeline |
+| `t05-cell-formation` | ⚠️ `test.fail()` | Cell formation (known bug — expected to fail) |
+| `t06-view-consistency` | ✅ Pass | Level-switch rendering stays non-zero |
+
+**Key rules:**
+- Every test must click `#playPauseBtn` — tests that never start the simulation are invalid
+- Atoms must come from `AtomSpawner`, not manual placement (mirrors real gameplay)
+- Both `dev.html` and `index.html` must pass — a dev-only fix is not a valid fix
+
+## 📚 Institutional Knowledge (docs/solutions/)
+
+Non-trivial bugs and their solutions are documented in `docs/solutions/`:
+
+- `logic-errors/` — Physics, molecule formation, and intention system fixes
+- `test-failures/` — Test infrastructure issues and Playwright audit findings
+- `build-errors/` — CI, lint, and bundle pipeline issues (when added)
+
+Use the `learnings-researcher` subagent or search `docs/solutions/` before investigating a similar symptom — it may already be solved.
+
+---
+
+## ✅ Manual Testing Checklist
+
+Before considering a change complete, verify (in addition to Playwright):
 
 ### Basic Molecule Tests
 1. [ ] Place H atoms → they bond to form H2
@@ -846,5 +882,5 @@ When making changes:
 
 1. Make the change in the source file under `src/`
 2. Find the equivalent code in `index.html` (the bundle)
-3. Apply the same change to the bundle, OR run `deno run --allow-read --allow-write build.ts`
+3. Apply the same change to the bundle, OR run `deno run --allow-read --allow-write --allow-run build.ts`
 4. Verify both `dev.html` and `index.html` work correctly
