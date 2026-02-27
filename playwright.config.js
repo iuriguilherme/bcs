@@ -15,7 +15,7 @@ export default defineConfig({
     command: 'python -m http.server 8765',
     url: 'http://localhost:8765',
     reuseExistingServer: true,
-    timeout: 10_000,
+    timeout: 30_000,   // cold CI start (Python interpreter + bind) can take 8-15s; 30s is safe margin
   },
 
   use: {
@@ -25,7 +25,10 @@ export default defineConfig({
     // timeouts on each call instead (pressPlay→5s, enableSpawner→3s, T01→90s, etc.).
     navigationTimeout: 20_000,
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    // On CI: keep video for ALL attempts — a test that fails then passes on retry loses its
+    // failure video with 'retain-on-failure', making flaky physics runs undiagnosable.
+    // Locally: only keep on failure to avoid filling disk during development.
+    video: process.env.CI ? 'on' : 'retain-on-failure',
     trace: 'on-first-retry',
   },
 

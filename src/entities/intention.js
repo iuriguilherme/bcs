@@ -541,7 +541,7 @@ class Intention {
     }
 
     _rule4_extractFromMolecules(environment, state) {
-        const { targetComp, seedMol, claimed, _totalNeeded } = state;
+        const { targetComp, seedMol, claimed } = state;
 
         // Calculate deficit - how many of each element do we still need?
         const deficit = Object.assign({}, targetComp);
@@ -1733,7 +1733,6 @@ class Intention {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        const _icons = { molecule: '&#9883;', polymer: '&#128279;', cell: '&#9678;' };
         ctx.fillText(this.type === 'molecule' ? 'M' : this.type === 'polymer' ? 'P' : 'C', screenX, screenY);
     }
 

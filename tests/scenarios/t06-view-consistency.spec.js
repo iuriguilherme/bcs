@@ -7,27 +7,33 @@
 // hides detail at higher levels). The bug being tested is entities *disappearing*
 // from environment state entirely (molecules.size drops to 0), not pixel rendering.
 // Assert env.molecules.size > 0 at each level — not canvas pixel sampling.
+//
+// Setup: injects an H2 molecule directly (2 H atoms + 1 bond) rather than running
+// the full C2H4 intent pipeline. T01 is the regression guard for molecule formation;
+// T06 only needs *a* molecule to exist in order to test the level-switch code path.
+// This brings T06 from a 90s worst-case wait down to < 5s.
 
-import { test, expect, pressPlay, enableSpawner, placeEthyleneIntent } from '../fixtures/app.js';
+import { test, expect } from '../fixtures/app.js';
 
 test('T06: molecule count stays non-zero after level transitions', async ({ page }) => {
-  // ── Setup: same as T01 — run until a C2H4 molecule forms ─────────────────────
+  // Inject an H2 molecule (2 H atoms + 1 bond) at world center.
+  // window.Atom, window.Bond, and env.updateMolecules() are all available.
+  // updateMolecules() runs the BFS that groups bonded atoms into Molecule objects.
   await page.evaluate(() => {
-    window.cellApp.atomSpawner.zone = { x: 700, y: 700, width: 600, height: 600 };
-    window.cellApp.atomSpawner.tickInterval = 8;
+    const env = window.cellApp.environment;
+    const h1 = new window.Atom('H', 990, 1000);
+    const h2 = new window.Atom('H', 1010, 1000);
+    env.addAtom(h1);
+    env.addAtom(h2);
+    const bond = new window.Bond(h1, h2, 1);
+    env.addBond(bond);
+    env.updateMolecules();
+    window.cellApp.viewer.render();
   });
-  await enableSpawner(page, ['C', 'C', 'H', 'H', 'H', 'H']);
-  await placeEthyleneIntent(page, 1000, 1000);
-  await pressPlay(page);
 
-  // Wait for at least one 6-atom molecule to exist
-  await page.waitForFunction(
-    () => {
-      const mols = [...window.cellApp.environment.molecules.values()];
-      return mols.some(m => m.atoms.length === 6);
-    },
-    { timeout: 90_000, polling: 500 }
-  );
+  // Verify injection succeeded before testing level switches
+  const initialCount = await page.evaluate(() => window.cellApp.environment.molecules.size);
+  expect(initialCount, 'H2 injection failed — no molecules in environment').toBeGreaterThan(0);
 
   // ── Assertions: check molecule count at each level ────────────────────────────
 

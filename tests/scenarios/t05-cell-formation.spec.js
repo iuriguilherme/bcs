@@ -48,7 +48,8 @@ test('T05: full E2E cell formation from atom spawner', async ({ page }) => {
   // pass" — the signal to remove the test.fail() annotation.
   const cellCount = await page.evaluate(() => {
     const env = window.cellApp.environment;
-    return (env.getAllProkaryotes?.() || []).filter(c => c.isAlive).length;
+    if (typeof env.getAllProkaryotes !== 'function') throw new Error('env.getAllProkaryotes() missing — API contract broken');
+    return env.getAllProkaryotes().filter(c => c.isAlive).length;
   });
   expect(cellCount, 'Expected at least one living cell to form').toBeGreaterThan(0);
 });

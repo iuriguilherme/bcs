@@ -3,6 +3,14 @@
  * Initializes and connects all components
  */
 
+function escHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 class App {
     constructor() {
         // Core components
@@ -396,8 +404,8 @@ class App {
 
             palette.innerHTML = blueprints.map(bp => `
                 <button class="palette-btn molecule-btn" data-fingerprint="${escapeAttr(bp.fingerprint)}">
-                    <span class="formula">${bp.name || bp.formula}</span>
-                    <span class="info">${bp.formula} &bull; ${bp.atomData.length} atoms</span>
+                    <span class="formula">${escHtml(bp.name || bp.formula)}</span>
+                    <span class="info">${escHtml(bp.formula)} &bull; ${bp.atomData.length} atoms</span>
                 </button>
             `).join('');
 
@@ -550,8 +558,8 @@ class App {
                         style="border-left: 3px solid ${color};">
                     <span class="symbol" style="color: ${color};">🦠</span>
                     <span class="info">
-                        <strong>${bp.name}</strong>
-                        ${bp.species ? `<em style="font-size: 0.8em; color: #94a3b8;">${bp.species}</em>` : ''}
+                        <strong>${escHtml(bp.name)}</strong>
+                        ${bp.species ? `<em style="font-size: 0.8em; color: #94a3b8;">${escHtml(bp.species)}</em>` : ''}
                     </span>
                 </button>
             `;
@@ -610,9 +618,9 @@ class App {
         const color = blueprint.color || '#8b5cf6';
         let html = `
             <div class="inspector-item">
-                <h3 style="color: ${color};">${blueprint.name}</h3>
-                ${blueprint.species ? `<p style="color: #94a3b8; font-style: italic;">${blueprint.species}</p>` : ''}
-                <p>${blueprint.description || ''}</p>
+                <h3 style="color: ${color};">${escHtml(blueprint.name)}</h3>
+                ${blueprint.species ? `<p style="color: #94a3b8; font-style: italic;">${escHtml(blueprint.species)}</p>` : ''}
+                <p>${escHtml(blueprint.description || '')}</p>
                 <hr style="border-color: #444; margin: 8px 0;">
                 <p><strong>Required Polymers:</strong></p>
         `;

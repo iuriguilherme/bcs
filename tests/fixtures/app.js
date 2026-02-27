@@ -159,35 +159,24 @@ export async function enableSpawner(page, atomPool = ['C', 'H']) {
  * Place a molecule intention for Ethylene (C2H4) at the given world coordinates.
  *
  * Uses page.evaluate to create the intention directly — test scaffolding analogous
- * to setting atomSpawner.zone. The blueprint stub includes the correct atomData
- * format required by Intention.getTargetComposition() and getRequirements().
+ * to setting atomSpawner.zone. Sources the blueprint from the canonical
+ * MONOMER_TEMPLATES.ETHYLENE via window.createMonomerBlueprint() to eliminate
+ * drift risk: if the template geometry changes, tests automatically use the new shape.
+ *
+ * The fingerprint is overridden to be position-unique so that multiple intents of
+ * the same type can coexist without catalogue conflicts (e.g. T02, T04).
  *
  * The actual simulation (physics, bonding, rule pipeline) runs with no bypasses.
  */
 export async function placeEthyleneIntent(page, worldX, worldY) {
   await page.evaluate(([wx, wy]) => {
-    const bp = {
-      formula: 'C2H4',
-      name: 'Ethylene',
-      type: 'molecule',
-      // Unique fingerprint per position avoids catalogue conflicts
-      fingerprint: `intent-C2H4-${wx}-${wy}`,
-      atomData: [
-        { index: 0, symbol: 'C', relX: -15, relY: 0 },
-        { index: 1, symbol: 'C', relX:  15, relY: 0 },
-        { index: 2, symbol: 'H', relX: -30, relY: -15 },
-        { index: 3, symbol: 'H', relX: -30, relY:  15 },
-        { index: 4, symbol: 'H', relX:  30, relY: -15 },
-        { index: 5, symbol: 'H', relX:  30, relY:  15 },
-      ],
-      bondData: [
-        { atom1Index: 0, atom2Index: 1, order: 2 }, // C=C
-        { atom1Index: 0, atom2Index: 2, order: 1 }, // C-H
-        { atom1Index: 0, atom2Index: 3, order: 1 }, // C-H
-        { atom1Index: 1, atom2Index: 4, order: 1 }, // C-H
-        { atom1Index: 1, atom2Index: 5, order: 1 }, // C-H
-      ],
-    };
+    const template = window.MONOMER_TEMPLATES?.ETHYLENE;
+    if (!template) throw new Error('window.MONOMER_TEMPLATES.ETHYLENE not found — check script load order');
+    const bp = window.createMonomerBlueprint(template);
+    if (!bp) throw new Error('createMonomerBlueprint returned null for ETHYLENE template');
+    // Override fingerprint to be position-unique — avoids catalogue conflicts
+    // when multiple ethylene intents are placed simultaneously (T02, T04, T06).
+    bp.fingerprint = `intent-C2H4-${wx}-${wy}`;
     const intent = new window.Intention('molecule', bp, wx, wy);
     window.cellApp.environment.addIntention(intent, window.cellApp.catalogue);
     window.cellApp.viewer.render();

@@ -50,8 +50,8 @@ test('T04: polyethylene polymer intent seals from 3 molecule intents', async ({ 
   await page.waitForFunction(
     () => {
       const env = window.cellApp.environment;
-      const polymers = env.getAllProteins?.() || [];
-      return polymers.length > 0;
+      if (typeof env.getAllProteins !== 'function') throw new Error('env.getAllProteins() missing — API contract broken');
+      return env.getAllProteins().length > 0;
     },
     { timeout: 120_000, polling: 500 }
   );
@@ -59,7 +59,8 @@ test('T04: polyethylene polymer intent seals from 3 molecule intents', async ({ 
   // Assert polymer exists and no atoms are locked to fulfilled intents
   const finalState = await page.evaluate(() => {
     const env = window.cellApp.environment;
-    const polymers = env.getAllProteins?.() || [];
+    if (typeof env.getAllProteins !== 'function') throw new Error('env.getAllProteins() missing — API contract broken');
+    const polymers = env.getAllProteins();
 
     // Check for orphaned atom locks after sealing
     const orphanedAtoms = [...env.atoms.values()].filter(a => {

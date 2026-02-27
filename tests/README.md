@@ -53,9 +53,28 @@ npx playwright show-report
 | `t01-single-molecule-intent.spec.js` | ✅ Expected to pass | Single C2H4 intent completes with AtomSpawner |
 | `t02-concurrent-molecule-intents.spec.js` | ✅ Expected to pass | Two overlapping C2H4 intents (anti-cannibalization) |
 | `t03-inspector-state.spec.js` | ✅ Expected to pass | Inspector panel shows correct fields on intent selection |
-| `t04-polymer-intent.spec.js` | ⚠️ `test.fail()` | Polyethylene polymer from 3 molecule intents (atom locking bug) |
+| `t04-polymer-intent.spec.js` | ✅ Expected to pass | Polyethylene polymer from 3 molecule intents |
 | `t05-cell-formation.spec.js` | ⚠️ `test.fail()` | Full E2E cell formation (atoms cramped bug) |
 | `t06-view-consistency.spec.js` | ✅ Expected to pass | Molecule count stays non-zero across level switches |
+
+## Spawn Rate Reference
+
+The fixture sets `simulation.setSpeed(10)` for all tests, giving ~600 simulation ticks/second
+(60 fps × 10 ticks per frame). The spawner fires every `tickInterval` ticks, so:
+
+> **Effective spawn rate = 600 ÷ tickInterval atoms/second (real time)**
+
+| Test | `tickInterval` | Effective rate | Rationale |
+|------|---------------|----------------|-----------|
+| T01  | 8             | ~75 atoms/sec  | Heavy supply — single intent should converge quickly |
+| T02  | 100           | ~6 atoms/sec   | Deliberate drip — prevents atom overcrowding that would mask the anti-cannibalization bug |
+| T04  | 10            | ~60 atoms/sec  | Heavy supply for 3-intent + polymer pipeline |
+| T05  | 5             | ~120 atoms/sec | Maximum density for complex E2E cell formation path |
+| T06  | —             | —              | No spawner — H2 molecule injected directly via `page.evaluate` |
+
+T02 uses a much slower rate than the others by design: at ~75 atoms/sec (T01's rate), the two
+competing intents would be overwhelmed by excess atoms before the anti-cannibalization logic has
+a chance to run, producing tar-ball failures unrelated to the bug under test.
 
 ## Understanding `test.fail()`
 
@@ -69,8 +88,8 @@ When a bug is fixed, remove the `test.fail()` annotation and the test becomes a 
 
 ```
 ✓ dev > T01: single ethylene...    [PASS — intent completed]
-✓ dev > T04: polyethylene...       [PASS — because test.fail() + test actually failed = expected]
-✗ dev > T04: polyethylene...       [FAIL — unexpected: bug was fixed, remove test.fail()]
+✓ dev > T05: full E2E cell...      [PASS — because test.fail() + test actually failed = expected]
+✗ dev > T05: full E2E cell...      [FAIL — unexpected: bug was fixed, remove test.fail()]
 ```
 
 Screenshots and videos are saved to `playwright-report/` on failure.

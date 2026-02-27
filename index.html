@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.2-16-g074370c"
-                    class="version-link" target="_blank">v0.22.2-16-g074370c</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.2-18-g650182c"
+                    class="version-link" target="_blank">v0.22.2-18-g650182c</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1374,8 +1374,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.22.2-16-g074370c
-// Generated: 2026-02-27T03:17:24.251Z
+// Version: v0.22.2-18-g650182c
+// Generated: 2026-02-27T04:21:49.193Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -7118,7 +7118,7 @@ class Intention {
     }
 
     _rule4_extractFromMolecules(environment, state) {
-        const { targetComp, seedMol, claimed, _totalNeeded } = state;
+        const { targetComp, seedMol, claimed } = state;
 
         // Calculate deficit - how many of each element do we still need?
         const deficit = Object.assign({}, targetComp);
@@ -8310,7 +8310,6 @@ class Intention {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        const _icons = { molecule: '&#9883;', polymer: '&#128279;', cell: '&#9678;' };
         ctx.fillText(this.type === 'molecule' ? 'M' : this.type === 'polymer' ? 'P' : 'C', screenX, screenY);
     }
 
@@ -14560,7 +14559,6 @@ class Controls {
      * Handle delete action
      */
     _handleDelete(screenX, screenY) {
-        const _worldPos = this.viewer.screenToWorld(screenX, screenY);
         const scale = this.viewer.camera.zoom;
         const offset = this.viewer.getOffset();
 
@@ -14784,7 +14782,6 @@ class Controls {
             const bpName = intention.blueprint?.name || intention.blueprint?.formula || 'Unknown';
             const requirements = intention.getRequirements();
             const reqCount = requirements?.count || '?';
-            const _reqType = requirements?.type || 'components';
 
             // Unique canvas ID for blueprint preview
             const canvasId = 'intention-blueprint-preview-' + intention.id.substring(0, 8);
@@ -16627,6 +16624,14 @@ window.Tutorial = Tutorial;
  * Initializes and connects all components
  */
 
+function escHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 class App {
     constructor() {
         // Core components
@@ -17020,8 +17025,8 @@ class App {
 
             palette.innerHTML = blueprints.map(bp => `
                 <button class="palette-btn molecule-btn" data-fingerprint="${escapeAttr(bp.fingerprint)}">
-                    <span class="formula">${bp.name || bp.formula}</span>
-                    <span class="info">${bp.formula} &bull; ${bp.atomData.length} atoms</span>
+                    <span class="formula">${escHtml(bp.name || bp.formula)}</span>
+                    <span class="info">${escHtml(bp.formula)} &bull; ${bp.atomData.length} atoms</span>
                 </button>
             `).join('');
 
@@ -17174,8 +17179,8 @@ class App {
                         style="border-left: 3px solid ${color};">
                     <span class="symbol" style="color: ${color};">🦠</span>
                     <span class="info">
-                        <strong>${bp.name}</strong>
-                        ${bp.species ? `<em style="font-size: 0.8em; color: #94a3b8;">${bp.species}</em>` : ''}
+                        <strong>${escHtml(bp.name)}</strong>
+                        ${bp.species ? `<em style="font-size: 0.8em; color: #94a3b8;">${escHtml(bp.species)}</em>` : ''}
                     </span>
                 </button>
             `;
@@ -17234,9 +17239,9 @@ class App {
         const color = blueprint.color || '#8b5cf6';
         let html = `
             <div class="inspector-item">
-                <h3 style="color: ${color};">${blueprint.name}</h3>
-                ${blueprint.species ? `<p style="color: #94a3b8; font-style: italic;">${blueprint.species}</p>` : ''}
-                <p>${blueprint.description || ''}</p>
+                <h3 style="color: ${color};">${escHtml(blueprint.name)}</h3>
+                ${blueprint.species ? `<p style="color: #94a3b8; font-style: italic;">${escHtml(blueprint.species)}</p>` : ''}
+                <p>${escHtml(blueprint.description || '')}</p>
                 <hr style="border-color: #444; margin: 8px 0;">
                 <p><strong>Required Polymers:</strong></p>
         `;
