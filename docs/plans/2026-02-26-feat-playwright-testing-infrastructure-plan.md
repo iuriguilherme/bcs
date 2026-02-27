@@ -1,7 +1,7 @@
 ---
 title: feat: Add Playwright Automated Testing Infrastructure
 type: feat
-status: active
+status: completed
 date: 2026-02-26
 origin: docs/brainstorms/2026-02-26-automated-testing-system-brainstorm.md
 ---
@@ -135,12 +135,12 @@ Implemented via `base.extend()` chaining. The initial plan puts everything in on
 **Goal**: A working, reproducible Playwright config that any agent can install and run.
 
 Tasks:
-- [ ] Create `package.json` with `@playwright/test` dependency
-- [ ] Create `playwright.config.js` at repo root (with `webServer`, `workers: 1`, `fullyParallel: false`, `retries: process.env.CI ? 1 : 0`)
-- [ ] Create `tests/fixtures/app.js` with corrected shared setup fixture (see bug fixes in Enhancement Summary)
-- [ ] Create `tests/README.md` with prerequisites, run commands, and interpretation guide
-- [ ] Add `node_modules/` and `package-lock.json` to `.gitignore`
-- [ ] Commit `package.json`, `playwright.config.js`, `tests/fixtures/app.js`, `tests/README.md`
+- [x] Create `package.json` with `@playwright/test` dependency
+- [x] Create `playwright.config.js` at repo root (with `webServer`, `workers: 1`, `fullyParallel: false`, `retries: process.env.CI ? 1 : 0`)
+- [x] Create `tests/fixtures/app.js` with corrected shared setup fixture (see bug fixes in Enhancement Summary)
+- [x] Create `tests/README.md` with prerequisites, run commands, and interpretation guide
+- [x] Add `node_modules/` and `package-lock.json` to `.gitignore`
+- [x] Commit `package.json`, `playwright.config.js`, `tests/fixtures/app.js`, `tests/README.md`
 
 > ⭐ **`webServer` in `playwright.config.js` auto-starts the Python HTTP server** — no manual prerequisite needed. `reuseExistingServer: true` allows local dev to keep their own server.
 
@@ -396,7 +396,7 @@ export async function enableSpawner(page, atomPool = ['C', 'H']) {
 
 Target molecule: **Ethylene (C2H4, 6 atoms)**. This is the canonical test molecule — it requires 2 carbons and 4 hydrogens, is well-documented in MEMORY.md, and is the foundation of the polyethylene polymer chain.
 
-- [ ] Create `tests/scenarios/t01-single-molecule-intent.spec.js`
+- [x] Create `tests/scenarios/t01-single-molecule-intent.spec.js`
 
 ```javascript
 // tests/scenarios/t01-single-molecule-intent.spec.js
@@ -459,7 +459,7 @@ test('T01: single ethylene molecule intent completes', async ({ page }) => {
 > ✅ Bug status: `docs/solutions/logic-errors/molecule-intent-stuck-reshaping-IntentionSystem-20260225.md` — RESOLVED. **Do NOT annotate with `test.fail()`.**
 > This is a regression guard for five root causes (tar-ball, bond-breaking, anchor force, atom escape, free-atom repulsion). The ephemeral `test_spawner.spec.js` mentioned in the solution was never committed; this spec replaces it permanently.
 
-- [ ] Create `tests/scenarios/t02-concurrent-molecule-intents.spec.js`
+- [x] Create `tests/scenarios/t02-concurrent-molecule-intents.spec.js`
 
 ```javascript
 // tests/scenarios/t02-concurrent-molecule-intents.spec.js
@@ -488,7 +488,7 @@ import { test, expect, pressPlay, enableSpawner } from '../fixtures/app.js';
 
 **T03: Inspector Reflects Intent State**
 
-- [ ] Create `tests/scenarios/t03-inspector-state.spec.js`
+- [x] Create `tests/scenarios/t03-inspector-state.spec.js`
 
 ```javascript
 // tests/scenarios/t03-inspector-state.spec.js
@@ -506,7 +506,7 @@ import { test, expect, pressPlay, enableSpawner } from '../fixtures/app.js';
 
 **T04: Polymer Intent + 3 Molecule Intents**
 
-- [ ] Create `tests/scenarios/t04-polymer-intent.spec.js`
+- [x] Create `tests/scenarios/t04-polymer-intent.spec.js`
 
 ```javascript
 // tests/scenarios/t04-polymer-intent.spec.js
@@ -532,7 +532,7 @@ test.fail(); // Known bug: atom locking; polymer never seals
 
 **T05: Full E2E Cell Formation**
 
-- [ ] Create `tests/scenarios/t05-cell-formation.spec.js`
+- [x] Create `tests/scenarios/t05-cell-formation.spec.js`
 
 ```javascript
 // tests/scenarios/t05-cell-formation.spec.js
@@ -548,7 +548,7 @@ test.fail(); // Known bug: E2E cell path never completes; atoms get cramped
 
 **T06: View Consistency Across Zoom Levels**
 
-- [ ] Create `tests/scenarios/t06-view-consistency.spec.js`
+- [x] Create `tests/scenarios/t06-view-consistency.spec.js`
 
 ```javascript
 // tests/scenarios/t06-view-consistency.spec.js
@@ -568,8 +568,8 @@ test.fail(); // Known bug: E2E cell path never completes; atoms get cramped
 
 **Goal**: Enforcement is codified so future agents cannot bypass it.
 
-- [ ] Add **Testing Requirements** section to `CLAUDE.md`
-- [ ] Complete `tests/README.md` with run instructions, prerequisites, and output interpretation
+- [x] Add **Testing Requirements** section to `CLAUDE.md`
+- [x] Complete `tests/README.md` with run instructions, prerequisites, and output interpretation
 
 **CLAUDE.md addition** (under Testing section):
 
@@ -705,34 +705,34 @@ These ARE the integration test scenarios. Cross-layer flows not caught by unit t
 
 ### Functional Requirements
 
-- [ ] `package.json` created with `@playwright/test` dependency
-- [ ] `playwright.config.js` created at repo root with two projects: `dev` (dev.html) and `prod` (index.html)
-- [ ] `tests/fixtures/app.js` created with corrected fixture: `pageerror`/`crash` listeners before `goto()`, IndexedDB connection closed before delete, `onblocked` handler, single `waitForFunction` after reload, `setSpeed(10)` (not slider), `worldToScreen` delegating to `viewer.worldToScreen()`, `enableSpawner` correctly applying `atomPool`
-- [ ] **Initial** six scenario files committed to `tests/scenarios/` (scenarios are living — assertions may be revised as simulation evolves; filenames and structure are illustrative):
+- [x] `package.json` created with `@playwright/test` dependency
+- [x] `playwright.config.js` created at repo root with two projects: `dev` (dev.html) and `prod` (index.html)
+- [x] `tests/fixtures/app.js` created with corrected fixture: `pageerror`/`crash` listeners before `goto()`, IndexedDB connection closed before delete, `onblocked` handler, single `waitForFunction` after reload, `setSpeed(10)` (not slider), `worldToScreen` delegating to `viewer.worldToScreen()`, `enableSpawner` correctly applying `atomPool`
+- [x] **Initial** six scenario files committed to `tests/scenarios/` (scenarios are living — assertions may be revised as simulation evolves; filenames and structure are illustrative):
   - `t01-single-molecule-intent.spec.js` (passes both projects)
   - `t02-concurrent-molecule-intents.spec.js` (passes both projects)
   - `t03-inspector-state.spec.js` (passes both projects)
   - `t04-polymer-intent.spec.js` (`test.fail()` annotated — expected until atom-locking bug is fixed)
   - `t05-cell-formation.spec.js` (`test.fail()` annotated — expected until E2E cell path is fixed)
   - `t06-view-consistency.spec.js` (passes both projects)
-- [ ] `tests/README.md` documents: prerequisites, install commands, run commands, output interpretation, `test.fail()` meaning
-- [ ] `CLAUDE.md` updated with Testing Requirements section including the mandatory evidence rule
-- [ ] `.gitignore` updated to exclude `node_modules/` and `package-lock.json`
-- [ ] `stub_test.ts` preserved (do not remove; CI depends on it)
+- [x] `tests/README.md` documents: prerequisites, install commands, run commands, output interpretation, `test.fail()` meaning
+- [x] `CLAUDE.md` updated with Testing Requirements section including the mandatory evidence rule
+- [x] `.gitignore` updated to exclude `node_modules/` and `package-lock.json`
+- [x] `stub_test.ts` preserved (do not remove; CI depends on it)
 
 ### Non-Functional Requirements
 
-- [ ] T01 completes within 90s wall-clock on a mid-range laptop
-- [ ] T03 completes within 10s (inspector-only, no spawner wait)
-- [ ] T04/T05 annotated as `test.fail()` — tests run but expected to fail; if unexpectedly they pass, Playwright reports this as a failure (a good signal the bug was fixed)
-- [ ] Screenshot and video artifacts captured on failure (via `playwright.config.js` `use.screenshot` and `use.video` settings)
+- [x] T01 completes within 90s wall-clock on a mid-range laptop
+- [x] T03 completes within 10s (inspector-only, no spawner wait)
+- [x] T04/T05 annotated as `test.fail()` — tests run but expected to fail; if unexpectedly they pass, Playwright reports this as a failure (a good signal the bug was fixed)
+- [x] Screenshot and video artifacts captured on failure (via `playwright.config.js` `use.screenshot` and `use.video` settings)
 
 ### Quality Gates
 
-- [ ] `npm test` runs without configuration error (server running at 8765 assumed)
-- [ ] `npm run test:dev` produces clean output showing 6 tests (T01, T02, T03, T06 pass; T04, T05 expected-fail)
-- [ ] No Deno lint regressions (`deno lint` still passes)
-- [ ] CI `deno test -A` still passes (`stub_test.ts` unchanged)
+- [x] `npm test` runs without configuration error (server running at 8765 assumed)
+- [x] `npm run test:dev` produces clean output showing 6 tests (T01, T02, T03, T06 pass; T04, T05 expected-fail)
+- [x] No Deno lint regressions (`deno lint` still passes)
+- [x] CI `deno test -A` still passes (`stub_test.ts` unchanged)
 
 ---
 
