@@ -290,9 +290,57 @@ Add to `Environment.update()` method. **Important**: Keep molecule updates last,
 
 ---
 
-## Testing
+## Testing Requirements (Mandatory)
 
-No automated test framework is set up. Manual testing in browser:
+### Before Marking Any Task Done
+
+Agents MUST run Playwright tests before marking any fix or feature complete.
+
+**Required evidence:**
+1. Test file path (committed to `tests/scenarios/`)
+2. Playwright output showing the relevant test(s) passing
+3. No regressions on previously passing tests
+
+**Claiming "works" without this evidence is not acceptable.**
+
+### Running Tests
+
+Prerequisites:
+1. Install dependencies (first time): `npm install && npx playwright install chromium`
+2. Build production bundle if testing `index.html`: `deno run --allow-read --allow-write --allow-run build.ts`
+
+The `webServer` config auto-starts the Python HTTP server — no manual start needed.
+
+Run all tests:
+```bash
+npm test
+```
+
+Run dev only:
+```bash
+npm run test:dev
+```
+
+Run a specific scenario:
+```bash
+npx playwright test t01
+```
+
+### Test Validity Rules
+
+- **The simulation MUST run**: Every test must click `#playPauseBtn`. Tests that never start the simulation are invalid.
+- **No console-injection setup**: Tests must not use `window.cellApp.*` calls to set up test conditions. Console is observation-only. (Exception: `page.evaluate` for test scaffolding analogous to setting `atomSpawner.zone`.)
+- **Both pages must pass**: `dev.html` and `index.html` must both pass. A fix that works in dev but fails in production is not a valid fix.
+- **Spawner-based atom delivery**: Atoms must come from `AtomSpawner`, not manual placement. This mirrors real gameplay.
+
+### Test Annotations
+
+- `test.fail()` — test exercises a known bug; expected to fail. When bug is fixed, remove annotation.
+- `test.skip()` — test is temporarily disabled. Must include a comment explaining why.
+
+### Manual Testing (supplement to Playwright)
+
+For exploratory debugging:
 1. Open `dev.html` for development mode (loads individual scripts)
 2. Open `index.html` for production mode (bundled)
 3. Use browser console to inspect state and verify behavior

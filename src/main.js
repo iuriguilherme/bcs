@@ -987,5 +987,8 @@ window.cellApp = new App();
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.cellApp.init().catch(console.error);
+    window.cellApp.init().catch(e => {
+        window.__initError = e.message;
+        console.error(e);
+    });
 });

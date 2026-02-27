@@ -1,0 +1,13 @@
+{
+  "name": "biochemsim-tests",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@playwright/test": "^1.42.0"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:dev": "playwright test --project=dev",
+    "test:prod": "playwright test --project=prod"
+  }
+}

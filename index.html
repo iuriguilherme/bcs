@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.2-14-gb798a3c"
-                    class="version-link" target="_blank">v0.22.2-14-gb798a3c</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.22.2-16-g074370c"
+                    class="version-link" target="_blank">v0.22.2-16-g074370c</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1374,8 +1374,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.22.2-14-gb798a3c
-// Generated: 2026-02-26T08:03:24.436Z
+// Version: v0.22.2-16-g074370c
+// Generated: 2026-02-27T03:17:24.251Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -17611,7 +17611,10 @@ window.cellApp = new App();
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.cellApp.init().catch(console.error);
+    window.cellApp.init().catch(e => {
+        window.__initError = e.message;
+        console.error(e);
+    });
 });
 
 
