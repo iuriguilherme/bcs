@@ -310,6 +310,9 @@ class Viewer {
             molecule.renderSimplified(this.ctx, scale, offset);
         }
 
+        // Render in-progress intention assemblies (seed molecules) as individual atoms
+        this._renderSeedMoleculeAtoms(scale, offset);
+
         // Render free atoms (not in molecules)
         for (const atom of this.environment.getAllAtoms()) {
             if (!atom.moleculeId) {
@@ -341,6 +344,31 @@ class Viewer {
         // Render free atoms
         for (const atom of this.environment.getAllAtoms()) {
             if (!atom.moleculeId) {
+                atom.render(this.ctx, scale, offset);
+            }
+        }
+
+        // Render in-progress intention assemblies (seed molecules) as individual atoms
+        this._renderSeedMoleculeAtoms(scale, offset);
+    }
+
+    /**
+     * Render atoms of in-progress intention seed molecules as individual atoms.
+     * Seed molecules live in environment.seedMolecules (separate from environment.molecules)
+     * and would otherwise be invisible at molecule/protein level.
+     * @param {number} scale - Zoom scale
+     * @param {object} offset - Camera offset
+     */
+    _renderSeedMoleculeAtoms(scale, offset) {
+        if (!this.environment.getAllSeedMolecules) {
+            console.warn('[Viewer] getAllSeedMolecules not available; seed atoms will not render');
+            return;
+        }
+        const seedMolecules = this.environment.getAllSeedMolecules();
+        if (seedMolecules.length === 0) return;
+        for (const seedMol of seedMolecules) {
+            const atoms = seedMol.atoms.slice(); // snapshot to prevent mutation issues
+            for (const atom of atoms) {
                 atom.render(this.ctx, scale, offset);
             }
         }
@@ -556,6 +584,14 @@ class Viewer {
             for (const molecule of this.environment.getAllMolecules()) {
                 if (molecule.containsPoint(screenX, screenY, scale, offset)) {
                     return { type: 'molecule', entity: molecule };
+                }
+            }
+            // Also check in-progress seed molecules (stored separately in environment.seedMolecules)
+            if (this.environment.getAllSeedMolecules) {
+                for (const seedMol of this.environment.getAllSeedMolecules()) {
+                    if (seedMol.containsPoint(screenX, screenY, scale, offset)) {
+                        return { type: 'molecule', entity: seedMol };
+                    }
                 }
             }
             // Then check free atoms (not in molecules)

@@ -906,6 +906,13 @@ class Environment {
     }
 
     /**
+     * Get all seed molecules (in-progress intention assemblies) as array
+     */
+    getAllSeedMolecules() {
+        return Array.from(this.seedMolecules.values());
+    }
+
+    /**
      * Get all proteins as array
      */
     getAllProteins() {

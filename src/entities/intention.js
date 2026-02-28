@@ -32,6 +32,8 @@ class Intention {
 
         // Progress tracking
         this.progress = 0;
+        // TODO: gatheredComponents is only populated for type='polymer'/'cell'.
+        // For type='molecule', use getGatheredCount() which reads from this.progress instead.
         this.gatheredComponents = new Set();
         this.fulfilled = false;
         this.createdEntity = null;
@@ -111,6 +113,21 @@ class Intention {
         }
 
         return composition;
+    }
+
+    /**
+     * Get the number of gathered components for display.
+     * For molecule intents, gatheredComponents is never populated — use progress instead.
+     * For polymer/cell intents, gatheredComponents is maintained by _attractComponents.
+     * @returns {number}
+     */
+    getGatheredCount() {
+        if (this.type === 'molecule') {
+            const requirements = this.getRequirements();
+            const reqCount = requirements?.count || 0;
+            return Math.round(this.progress * reqCount);
+        }
+        return this.gatheredComponents.size;
     }
 
     /**
