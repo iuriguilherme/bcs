@@ -655,8 +655,9 @@ class Controls {
                     for (const atom of blueprint.atomData) {
                         elementCounts[atom.symbol] = (elementCounts[atom.symbol] || 0) + 1;
                     }
+                    // Escape each element symbol — symbols come from blueprint data
                     const elementList = Object.entries(elementCounts)
-                        .map(([sym, count]) => `${sym}: ${count}`)
+                        .map(([sym, count]) => `${escHtml(sym)}: ${count}`)
                         .join(', ');
 
                     const atomCount = blueprint.atomData.length;
@@ -677,13 +678,13 @@ class Controls {
                         ${blueprint.mass ? `<p><strong>Mass:</strong> ${blueprint.mass.toFixed(3)} u</p>` : ''}
                     `;
                 } else {
-                    const elements = requirements.elements?.join(', ') || 'Various';
+                    const elements = (requirements.elements || []).map(escHtml).join(', ') || 'Various';
                     reqDetails = `<p><strong>Needs:</strong> ${reqCount} atoms</p><p>Elements: ${elements}</p>`;
                 }
             } else if (requirements?.type === 'monomers') {
                 // NEW: Monomer-based polymer requirements
-                const monomerName = requirements.monomerName || 'Unknown';
-                const monomerFormula = requirements.monomerFormula;
+                const monomerName = escHtml(requirements.monomerName || 'Unknown');
+                const monomerFormula = requirements.monomerFormula ? escHtml(requirements.monomerFormula) : null;
 
                 if (monomerFormula) {
                     // We know the exact monomer needed
@@ -695,21 +696,23 @@ class Controls {
                     `;
                 } else {
                     // Fallback for legacy blueprints without monomer template
-                    const elements = requirements.requiredElements?.join(', ') || 'Various';
+                    const elements = (requirements.requiredElements || []).map(escHtml).join(', ') || 'Various';
                     reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p><strong>With elements:</strong> ${elements}</p>`;
                 }
             } else if (requirements?.type === 'molecules') {
                 // Legacy support for old polymer blueprints
-                const elements = requirements.requiredElements?.join(', ') || 'Various';
+                const elements = (requirements.requiredElements || []).map(escHtml).join(', ') || 'Various';
                 reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p>With elements: ${elements}</p>`;
             } else if (requirements?.type === 'polymers') {
-                const roles = requirements.roles?.join(', ') || 'Various';
+                const roles = (requirements.roles || []).map(escHtml).join(', ') || 'Various';
                 reqDetails = `<p><strong>Needs polymers with roles:</strong></p><p>${roles}</p>`;
             } else if (requirements?.type === 'polymers_detailed') {
                 // NEW: Detailed cell recipe with polymer requirements
-                const cellName = requirements.cellName || 'Cell';
-                const species = requirements.species;
-                const color = requirements.color || '#8b5cf6';
+                const cellName = escHtml(requirements.cellName || 'Cell');
+                const species = requirements.species ? escHtml(requirements.species) : null;
+                // Validate color is a safe CSS value (hex or named color) before using in style attribute
+                const rawColor = requirements.color || '';
+                const color = /^#[0-9a-fA-F]{3,6}$|^[a-zA-Z]+$/.test(rawColor) ? rawColor : '#8b5cf6';
 
                 let html = `<p style="color: ${color}; font-weight: bold;"><strong>Recipe: ${cellName}</strong></p>`;
                 if (species) {
@@ -733,11 +736,11 @@ class Controls {
 
                     html += `
                         <p style="color: ${roleColor}; margin-top: 4px;">
-                            <strong>${req.role}:</strong> ${req.count}× ${req.polymerName} 
+                            <strong>${escHtml(req.role || '')}:</strong> ${Number(req.count) || 0}× ${escHtml(req.polymerName || '')}
                             <span style="color: #666;">[${progressIcon}]</span>
                         </p>
                         <p style="color: #94a3b8; font-size: 0.85em; margin-left: 12px;">
-                            Chain: ${req.minChainLength}+ monomers
+                            Chain: ${Number(req.minChainLength) || 0}+ monomers
                         </p>
                     `;
 
@@ -745,7 +748,7 @@ class Controls {
                     if (req.monomerFormula) {
                         html += `
                             <p style="color: #4ade80; font-size: 0.85em; margin-left: 12px;">
-                                → Create ${req.monomerFormula} molecules
+                                → Create ${escHtml(req.monomerFormula)} molecules
                             </p>
                         `;
                     }
@@ -757,14 +760,14 @@ class Controls {
             content.innerHTML = `
                 <div class="inspector-item">
                     <h3>Intention: ${escHtml(bpName)}</h3>
-                    <p>Type: ${intention.type}</p>
+                    <p>Type: ${escHtml(intention.type)}</p>
                     <p>Target: ${escHtml(bpName)}</p>
                     ${blueprintPreview}
                     <hr style="border-color: #444; margin: 8px 0;">
                     ${reqDetails}
                     <hr style="border-color: #444; margin: 8px 0;">
                     <p>Progress: ${Math.round(intention.progress * 100)}%</p>
-                    <p>Gathered: ${typeof intention.getGatheredCount === 'function' ? intention.getGatheredCount() : intention.gatheredComponents.size} / ${reqCount}</p>
+                    <p>Gathered: ${typeof intention.getGatheredCount === 'function' ? intention.getGatheredCount() : intention.gatheredComponents.size} / ${escHtml(String(reqCount))}</p>
                     <p>Radius: ${intention.radius} units</p>
                     <p>Position: (${intention.position.x.toFixed(0)}, ${intention.position.y.toFixed(0)})</p>
                     <p>Fulfilled: ${intention.fulfilled ? 'Yes &#10003;' : 'No'}</p>
