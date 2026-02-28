@@ -39,7 +39,8 @@ test('T07: molecule intention inspector shows non-zero gathered count when atoms
     // The intention's progress field is updated by the 7-rule pipeline every tick.
     await expect.poll(
         async () => page.evaluate(() => {
-            const intents = [...window.cellApp.environment.intentions.values()];
+            const env = window.cellApp.environment;
+            const intents = env.getAllIntentions ? env.getAllIntentions() : [...env.intentions.values()];
             const intent = intents.find(i => i.type === 'molecule');
             return intent ? intent.progress : 0;
         }),
@@ -87,7 +88,8 @@ test('T07: molecule intention inspector shows non-zero gathered count when atoms
 
     // Verify inspector display matches getGatheredCount() directly
     const gatheredFromMethod = await page.evaluate(() => {
-        const intents = [...window.cellApp.environment.intentions.values()];
+        const env = window.cellApp.environment;
+        const intents = env.getAllIntentions ? env.getAllIntentions() : [...env.intentions.values()];
         const intent = intents.find(i => i.type === 'molecule');
         return intent ? intent.getGatheredCount() : -1;
     });
@@ -112,8 +114,8 @@ test('T07b: seed molecule atoms remain accessible via getAllSeedMolecules() at L
     await expect.poll(
         async () => page.evaluate(() => {
             const env = window.cellApp.environment;
-            if (!env.getAllSeedMolecules) return 0;
-            return env.getAllSeedMolecules().reduce((sum, m) => sum + m.atoms.length, 0);
+            const seeds = env.getAllSeedMolecules ? env.getAllSeedMolecules() : [];
+            return seeds.reduce((sum, m) => sum + m.atoms.length, 0);
         }),
         { timeout: 90_000, intervals: [500] }
     ).toBeGreaterThan(0);

@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.24.1-8-g55fb139"
-                    class="version-link" target="_blank">v0.24.1-8-g55fb139</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.24.1-9-g4edf15c"
+                    class="version-link" target="_blank">v0.24.1-9-g4edf15c</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1374,8 +1374,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.24.1-8-g55fb139
-// Generated: 2026-03-01T16:35:20.297Z
+// Version: v0.24.1-9-g4edf15c
+// Generated: 2026-03-01T16:35:26.811Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -6620,8 +6620,10 @@ class Intention {
 
         // Progress tracking
         this.progress = 0;
-        // TODO: gatheredComponents is only populated for type='polymer'/'cell'.
+        // NOTE: gatheredComponents is only populated for type='polymer'/'cell'.
         // For type='molecule', use getGatheredCount() which reads from this.progress instead.
+        // This asymmetry is intentional — molecule intents track progress as a float (0-1),
+        // while polymer/cell intents track it as a Set of gathered component IDs.
         this.gatheredComponents = new Set();
         this.fulfilled = false;
         this.createdEntity = null;
@@ -6711,9 +6713,8 @@ class Intention {
      */
     getGatheredCount() {
         if (this.type === 'molecule') {
-            const requirements = this.getRequirements();
-            const reqCount = requirements?.count || 0;
-            return Math.round(this.progress * reqCount);
+            const total = this.blueprint.atomData?.length || 0;
+            return Math.round(this.progress * total);
         }
         return this.gatheredComponents.size;
     }
@@ -13990,15 +13991,11 @@ class Viewer {
      * @param {object} offset - Camera offset
      */
     _renderSeedMoleculeAtoms(scale, offset) {
-        if (!this.environment.getAllSeedMolecules) {
-            console.warn('[Viewer] getAllSeedMolecules not available; seed atoms will not render');
-            return;
-        }
-        const seedMolecules = this.environment.getAllSeedMolecules();
-        if (seedMolecules.length === 0) return;
+        const seedMolecules = this.environment.getAllSeedMolecules
+            ? this.environment.getAllSeedMolecules()
+            : [];
         for (const seedMol of seedMolecules) {
-            const atoms = seedMol.atoms.slice(); // snapshot to prevent mutation issues
-            for (const atom of atoms) {
+            for (const atom of seedMol.atoms) {
                 atom.render(this.ctx, scale, offset);
             }
         }
@@ -14055,7 +14052,10 @@ class Viewer {
             }
         }
 
-        // Render molecules as small dots (simplified view)
+        // Render molecules as small dots (simplified view).
+        // Seed molecules (in-progress intention assemblies) are intentionally omitted here:
+        // at Level 3 (cell view), molecule-intent activity is not visible — intention zones
+        // themselves are hidden at this level (see _renderIntentions level <= 1 guard).
         for (const molecule of this.environment.getAllMolecules()) {
             const center = molecule.centerOfMass;
             const screenX = (center.x + offset.x) * scale;
@@ -14217,11 +14217,12 @@ class Viewer {
                 }
             }
             // Also check in-progress seed molecules (stored separately in environment.seedMolecules)
-            if (this.environment.getAllSeedMolecules) {
-                for (const seedMol of this.environment.getAllSeedMolecules()) {
-                    if (seedMol.containsPoint(screenX, screenY, scale, offset)) {
-                        return { type: 'molecule', entity: seedMol };
-                    }
+            const seedMolecules = this.environment.getAllSeedMolecules
+                ? this.environment.getAllSeedMolecules()
+                : [];
+            for (const seedMol of seedMolecules) {
+                if (seedMol.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'molecule', entity: seedMol };
                 }
             }
             // Then check free atoms (not in molecules)
@@ -15029,7 +15030,7 @@ class Controls {
                     ${reqDetails}
                     <hr style="border-color: #444; margin: 8px 0;">
                     <p>Progress: ${Math.round(intention.progress * 100)}%</p>
-                    <p>Gathered: ${intention.getGatheredCount()} / ${reqCount}</p>
+                    <p>Gathered: ${typeof intention.getGatheredCount === 'function' ? intention.getGatheredCount() : intention.gatheredComponents.size} / ${reqCount}</p>
                     <p>Radius: ${intention.radius} units</p>
                     <p>Position: (${intention.position.x.toFixed(0)}, ${intention.position.y.toFixed(0)})</p>
                     <p>Fulfilled: ${intention.fulfilled ? 'Yes &#10003;' : 'No'}</p>

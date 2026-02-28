@@ -360,15 +360,11 @@ class Viewer {
      * @param {object} offset - Camera offset
      */
     _renderSeedMoleculeAtoms(scale, offset) {
-        if (!this.environment.getAllSeedMolecules) {
-            console.warn('[Viewer] getAllSeedMolecules not available; seed atoms will not render');
-            return;
-        }
-        const seedMolecules = this.environment.getAllSeedMolecules();
-        if (seedMolecules.length === 0) return;
+        const seedMolecules = this.environment.getAllSeedMolecules
+            ? this.environment.getAllSeedMolecules()
+            : [];
         for (const seedMol of seedMolecules) {
-            const atoms = seedMol.atoms.slice(); // snapshot to prevent mutation issues
-            for (const atom of atoms) {
+            for (const atom of seedMol.atoms) {
                 atom.render(this.ctx, scale, offset);
             }
         }
@@ -425,7 +421,10 @@ class Viewer {
             }
         }
 
-        // Render molecules as small dots (simplified view)
+        // Render molecules as small dots (simplified view).
+        // Seed molecules (in-progress intention assemblies) are intentionally omitted here:
+        // at Level 3 (cell view), molecule-intent activity is not visible — intention zones
+        // themselves are hidden at this level (see _renderIntentions level <= 1 guard).
         for (const molecule of this.environment.getAllMolecules()) {
             const center = molecule.centerOfMass;
             const screenX = (center.x + offset.x) * scale;
@@ -587,11 +586,12 @@ class Viewer {
                 }
             }
             // Also check in-progress seed molecules (stored separately in environment.seedMolecules)
-            if (this.environment.getAllSeedMolecules) {
-                for (const seedMol of this.environment.getAllSeedMolecules()) {
-                    if (seedMol.containsPoint(screenX, screenY, scale, offset)) {
-                        return { type: 'molecule', entity: seedMol };
-                    }
+            const seedMolecules = this.environment.getAllSeedMolecules
+                ? this.environment.getAllSeedMolecules()
+                : [];
+            for (const seedMol of seedMolecules) {
+                if (seedMol.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'molecule', entity: seedMol };
                 }
             }
             // Then check free atoms (not in molecules)
