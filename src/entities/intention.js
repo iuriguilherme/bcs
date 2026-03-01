@@ -479,16 +479,11 @@ class Intention {
         const { targetFormula, totalNeeded, targetComp, claimed } = state;
         if (!targetFormula) return;
 
-        // Precompute which elements are still needed (target - already claimed).
-        // Used by the surplus check below to clear molecules when claiming is complete.
+        // Precompute claimed element counts for the surplus check below.
         const targetElements = new Set(Object.keys(targetComp));
-        const claimedByElement = {};
+        const claimedCount = {};
         for (const atom of claimed) {
-            claimedByElement[atom.symbol] = (claimedByElement[atom.symbol] || 0) + 1;
-        }
-        const remainingNeeded = {};
-        for (const [el, count] of Object.entries(targetComp)) {
-            remainingNeeded[el] = Math.max(0, count - (claimedByElement[el] || 0));
+            claimedCount[atom.symbol] = (claimedCount[atom.symbol] || 0) + 1;
         }
 
         for (const mol of environment.molecules.values()) {
@@ -513,7 +508,7 @@ class Intention {
             // citing Bug #11; the trade-off is deliberate.
             // Ref: docs/brainstorms/2026-02-27-intention-zone-crowding-brainstorm.md
             const isSurplus = !hasWrongElement &&
-                mol.atoms.every(a => remainingNeeded[a.symbol] === 0);
+                mol.atoms.every(a => (claimedCount[a.symbol] || 0) >= (targetComp[a.symbol] || 0));
 
             // Repel stable molecules always (they block assembly space).
             // Also repel large unstable molecules larger than the target (tar-balls):
