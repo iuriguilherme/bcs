@@ -1,14 +1,22 @@
+## Dotfiles
 .*
 !.gitignore
-!.github/*/*
-!.serena/*/*
 
+## Github
+!.github/
+
+## Serena
+!.serena/
+.serena/cache/
+
+## npm
 package-lock.json
 node_modules/
 
-whats-next.md
-.serena/cache/
+## Playwright
 playwright-report/
 test-results/
+
+## Other tools
 docs/screenshots/
 frames/
