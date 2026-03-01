@@ -310,6 +310,9 @@ class Viewer {
             molecule.renderSimplified(this.ctx, scale, offset);
         }
 
+        // Render in-progress intention assemblies (seed molecules) as individual atoms
+        this._renderSeedMoleculeAtoms(scale, offset);
+
         // Render free atoms (not in molecules)
         for (const atom of this.environment.getAllAtoms()) {
             if (!atom.moleculeId) {
@@ -341,6 +344,27 @@ class Viewer {
         // Render free atoms
         for (const atom of this.environment.getAllAtoms()) {
             if (!atom.moleculeId) {
+                atom.render(this.ctx, scale, offset);
+            }
+        }
+
+        // Render in-progress intention assemblies (seed molecules) as individual atoms
+        this._renderSeedMoleculeAtoms(scale, offset);
+    }
+
+    /**
+     * Render atoms of in-progress intention seed molecules as individual atoms.
+     * Seed molecules live in environment.seedMolecules (separate from environment.molecules)
+     * and would otherwise be invisible at molecule/protein level.
+     * @param {number} scale - Zoom scale
+     * @param {object} offset - Camera offset
+     */
+    _renderSeedMoleculeAtoms(scale, offset) {
+        const seedMolecules = this.environment.getAllSeedMolecules
+            ? this.environment.getAllSeedMolecules()
+            : [];
+        for (const seedMol of seedMolecules) {
+            for (const atom of seedMol.atoms) {
                 atom.render(this.ctx, scale, offset);
             }
         }
@@ -397,7 +421,10 @@ class Viewer {
             }
         }
 
-        // Render molecules as small dots (simplified view)
+        // Render molecules as small dots (simplified view).
+        // Seed molecules (in-progress intention assemblies) are intentionally omitted here:
+        // at Level 3 (cell view), molecule-intent activity is not visible — intention zones
+        // themselves are hidden at this level (see _renderIntentions level <= 1 guard).
         for (const molecule of this.environment.getAllMolecules()) {
             const center = molecule.centerOfMass;
             const screenX = (center.x + offset.x) * scale;
@@ -556,6 +583,15 @@ class Viewer {
             for (const molecule of this.environment.getAllMolecules()) {
                 if (molecule.containsPoint(screenX, screenY, scale, offset)) {
                     return { type: 'molecule', entity: molecule };
+                }
+            }
+            // Also check in-progress seed molecules (stored separately in environment.seedMolecules)
+            const seedMolecules = this.environment.getAllSeedMolecules
+                ? this.environment.getAllSeedMolecules()
+                : [];
+            for (const seedMol of seedMolecules) {
+                if (seedMol.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'molecule', entity: seedMol };
                 }
             }
             // Then check free atoms (not in molecules)

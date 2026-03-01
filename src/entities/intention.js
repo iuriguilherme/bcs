@@ -32,6 +32,10 @@ class Intention {
 
         // Progress tracking
         this.progress = 0;
+        // NOTE: gatheredComponents is only populated for type='polymer'/'cell'.
+        // For type='molecule', use getGatheredCount() which reads from this.progress instead.
+        // This asymmetry is intentional — molecule intents track progress as a float (0-1),
+        // while polymer/cell intents track it as a Set of gathered component IDs.
         this.gatheredComponents = new Set();
         this.fulfilled = false;
         this.createdEntity = null;
@@ -111,6 +115,20 @@ class Intention {
         }
 
         return composition;
+    }
+
+    /**
+     * Get the number of gathered components for display.
+     * For molecule intents, gatheredComponents is never populated — use progress instead.
+     * For polymer/cell intents, gatheredComponents is maintained by _attractComponents.
+     * @returns {number}
+     */
+    getGatheredCount() {
+        if (this.type === 'molecule') {
+            const total = this.blueprint.atomData?.length || 0;
+            return Math.round(this.progress * total);
+        }
+        return this.gatheredComponents.size;
     }
 
     /**

@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.24.1-6-g04171c1"
-                    class="version-link" target="_blank">v0.24.1-6-g04171c1</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.24.1-10-gec3cff6"
+                    class="version-link" target="_blank">v0.24.1-10-gec3cff6</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1374,8 +1374,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.24.1-6-g04171c1
-// Generated: 2026-03-01T15:48:53.628Z
+// Version: v0.24.1-10-gec3cff6
+// Generated: 2026-03-01T16:35:29.658Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -6620,6 +6620,10 @@ class Intention {
 
         // Progress tracking
         this.progress = 0;
+        // NOTE: gatheredComponents is only populated for type='polymer'/'cell'.
+        // For type='molecule', use getGatheredCount() which reads from this.progress instead.
+        // This asymmetry is intentional — molecule intents track progress as a float (0-1),
+        // while polymer/cell intents track it as a Set of gathered component IDs.
         this.gatheredComponents = new Set();
         this.fulfilled = false;
         this.createdEntity = null;
@@ -6699,6 +6703,20 @@ class Intention {
         }
 
         return composition;
+    }
+
+    /**
+     * Get the number of gathered components for display.
+     * For molecule intents, gatheredComponents is never populated — use progress instead.
+     * For polymer/cell intents, gatheredComponents is maintained by _attractComponents.
+     * @returns {number}
+     */
+    getGatheredCount() {
+        if (this.type === 'molecule') {
+            const total = this.blueprint.atomData?.length || 0;
+            return Math.round(this.progress * total);
+        }
+        return this.gatheredComponents.size;
     }
 
     /**
@@ -11218,6 +11236,13 @@ class Environment {
     }
 
     /**
+     * Get all seed molecules (in-progress intention assemblies) as array
+     */
+    getAllSeedMolecules() {
+        return Array.from(this.seedMolecules.values());
+    }
+
+    /**
      * Get all proteins as array
      */
     getAllProteins() {
@@ -13916,6 +13941,9 @@ class Viewer {
             molecule.renderSimplified(this.ctx, scale, offset);
         }
 
+        // Render in-progress intention assemblies (seed molecules) as individual atoms
+        this._renderSeedMoleculeAtoms(scale, offset);
+
         // Render free atoms (not in molecules)
         for (const atom of this.environment.getAllAtoms()) {
             if (!atom.moleculeId) {
@@ -13947,6 +13975,27 @@ class Viewer {
         // Render free atoms
         for (const atom of this.environment.getAllAtoms()) {
             if (!atom.moleculeId) {
+                atom.render(this.ctx, scale, offset);
+            }
+        }
+
+        // Render in-progress intention assemblies (seed molecules) as individual atoms
+        this._renderSeedMoleculeAtoms(scale, offset);
+    }
+
+    /**
+     * Render atoms of in-progress intention seed molecules as individual atoms.
+     * Seed molecules live in environment.seedMolecules (separate from environment.molecules)
+     * and would otherwise be invisible at molecule/protein level.
+     * @param {number} scale - Zoom scale
+     * @param {object} offset - Camera offset
+     */
+    _renderSeedMoleculeAtoms(scale, offset) {
+        const seedMolecules = this.environment.getAllSeedMolecules
+            ? this.environment.getAllSeedMolecules()
+            : [];
+        for (const seedMol of seedMolecules) {
+            for (const atom of seedMol.atoms) {
                 atom.render(this.ctx, scale, offset);
             }
         }
@@ -14003,7 +14052,10 @@ class Viewer {
             }
         }
 
-        // Render molecules as small dots (simplified view)
+        // Render molecules as small dots (simplified view).
+        // Seed molecules (in-progress intention assemblies) are intentionally omitted here:
+        // at Level 3 (cell view), molecule-intent activity is not visible — intention zones
+        // themselves are hidden at this level (see _renderIntentions level <= 1 guard).
         for (const molecule of this.environment.getAllMolecules()) {
             const center = molecule.centerOfMass;
             const screenX = (center.x + offset.x) * scale;
@@ -14162,6 +14214,15 @@ class Viewer {
             for (const molecule of this.environment.getAllMolecules()) {
                 if (molecule.containsPoint(screenX, screenY, scale, offset)) {
                     return { type: 'molecule', entity: molecule };
+                }
+            }
+            // Also check in-progress seed molecules (stored separately in environment.seedMolecules)
+            const seedMolecules = this.environment.getAllSeedMolecules
+                ? this.environment.getAllSeedMolecules()
+                : [];
+            for (const seedMol of seedMolecules) {
+                if (seedMol.containsPoint(screenX, screenY, scale, offset)) {
+                    return { type: 'molecule', entity: seedMol };
                 }
             }
             // Then check free atoms (not in molecules)
@@ -14860,8 +14921,9 @@ class Controls {
                     for (const atom of blueprint.atomData) {
                         elementCounts[atom.symbol] = (elementCounts[atom.symbol] || 0) + 1;
                     }
+                    // Escape each element symbol — symbols come from blueprint data
                     const elementList = Object.entries(elementCounts)
-                        .map(([sym, count]) => `${sym}: ${count}`)
+                        .map(([sym, count]) => `${escHtml(sym)}: ${count}`)
                         .join(', ');
 
                     const atomCount = blueprint.atomData.length;
@@ -14882,13 +14944,13 @@ class Controls {
                         ${blueprint.mass ? `<p><strong>Mass:</strong> ${blueprint.mass.toFixed(3)} u</p>` : ''}
                     `;
                 } else {
-                    const elements = requirements.elements?.join(', ') || 'Various';
+                    const elements = (requirements.elements || []).map(escHtml).join(', ') || 'Various';
                     reqDetails = `<p><strong>Needs:</strong> ${reqCount} atoms</p><p>Elements: ${elements}</p>`;
                 }
             } else if (requirements?.type === 'monomers') {
                 // NEW: Monomer-based polymer requirements
-                const monomerName = requirements.monomerName || 'Unknown';
-                const monomerFormula = requirements.monomerFormula;
+                const monomerName = escHtml(requirements.monomerName || 'Unknown');
+                const monomerFormula = requirements.monomerFormula ? escHtml(requirements.monomerFormula) : null;
 
                 if (monomerFormula) {
                     // We know the exact monomer needed
@@ -14900,21 +14962,23 @@ class Controls {
                     `;
                 } else {
                     // Fallback for legacy blueprints without monomer template
-                    const elements = requirements.requiredElements?.join(', ') || 'Various';
+                    const elements = (requirements.requiredElements || []).map(escHtml).join(', ') || 'Various';
                     reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p><strong>With elements:</strong> ${elements}</p>`;
                 }
             } else if (requirements?.type === 'molecules') {
                 // Legacy support for old polymer blueprints
-                const elements = requirements.requiredElements?.join(', ') || 'Various';
+                const elements = (requirements.requiredElements || []).map(escHtml).join(', ') || 'Various';
                 reqDetails = `<p><strong>Needs:</strong> ${reqCount} molecules</p><p>With elements: ${elements}</p>`;
             } else if (requirements?.type === 'polymers') {
-                const roles = requirements.roles?.join(', ') || 'Various';
+                const roles = (requirements.roles || []).map(escHtml).join(', ') || 'Various';
                 reqDetails = `<p><strong>Needs polymers with roles:</strong></p><p>${roles}</p>`;
             } else if (requirements?.type === 'polymers_detailed') {
                 // NEW: Detailed cell recipe with polymer requirements
-                const cellName = requirements.cellName || 'Cell';
-                const species = requirements.species;
-                const color = requirements.color || '#8b5cf6';
+                const cellName = escHtml(requirements.cellName || 'Cell');
+                const species = requirements.species ? escHtml(requirements.species) : null;
+                // Validate color is a safe CSS value (hex or named color) before using in style attribute
+                const rawColor = requirements.color || '';
+                const color = /^#[0-9a-fA-F]{3,6}$|^[a-zA-Z]+$/.test(rawColor) ? rawColor : '#8b5cf6';
 
                 let html = `<p style="color: ${color}; font-weight: bold;"><strong>Recipe: ${cellName}</strong></p>`;
                 if (species) {
@@ -14938,11 +15002,11 @@ class Controls {
 
                     html += `
                         <p style="color: ${roleColor}; margin-top: 4px;">
-                            <strong>${req.role}:</strong> ${req.count}× ${req.polymerName} 
+                            <strong>${escHtml(req.role || '')}:</strong> ${Number(req.count) || 0}× ${escHtml(req.polymerName || '')}
                             <span style="color: #666;">[${progressIcon}]</span>
                         </p>
                         <p style="color: #94a3b8; font-size: 0.85em; margin-left: 12px;">
-                            Chain: ${req.minChainLength}+ monomers
+                            Chain: ${Number(req.minChainLength) || 0}+ monomers
                         </p>
                     `;
 
@@ -14950,7 +15014,7 @@ class Controls {
                     if (req.monomerFormula) {
                         html += `
                             <p style="color: #4ade80; font-size: 0.85em; margin-left: 12px;">
-                                → Create ${req.monomerFormula} molecules
+                                → Create ${escHtml(req.monomerFormula)} molecules
                             </p>
                         `;
                     }
@@ -14962,14 +15026,14 @@ class Controls {
             content.innerHTML = `
                 <div class="inspector-item">
                     <h3>Intention: ${escHtml(bpName)}</h3>
-                    <p>Type: ${intention.type}</p>
+                    <p>Type: ${escHtml(intention.type)}</p>
                     <p>Target: ${escHtml(bpName)}</p>
                     ${blueprintPreview}
                     <hr style="border-color: #444; margin: 8px 0;">
                     ${reqDetails}
                     <hr style="border-color: #444; margin: 8px 0;">
                     <p>Progress: ${Math.round(intention.progress * 100)}%</p>
-                    <p>Gathered: ${intention.gatheredComponents.size} / ${reqCount}</p>
+                    <p>Gathered: ${typeof intention.getGatheredCount === 'function' ? intention.getGatheredCount() : intention.gatheredComponents.size} / ${escHtml(String(reqCount))}</p>
                     <p>Radius: ${intention.radius} units</p>
                     <p>Position: (${intention.position.x.toFixed(0)}, ${intention.position.y.toFixed(0)})</p>
                     <p>Fulfilled: ${intention.fulfilled ? 'Yes &#10003;' : 'No'}</p>
