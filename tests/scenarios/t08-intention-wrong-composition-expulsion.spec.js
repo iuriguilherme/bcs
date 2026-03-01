@@ -4,8 +4,8 @@
 //
 // What this tests:
 //   Rule 1 (_rule1_repelIrrelevantAtoms) continuously repels free O atoms from
-//   a C2H4 intent zone. Part B of the fix (repulsionForce 8→12, floor 0.3→0.5)
-//   means the minimum force is 6.0 units (was 2.4) — reliable expulsion even at boundary.
+//   a C2H4 intent zone. Part B of the fix (repulsionForce 8→200, floor 0.3→0.5)
+//   means the minimum force is 100 units (was 2.4) — reliable expulsion even at boundary.
 //
 // Why tickInterval=120 (very slow):
 //   Atoms arrive one at a time, each expelled before the next arrives.

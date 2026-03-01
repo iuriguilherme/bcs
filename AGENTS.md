@@ -753,6 +753,7 @@ npx playwright test t01  # specific scenario
 | `t04-polymer-intent` | ✅ Pass | Polymer intent drives full monomer→polymer pipeline |
 | `t05-cell-formation` | ⚠️ `test.fail()` | Cell formation (known bug — expected to fail) |
 | `t06-view-consistency` | ✅ Pass | Level-switch rendering stays non-zero |
+| `t08-intention-wrong-composition-expulsion` | ✅ Pass | Wrong-element O atoms expelled from C₂H₄ intent zone; validates Rule 1 expulsion at repulsionForce=200 |
 
 **Key rules:**
 - Every test must click `#playPauseBtn` — tests that never start the simulation are invalid

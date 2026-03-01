@@ -21,7 +21,14 @@ class Intention {
         // Attraction properties
         this.radius = this._getRadiusByType();
         this.attractionForce = 3.0; // Strong attraction force
-        this.repulsionForce = 200.0; // Strong repulsion — must overcome inter-particle attraction (20) and physics scale
+        // Calibrated against environment.js physics constants:
+        //   attractionStrength = 20 (per bonded pair within attractionRadius=80)
+        //   bounceForce = 100 (boundary wall reference force)
+        // repulsionForce must exceed attractionStrength per neighbour pair so atoms
+        // cannot be held inside zones by inter-particle bonding. Floor (200×0.5=100)
+        // equals bounceForce, ensuring boundary expulsion even with multiple neighbours.
+        // If attractionStrength or bounceForce change in environment.js, recalibrate.
+        this.repulsionForce = 200.0;
 
         // Progress tracking
         this.progress = 0;
@@ -959,6 +966,8 @@ class Intention {
                         } else {
                             // This element is NOT in the target - repel away FAST
                             // Use strong repulsion with minimum force to ensure it works even with overlapping intentions
+                            // Floor 0.3 here (vs. 0.5 in molecule-intent Rules 1-2): polymer/cell
+                            // intents have larger radii with gentler boundary dynamics; 0.3 is sufficient.
                             const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
                             const repelForce = direction.mul(-repelStrength);
                             atom.applyForce(repelForce);
@@ -1010,6 +1019,8 @@ class Intention {
                     const direction = this.position.sub(center).normalize();
                     // Very strong repulsion for unrelated stable molecules
                     // Use minimum force to ensure repulsion works even with overlapping intentions
+                    // Floor 0.3 here (vs. 0.5 in molecule-intent Rules 1-2): polymer/cell
+                    // intents have larger radii with gentler boundary dynamics; 0.3 is sufficient.
                     const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
                     const repelForce = direction.mul(-repelStrength);
                     mol.applyForce(repelForce);
@@ -1050,6 +1061,8 @@ class Intention {
                         atom.applyForce(force);
                     } else {
                         // This element is NOT part of the monomer - repel it fast
+                        // Floor 0.3 here (vs. 0.5 in molecule-intent Rules 1-2): polymer/cell
+                        // intents have larger radii with gentler boundary dynamics; 0.3 is sufficient.
                         const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
                         const repelForce = direction.mul(-repelStrength);
                         atom.applyForce(repelForce);
@@ -1085,7 +1098,9 @@ class Intention {
                     } else if (mol.isStable() && dist < this.radius) {
                         // Only repel STABLE molecules that are NOT the required monomer,
                         // and only within the normal radius.
-                        // Unstable molecules may still transform into the needed monomer
+                        // Unstable molecules may still transform into the needed monomer.
+                        // Floor 0.3 here (vs. 0.5 in molecule-intent Rules 1-2): polymer/cell
+                        // intents have larger radii with gentler boundary dynamics; 0.3 is sufficient.
                         const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
                         const repelForce = direction.mul(-repelStrength);
                         mol.applyForce(repelForce);
