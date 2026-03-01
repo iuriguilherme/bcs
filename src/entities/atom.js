@@ -214,6 +214,17 @@ class Atom {
         // Apply damping (friction)
         this.velocity = this.velocity.mul(0.99);
 
+        // Clamp speed to prevent tunnelling under strong expulsion forces.
+        // repulsionForce=200 gives H atoms (mass=1.008) a terminal velocity of
+        // ~330 world-units/tick, which exceeds the 300-unit intent zone radius.
+        // If attractionStrength or bounceForce change in environment.js,
+        // recalibrate this ceiling accordingly.
+        const MAX_SPEED = 400;
+        const speed = this.velocity.length();
+        if (speed > MAX_SPEED) {
+            this.velocity = this.velocity.mul(MAX_SPEED / speed);
+        }
+
         // Update position
         this.position = this.position.add(this.velocity.mul(dt));
 

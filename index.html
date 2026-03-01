@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.24.1-1-g08ad0fe"
-                    class="version-link" target="_blank">v0.24.1-1-g08ad0fe</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.24.1-2-gf31783c"
+                    class="version-link" target="_blank">v0.24.1-2-gf31783c</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1374,8 +1374,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.24.1-1-g08ad0fe
-// Generated: 2026-03-01T03:29:35.607Z
+// Version: v0.24.1-2-gf31783c
+// Generated: 2026-03-01T15:09:59.796Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -4154,6 +4154,17 @@ class Atom {
 
         // Apply damping (friction)
         this.velocity = this.velocity.mul(0.99);
+
+        // Clamp speed to prevent tunnelling under strong expulsion forces.
+        // repulsionForce=200 gives H atoms (mass=1.008) a terminal velocity of
+        // ~330 world-units/tick, which exceeds the 300-unit intent zone radius.
+        // If attractionStrength or bounceForce change in environment.js,
+        // recalibrate this ceiling accordingly.
+        const MAX_SPEED = 400;
+        const speed = this.velocity.length();
+        if (speed > MAX_SPEED) {
+            this.velocity = this.velocity.mul(MAX_SPEED / speed);
+        }
 
         // Update position
         this.position = this.position.add(this.velocity.mul(dt));
