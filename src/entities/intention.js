@@ -21,7 +21,7 @@ class Intention {
         // Attraction properties
         this.radius = this._getRadiusByType();
         this.attractionForce = 3.0; // Strong attraction force
-        this.repulsionForce = 8.0; // Very strong repulsion to push away unwanted entities quickly
+        this.repulsionForce = 200.0; // Strong repulsion — must overcome inter-particle attraction (20) and physics scale
 
         // Progress tracking
         this.progress = 0;
@@ -453,7 +453,7 @@ class Intention {
                     const dir = atom.position.sub(this.position).normalize();
                     const strength = Math.max(
                         this.repulsionForce * (1 - dist / this.radius),
-                        this.repulsionForce * 0.3
+                        this.repulsionForce * 0.5
                     );
                     atom.applyForce(dir.mul(strength));
                 }
@@ -462,20 +462,46 @@ class Intention {
     }
 
     _rule2_repelIrrelevantMolecules(environment, state) {
-        const { targetFormula, totalNeeded } = state;
+        const { targetFormula, totalNeeded, targetComp, claimed } = state;
         if (!targetFormula) return;
+
+        // Precompute which elements are still needed (target - already claimed).
+        // Used by the surplus check below to clear molecules when claiming is complete.
+        const targetElements = new Set(Object.keys(targetComp));
+        const claimedByElement = {};
+        for (const atom of claimed) {
+            claimedByElement[atom.symbol] = (claimedByElement[atom.symbol] || 0) + 1;
+        }
+        const remainingNeeded = {};
+        for (const [el, count] of Object.entries(targetComp)) {
+            remainingNeeded[el] = Math.max(0, count - (claimedByElement[el] || 0));
+        }
 
         for (const mol of environment.molecules.values()) {
             if (mol.isSeedFor) continue;    // Never repel seed molecules
             if (mol.polymerId) continue;    // Never repel polymer-protected molecules
             if (mol.formula === targetFormula) continue; // Already target formula
 
+            // Condition 1: wrong-element check.
+            // A molecule containing any element NOT in the target can never become
+            // the target molecule through chemistry, so expel it immediately.
+            const hasWrongElement = mol.atoms.some(a => !targetElements.has(a.symbol));
+
+            // Condition 2: surplus check.
+            // A molecule with only correct elements but whose elements are all already
+            // fully claimed is surplus — expel it to prevent late-assembly crowding.
+            const isSurplus = !hasWrongElement &&
+                mol.atoms.every(a => remainingNeeded[a.symbol] === 0);
+
             // Repel stable molecules always (they block assembly space).
             // Also repel large unstable molecules larger than the target (tar-balls):
             // they create dense repulsion fields that push seeds away from intent center
             // and occupy atoms the intent needs. Small unstable molecules (e.g. C2H2 when
-            // assembling C2H4) are left alone — Rule 4 can extract atoms from them.
-            const shouldRepel = mol.isStable() || mol.atoms.length > totalNeeded;
+            // assembling C2H4) are left alone unless they contain wrong elements or are surplus.
+            const shouldRepel = mol.isStable()
+                || mol.atoms.length > totalNeeded
+                || hasWrongElement
+                || isSurplus;
             if (!shouldRepel) continue;
 
             const center = mol.centerOfMass;
@@ -485,7 +511,7 @@ class Intention {
             const dir = center.sub(this.position).normalize();
             const strength = Math.max(
                 this.repulsionForce * (1 - dist / this.radius),
-                this.repulsionForce * 0.3
+                this.repulsionForce * 0.5
             );
             // Apply force per atom (not via mol.applyForce which divides by total mass).
             // mol.applyForce gives each atom force * atom_mass/total_mass → acceleration
