@@ -339,6 +339,11 @@ class Intention {
             totalNeeded,
             seedMol,
             seedAtomIds,
+            // Snapshot of atoms claimed in PRIOR ticks only (read-only for all rules).
+            // Rules 1–2 (expulsion) use this to identify surplus; Rules 3–5 mutate
+            // atom.claimedByIntentId directly. If _buildState() is ever refactored
+            // to rebuild state mid-pipeline, update the surplus check in
+            // _rule2_repelIrrelevantMolecules() to re-read live atom state instead.
             claimed,
             free,
             extractedThisTick: false // Rule 4 sets this to prevent multiple extractions
@@ -462,6 +467,8 @@ class Intention {
     }
 
     _rule2_repelIrrelevantMolecules(environment, state) {
+        // `claimed` is a start-of-tick snapshot (see _buildState comment).
+        // Do NOT mutate it here — Rules 3–5 write atom.claimedByIntentId directly.
         const { targetFormula, totalNeeded, targetComp, claimed } = state;
         if (!targetFormula) return;
 

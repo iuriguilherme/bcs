@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.24.1-2-gf31783c"
-                    class="version-link" target="_blank">v0.24.1-2-gf31783c</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.24.1-3-gf77052f"
+                    class="version-link" target="_blank">v0.24.1-3-gf77052f</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1374,8 +1374,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.24.1-2-gf31783c
-// Generated: 2026-03-01T15:09:59.796Z
+// Version: v0.24.1-3-gf77052f
+// Generated: 2026-03-01T15:34:16.597Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -6927,6 +6927,11 @@ class Intention {
             totalNeeded,
             seedMol,
             seedAtomIds,
+            // Snapshot of atoms claimed in PRIOR ticks only (read-only for all rules).
+            // Rules 1–2 (expulsion) use this to identify surplus; Rules 3–5 mutate
+            // atom.claimedByIntentId directly. If _buildState() is ever refactored
+            // to rebuild state mid-pipeline, update the surplus check in
+            // _rule2_repelIrrelevantMolecules() to re-read live atom state instead.
             claimed,
             free,
             extractedThisTick: false // Rule 4 sets this to prevent multiple extractions
@@ -7050,6 +7055,8 @@ class Intention {
     }
 
     _rule2_repelIrrelevantMolecules(environment, state) {
+        // `claimed` is a start-of-tick snapshot (see _buildState comment).
+        // Do NOT mutate it here — Rules 3–5 write atom.claimedByIntentId directly.
         const { targetFormula, totalNeeded, targetComp, claimed } = state;
         if (!targetFormula) return;
 
