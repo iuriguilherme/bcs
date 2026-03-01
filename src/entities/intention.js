@@ -497,6 +497,14 @@ class Intention {
             // Condition 2: surplus check.
             // A molecule with only correct elements but whose elements are all already
             // fully claimed is surplus — expel it to prevent late-assembly crowding.
+            //
+            // NOTE: This intentionally overrides Bug #11's "leave unstable molecules alone" rule.
+            // An unstable same-element mol (e.g. C2H3 in a C2H4 zone where 2C+4H are claimed)
+            // could theoretically gain an H and become the target, but once claiming is complete
+            // the intent bonds and fulfills within a few ticks — that window is negligible and
+            // leaving surplus molecules creates late-assembly gridlock. Do NOT remove isSurplus
+            // citing Bug #11; the trade-off is deliberate.
+            // Ref: docs/brainstorms/2026-02-27-intention-zone-crowding-brainstorm.md
             const isSurplus = !hasWrongElement &&
                 mol.atoms.every(a => remainingNeeded[a.symbol] === 0);
 
