@@ -3,14 +3,10 @@
 !.github/*/*
 !.serena/*/*
 
-*.md
-!README.md
-!CLAUDE.md
-!AGENTS.md
-
 package-lock.json
 node_modules/
 
+whats-next.md
 .serena/cache/
 playwright-report/
 test-results/
