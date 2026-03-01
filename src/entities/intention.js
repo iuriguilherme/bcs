@@ -21,7 +21,14 @@ class Intention {
         // Attraction properties
         this.radius = this._getRadiusByType();
         this.attractionForce = 3.0; // Strong attraction force
-        this.repulsionForce = 8.0; // Very strong repulsion to push away unwanted entities quickly
+        // Calibrated against environment.js physics constants:
+        //   attractionStrength = 20 (per bonded pair within attractionRadius=80)
+        //   bounceForce = 100 (boundary wall reference force)
+        // repulsionForce must exceed attractionStrength per neighbour pair so atoms
+        // cannot be held inside zones by inter-particle bonding. Floor (200×0.5=100)
+        // equals bounceForce, ensuring boundary expulsion even with multiple neighbours.
+        // If attractionStrength or bounceForce change in environment.js, recalibrate.
+        this.repulsionForce = 200.0;
 
         // Progress tracking
         this.progress = 0;
@@ -339,6 +346,11 @@ class Intention {
             totalNeeded,
             seedMol,
             seedAtomIds,
+            // Snapshot of atoms claimed in PRIOR ticks only (read-only for all rules).
+            // Rules 1–2 (expulsion) use this to identify surplus; Rules 3–5 mutate
+            // atom.claimedByIntentId directly. If _buildState() is ever refactored
+            // to rebuild state mid-pipeline, update the surplus check in
+            // _rule2_repelIrrelevantMolecules() to re-read live atom state instead.
             claimed,
             free,
             extractedThisTick: false // Rule 4 sets this to prevent multiple extractions
@@ -453,7 +465,7 @@ class Intention {
                     const dir = atom.position.sub(this.position).normalize();
                     const strength = Math.max(
                         this.repulsionForce * (1 - dist / this.radius),
-                        this.repulsionForce * 0.3
+                        this.repulsionForce * 0.5
                     );
                     atom.applyForce(dir.mul(strength));
                 }
@@ -462,20 +474,51 @@ class Intention {
     }
 
     _rule2_repelIrrelevantMolecules(environment, state) {
-        const { targetFormula, totalNeeded } = state;
+        // `claimed` is a start-of-tick snapshot (see _buildState comment).
+        // Do NOT mutate it here — Rules 3–5 write atom.claimedByIntentId directly.
+        const { targetFormula, totalNeeded, targetComp, claimed } = state;
         if (!targetFormula) return;
+
+        // Precompute claimed element counts for the surplus check below.
+        const targetElements = new Set(Object.keys(targetComp));
+        const claimedCount = {};
+        for (const atom of claimed) {
+            claimedCount[atom.symbol] = (claimedCount[atom.symbol] || 0) + 1;
+        }
 
         for (const mol of environment.molecules.values()) {
             if (mol.isSeedFor) continue;    // Never repel seed molecules
             if (mol.polymerId) continue;    // Never repel polymer-protected molecules
             if (mol.formula === targetFormula) continue; // Already target formula
 
+            // Condition 1: wrong-element check.
+            // A molecule containing any element NOT in the target can never become
+            // the target molecule through chemistry, so expel it immediately.
+            const hasWrongElement = mol.atoms.some(a => !targetElements.has(a.symbol));
+
+            // Condition 2: surplus check.
+            // A molecule with only correct elements but whose elements are all already
+            // fully claimed is surplus — expel it to prevent late-assembly crowding.
+            //
+            // NOTE: This intentionally overrides Bug #11's "leave unstable molecules alone" rule.
+            // An unstable same-element mol (e.g. C2H3 in a C2H4 zone where 2C+4H are claimed)
+            // could theoretically gain an H and become the target, but once claiming is complete
+            // the intent bonds and fulfills within a few ticks — that window is negligible and
+            // leaving surplus molecules creates late-assembly gridlock. Do NOT remove isSurplus
+            // citing Bug #11; the trade-off is deliberate.
+            // Ref: docs/brainstorms/2026-02-27-intention-zone-crowding-brainstorm.md
+            const isSurplus = !hasWrongElement &&
+                mol.atoms.every(a => (claimedCount[a.symbol] || 0) >= (targetComp[a.symbol] || 0));
+
             // Repel stable molecules always (they block assembly space).
             // Also repel large unstable molecules larger than the target (tar-balls):
             // they create dense repulsion fields that push seeds away from intent center
             // and occupy atoms the intent needs. Small unstable molecules (e.g. C2H2 when
-            // assembling C2H4) are left alone — Rule 4 can extract atoms from them.
-            const shouldRepel = mol.isStable() || mol.atoms.length > totalNeeded;
+            // assembling C2H4) are left alone unless they contain wrong elements or are surplus.
+            const shouldRepel = mol.isStable()
+                || mol.atoms.length > totalNeeded
+                || hasWrongElement
+                || isSurplus;
             if (!shouldRepel) continue;
 
             const center = mol.centerOfMass;
@@ -485,7 +528,7 @@ class Intention {
             const dir = center.sub(this.position).normalize();
             const strength = Math.max(
                 this.repulsionForce * (1 - dist / this.radius),
-                this.repulsionForce * 0.3
+                this.repulsionForce * 0.5
             );
             // Apply force per atom (not via mol.applyForce which divides by total mass).
             // mol.applyForce gives each atom force * atom_mass/total_mass → acceleration
@@ -918,6 +961,8 @@ class Intention {
                         } else {
                             // This element is NOT in the target - repel away FAST
                             // Use strong repulsion with minimum force to ensure it works even with overlapping intentions
+                            // Floor 0.3 here (vs. 0.5 in molecule-intent Rules 1-2): polymer/cell
+                            // intents have larger radii with gentler boundary dynamics; 0.3 is sufficient.
                             const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
                             const repelForce = direction.mul(-repelStrength);
                             atom.applyForce(repelForce);
@@ -969,6 +1014,8 @@ class Intention {
                     const direction = this.position.sub(center).normalize();
                     // Very strong repulsion for unrelated stable molecules
                     // Use minimum force to ensure repulsion works even with overlapping intentions
+                    // Floor 0.3 here (vs. 0.5 in molecule-intent Rules 1-2): polymer/cell
+                    // intents have larger radii with gentler boundary dynamics; 0.3 is sufficient.
                     const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
                     const repelForce = direction.mul(-repelStrength);
                     mol.applyForce(repelForce);
@@ -1009,6 +1056,8 @@ class Intention {
                         atom.applyForce(force);
                     } else {
                         // This element is NOT part of the monomer - repel it fast
+                        // Floor 0.3 here (vs. 0.5 in molecule-intent Rules 1-2): polymer/cell
+                        // intents have larger radii with gentler boundary dynamics; 0.3 is sufficient.
                         const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
                         const repelForce = direction.mul(-repelStrength);
                         atom.applyForce(repelForce);
@@ -1044,7 +1093,9 @@ class Intention {
                     } else if (mol.isStable() && dist < this.radius) {
                         // Only repel STABLE molecules that are NOT the required monomer,
                         // and only within the normal radius.
-                        // Unstable molecules may still transform into the needed monomer
+                        // Unstable molecules may still transform into the needed monomer.
+                        // Floor 0.3 here (vs. 0.5 in molecule-intent Rules 1-2): polymer/cell
+                        // intents have larger radii with gentler boundary dynamics; 0.3 is sufficient.
                         const repelStrength = Math.max(this.repulsionForce * (1 - dist / this.radius), this.repulsionForce * 0.3);
                         const repelForce = direction.mul(-repelStrength);
                         mol.applyForce(repelForce);

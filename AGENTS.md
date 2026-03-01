@@ -419,6 +419,10 @@ if (mol.formula === targetFormula) continue;  // Don't repel target
 **Key Rules**:
 1. **Never break molecules** inside intentions - let chemistry handle transformation
 2. **Only repel stable unrelated molecules** - unstable ones may still become the target
+   - **Exception (isSurplus, 2026-02)**: If an unstable molecule contains ONLY correct elements
+     but all required elements are already fully claimed, it IS repelled (`_rule2_repelIrrelevantMolecules`).
+     Once claiming is complete the intent fulfills in ticks — leaving surplus molecules causes gridlock.
+     This is intentional; do not remove it citing this rule.
 3. **Attract needed atoms** - repel atoms not in target composition
 
 ### Bug #12: Bonds Lost After Reshaping (2026-01)
@@ -749,6 +753,7 @@ npx playwright test t01  # specific scenario
 | `t04-polymer-intent` | ✅ Pass | Polymer intent drives full monomer→polymer pipeline |
 | `t05-cell-formation` | ⚠️ `test.fail()` | Cell formation (known bug — expected to fail) |
 | `t06-view-consistency` | ✅ Pass | Level-switch rendering stays non-zero |
+| `t08-intention-wrong-composition-expulsion` | ✅ Pass | Wrong-element O atoms expelled from C₂H₄ intent zone; validates Rule 1 expulsion at repulsionForce=200 |
 
 **Key rules:**
 - Every test must click `#playPauseBtn` — tests that never start the simulation are invalid
@@ -873,6 +878,8 @@ The tutorial pauses the simulation when active and highlights relevant UI elemen
 6. **Hardcoded element lists**: Multiple locations need updating when adding elements
 7. **Breaking geometryVerified**: This flag prevents reshape loops - don't remove it
 8. **Repelling unstable molecules**: Only repel STABLE unrelated molecules in intentions
+   (Exception: `isSurplus` in Rule 2 intentionally repels unstable surplus molecules when
+   all needed elements are already claimed — see Bug #11 for full context)
 
 ---
 
