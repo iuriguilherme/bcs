@@ -549,7 +549,7 @@ class Controls {
                     <h3>${atom.element.name} (${atom.symbol})</h3>
                     <p>Atomic Number: ${atom.element.number}</p>
                     <p>Mass: ${atom.mass.toFixed(3)} u</p>
-                    <p>Valence: ${atom.bondCount}/${atom.maxBonds}</p>
+                    <p>Valence: ${atom.bondCount}/${atom.bondCount > atom.maxBonds ? atom.bondCount + '*' : atom.maxBonds}</p>
                     <p>Bonds: ${atom.bonds.length}</p>
                     <p>Position: (${atom.position.x.toFixed(1)}, ${atom.position.y.toFixed(1)})</p>
                     ${atom.moleculeId ? `<p>Molecule ID: ${atom.moleculeId}</p>` : ''}

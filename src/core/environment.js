@@ -32,6 +32,11 @@ class Environment {
         this.temperature = 300;  // Kelvin
         this.pressure = 1;       // Atmospheres
 
+        // Thermodynamics state
+        this._thermalBreakTick = 0;
+        this._bondsToBreak = [];   // persistent scratch array; avoids GC on hot ticks
+        this.thermodynamics = null;
+
         this.stats = {
             atomCount: 0,
             moleculeCount: 0,
@@ -638,7 +643,12 @@ class Environment {
                         if (intention2) prob = 0;
                     }
 
-                    if (Math.random() < prob * 0.3) {
+                    const sym1 = atom1.symbol;
+                    const sym2 = atom2.symbol;
+                    const thermalFactor = this.thermodynamics
+                        ? this.thermodynamics.getFormationFactor(sym1, sym2, this.temperature)
+                        : 0.3;
+                    if (Math.random() < prob * thermalFactor) {
                         const bond = tryFormBond(atom1, atom2, 1);
                         if (bond) {
                             this.addBond(bond);
@@ -829,13 +839,40 @@ class Environment {
     }
 
     /**
+     * Thermal bond breaking sweep — runs every 6 ticks
+     * Uses simple kinetics: P(break) = (1-stability) × min(1, temp/298)
+     */
+    tryBreakThermalBonds() {
+        this._thermalBreakTick++;
+        if (this._thermalBreakTick % 6 !== 0) return;
+
+        const temp = this.temperature;
+        this._bondsToBreak.length = 0;
+
+        for (const bond of this.bonds.values()) {
+            if (bond.atom1.isSealed || bond.atom2.isSealed) continue;
+            if (bond.shouldBreakThermal(temp)) {
+                this._bondsToBreak.push(bond);
+            }
+        }
+
+        for (const bond of this._bondsToBreak) {
+            bond.break(false);
+            this.bonds.delete(bond.id);
+        }
+    }
+
+    /**
      * Update all entities
      * @param {number} dt - Delta time
      */
     update(dt) {
         // Synchronize bonds first - clean up any broken/stale bonds
         this.syncBonds();
-        
+
+        // Thermal bond breaking (every 6 ticks)
+        this.tryBreakThermalBonds();
+
         // Apply forces
         this.applyBoundaries();
         this.applyAtomicForces();
@@ -933,6 +970,8 @@ class Environment {
         this.organisms.clear();
         this.intentions.clear();
         this.grid.clear();
+        this._thermalBreakTick = 0;
+        this._bondsToBreak = [];
         this.stats = {
             atomCount: 0,
             moleculeCount: 0,
@@ -969,9 +1008,20 @@ class Environment {
     deserialize(data) {
         this.clear();
 
-        this.width = data.width;
-        this.height = data.height;
-        this.temperature = data.temperature;
+        // Validate width/height — Infinity/NaN causes spatial grid infinite loops
+        const rawWidth = data.width;
+        const rawHeight = data.height;
+        this.width = (Number.isFinite(rawWidth) && rawWidth > 0 && rawWidth <= 10000) ? rawWidth : 2000;
+        this.height = (Number.isFinite(rawHeight) && rawHeight > 0 && rawHeight <= 10000) ? rawHeight : 2000;
+
+        // Validate temperature — prevents corrupted saves from breaking thermal math
+        const rawTemp = data.temperature;
+        if (Number.isFinite(rawTemp) && rawTemp >= 1 && rawTemp <= 600) {
+            this.temperature = rawTemp;
+        } else {
+            this.temperature = 300;
+        }
+
         this.pressure = data.pressure;
 
         // Load atoms

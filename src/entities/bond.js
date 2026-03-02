@@ -48,6 +48,26 @@ class Bond {
     }
 
     /**
+     * Stability score: bond strength normalized by MAX_BOND_ENERGY (0-1, higher = more stable)
+     */
+    get stabilityScore() {
+        return this.strength / MAX_BOND_ENERGY;
+    }
+
+    /**
+     * Check if this bond should break due to thermal energy
+     * Simple kinetics model: P(break) = (1 - stability) × min(1, temp/298)
+     * CO triple bond (stability=1.0) always returns false at any temperature.
+     * @param {number} temperature - Temperature in Kelvin
+     * @returns {boolean}
+     */
+    shouldBreakThermal(temperature) {
+        const stability = this.stabilityScore;
+        const pBreak = (1 - stability) * Math.min(1, temperature / 298);
+        return Math.random() < pBreak;
+    }
+
+    /**
      * Get the current length of the bond
      */
     get length() {
@@ -290,8 +310,8 @@ class Bond {
  * @param {number} order - Desired bond order
  * @returns {Bond|null} The created bond or null if not possible
  */
-function tryFormBond(atom1, atom2, order = 1) {
-    if (!atom1.canBondWith(atom2, order)) {
+function tryFormBond(atom1, atom2, order = 1, context = {}) {
+    if (!atom1.canBondWith(atom2, order, context)) {
         return null;
     }
 
