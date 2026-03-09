@@ -310,8 +310,8 @@ class Bond {
  * @param {number} order - Desired bond order
  * @returns {Bond|null} The created bond or null if not possible
  */
-function tryFormBond(atom1, atom2, order = 1, context = {}) {
-    if (!atom1.canBondWith(atom2, order, context)) {
+function tryFormBond(atom1, atom2, order = 1) {
+    if (!atom1.canBondWith(atom2, order)) {
         return null;
     }
 

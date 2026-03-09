@@ -32,28 +32,6 @@ class Thermodynamics {
         return Math.min(1, stability * (temperature / 298));
     }
 
-    /**
-     * Get effective temperature at a position — intention zones override global temp
-     * @param {number} x - X coordinate
-     * @param {number} y - Y coordinate
-     * @returns {number} Temperature in Kelvin
-     */
-    getTemperatureAt(x, y) {
-        for (const intention of this.environment.intentions.values()) {
-            if (intention.localTemperature == null) continue;
-            if (intention.fulfilled) continue;
-            const localTemp = intention.localTemperature;
-            if (!Number.isFinite(localTemp) || localTemp < 1 || localTemp > 600) continue;
-            const dx = x - intention.position.x;
-            const dy = y - intention.position.y;
-            const distSq = dx * dx + dy * dy;
-            const radiusSq = intention.radius * intention.radius;
-            if (distSq <= radiusSq) {
-                return localTemp;
-            }
-        }
-        return this.environment.temperature;
-    }
 }
 
 window.Thermodynamics = Thermodynamics;

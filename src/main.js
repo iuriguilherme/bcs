@@ -227,6 +227,20 @@ class App {
     }
 
     /**
+     * Set environment temperature and sync the slider UI.
+     * Use this for programmatic changes (e.g. tests, console) so the UI stays consistent.
+     * @param {number} temp - Temperature in Kelvin (clamped to 1–600)
+     */
+    setTemperature(temp) {
+        temp = Math.max(1, Math.min(600, temp));
+        this.environment.temperature = temp;
+        const slider = document.getElementById('temperatureSlider');
+        const label = document.getElementById('temperatureValue');
+        if (slider) slider.value = temp;
+        if (label) label.textContent = `${temp}K`;
+    }
+
+    /**
      * Set the current level (called from catalogue UI)
      * @param {number} level - The level to switch to
      */

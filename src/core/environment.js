@@ -594,6 +594,11 @@ class Environment {
         const bondingRadius = 40;
         const atoms = Array.from(this.atoms.values());
 
+        // Per-tick formation factor cache — temperature is constant per tick,
+        // so each unique element pair is computed at most once.
+        const formationCache = this._formationCache || (this._formationCache = new Map());
+        formationCache.clear();
+
         for (const atom1 of atoms) {
             if (atom1.availableValence === 0) continue;
             // Skip atoms in seed molecules - bonding is controlled by intentions
@@ -645,9 +650,17 @@ class Environment {
 
                     const sym1 = atom1.symbol;
                     const sym2 = atom2.symbol;
-                    const thermalFactor = this.thermodynamics
-                        ? this.thermodynamics.getFormationFactor(sym1, sym2, this.temperature)
-                        : 0.3;
+                    let thermalFactor;
+                    if (this.thermodynamics) {
+                        const pairKey = sym1 < sym2 ? sym1 + sym2 : sym2 + sym1;
+                        thermalFactor = formationCache.get(pairKey);
+                        if (thermalFactor === undefined) {
+                            thermalFactor = this.thermodynamics.getFormationFactor(sym1, sym2, this.temperature);
+                            formationCache.set(pairKey, thermalFactor);
+                        }
+                    } else {
+                        thermalFactor = 0.3;
+                    }
                     if (Math.random() < prob * thermalFactor) {
                         const bond = tryFormBond(atom1, atom2, 1);
                         if (bond) {
@@ -857,7 +870,7 @@ class Environment {
         }
 
         for (const bond of this._bondsToBreak) {
-            bond.break(false);
+            bond.break(false);  // suppress kinetic impulse — thermal breakage is gradual, not explosive
             this.bonds.delete(bond.id);
         }
     }
@@ -1022,7 +1035,8 @@ class Environment {
             this.temperature = 300;
         }
 
-        this.pressure = data.pressure;
+        const rawPressure = data.pressure;
+        this.pressure = (Number.isFinite(rawPressure) && rawPressure > 0 && rawPressure <= 100) ? rawPressure : 1;
 
         // Load atoms
         const atomMap = new Map();

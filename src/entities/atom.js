@@ -91,7 +91,7 @@ class Atom {
         if (this.claimedByIntentId) return false;
 
         if (this.availableValence < order || other.availableValence < order) {
-            if (!context.allowOvervalence) return false;
+            if (!context.intentId || !context.allowOvervalence) return false;
         }
 
         // Sealed atoms (in stable polymers) cannot form new bonds
@@ -348,10 +348,14 @@ class Atom {
      * Create atom from serialized data
      */
     static deserialize(data) {
-        const atom = new Atom(data.symbol, data.x, data.y);
+        const x = Number.isFinite(data.x) ? data.x : 0;
+        const y = Number.isFinite(data.y) ? data.y : 0;
+        const atom = new Atom(data.symbol, x, y);
         atom.id = data.id;
-        atom.velocity = new Vector2(data.vx, data.vy);
-        atom.charge = data.charge || 0;
+        const vx = Number.isFinite(data.vx) ? data.vx : 0;
+        const vy = Number.isFinite(data.vy) ? data.vy : 0;
+        atom.velocity = new Vector2(vx, vy);
+        atom.charge = Number.isFinite(data.charge) ? data.charge : 0;
         atom.moleculeId = data.moleculeId;
         atom.claimedByIntentId = data.claimedByIntentId || null;
         return atom;

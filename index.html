@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.26.1-7-g6f59711"
-                    class="version-link" target="_blank">v0.26.1-7-g6f59711</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.26.1-8-g4030c8a"
+                    class="version-link" target="_blank">v0.26.1-8-g4030c8a</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1378,8 +1378,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.26.1-7-g6f59711
-// Generated: 2026-03-02T00:50:55.711Z
+// Version: v0.26.1-8-g4030c8a
+// Generated: 2026-03-09T02:46:31.896Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -4041,7 +4041,7 @@ class Atom {
         if (this.claimedByIntentId) return false;
 
         if (this.availableValence < order || other.availableValence < order) {
-            if (!context.allowOvervalence) return false;
+            if (!context.intentId || !context.allowOvervalence) return false;
         }
 
         // Sealed atoms (in stable polymers) cannot form new bonds
@@ -4298,10 +4298,14 @@ class Atom {
      * Create atom from serialized data
      */
     static deserialize(data) {
-        const atom = new Atom(data.symbol, data.x, data.y);
+        const x = Number.isFinite(data.x) ? data.x : 0;
+        const y = Number.isFinite(data.y) ? data.y : 0;
+        const atom = new Atom(data.symbol, x, y);
         atom.id = data.id;
-        atom.velocity = new Vector2(data.vx, data.vy);
-        atom.charge = data.charge || 0;
+        const vx = Number.isFinite(data.vx) ? data.vx : 0;
+        const vy = Number.isFinite(data.vy) ? data.vy : 0;
+        atom.velocity = new Vector2(vx, vy);
+        atom.charge = Number.isFinite(data.charge) ? data.charge : 0;
         atom.moleculeId = data.moleculeId;
         atom.claimedByIntentId = data.claimedByIntentId || null;
         return atom;
@@ -4625,8 +4629,8 @@ class Bond {
  * @param {number} order - Desired bond order
  * @returns {Bond|null} The created bond or null if not possible
  */
-function tryFormBond(atom1, atom2, order = 1, context = {}) {
-    if (!atom1.canBondWith(atom2, order, context)) {
+function tryFormBond(atom1, atom2, order = 1) {
+    if (!atom1.canBondWith(atom2, order)) {
         return null;
     }
 
@@ -6622,6 +6626,10 @@ window.findPotentialProteins = findPotentialProteins;  // Backward compatibility
  * to form molecules, polymers, or cells organically
  */
 
+// Minimum bond stability required to allow overvalence during intention-guided bonding.
+// C≡O (stability≈1.0) and N≡N (stability≈0.88) qualify; C≡N (≈0.83) intentionally does not.
+const OVERVALENCE_STABILITY_THRESHOLD = 0.85;
+
 class Intention {
     /**
      * Create a new intention zone
@@ -6647,9 +6655,6 @@ class Intention {
         // equals bounceForce, ensuring boundary expulsion even with multiple neighbours.
         // If attractionStrength or bounceForce change in environment.js, recalibrate.
         this.repulsionForce = 200.0;
-
-        // Thermodynamics — local temperature zone override
-        this.localTemperature = null;  // null = use global environment.temperature
 
         // Progress tracking
         this.progress = 0;
@@ -7374,7 +7379,7 @@ class Intention {
                 for (const seedAtom of seedMol.atoms) {
                     // Relaxed valence guard: allow 0-valence atoms if the pair qualifies for overvalence
                     const stability = getBondEnergy(atom.symbol, seedAtom.symbol, 1) / MAX_BOND_ENERGY;
-                    const allowOvervalence = stability > 0.85;
+                    const allowOvervalence = stability > OVERVALENCE_STABILITY_THRESHOLD;
                     if (!seedAtom.availableValence && !allowOvervalence) continue;
 
                     const dist = atom.position.distanceTo(seedAtom.position);
@@ -7423,7 +7428,7 @@ class Intention {
                     if (dist > bondingRadius) continue;
 
                     const stability = getBondEnergy(atom.symbol, other.symbol, 1) / MAX_BOND_ENERGY;
-                    const allowOvervalence = stability > 0.85;
+                    const allowOvervalence = stability > OVERVALENCE_STABILITY_THRESHOLD;
                     const ctx = { intentId: this.id, allowOvervalence };
                     if (!atom.canBondWith(other, 1, ctx)) continue;
                     if (!other.canBondWith(atom, 1, ctx)) continue;
@@ -8993,28 +8998,6 @@ class Thermodynamics {
         return Math.min(1, stability * (temperature / 298));
     }
 
-    /**
-     * Get effective temperature at a position — intention zones override global temp
-     * @param {number} x - X coordinate
-     * @param {number} y - Y coordinate
-     * @returns {number} Temperature in Kelvin
-     */
-    getTemperatureAt(x, y) {
-        for (const intention of this.environment.intentions.values()) {
-            if (intention.localTemperature == null) continue;
-            if (intention.fulfilled) continue;
-            const localTemp = intention.localTemperature;
-            if (!Number.isFinite(localTemp) || localTemp < 1 || localTemp > 600) continue;
-            const dx = x - intention.position.x;
-            const dy = y - intention.position.y;
-            const distSq = dx * dx + dy * dy;
-            const radiusSq = intention.radius * intention.radius;
-            if (distSq <= radiusSq) {
-                return localTemp;
-            }
-        }
-        return this.environment.temperature;
-    }
 }
 
 window.Thermodynamics = Thermodynamics;
@@ -11026,6 +11009,11 @@ class Environment {
         const bondingRadius = 40;
         const atoms = Array.from(this.atoms.values());
 
+        // Per-tick formation factor cache — temperature is constant per tick,
+        // so each unique element pair is computed at most once.
+        const formationCache = this._formationCache || (this._formationCache = new Map());
+        formationCache.clear();
+
         for (const atom1 of atoms) {
             if (atom1.availableValence === 0) continue;
             // Skip atoms in seed molecules - bonding is controlled by intentions
@@ -11077,9 +11065,17 @@ class Environment {
 
                     const sym1 = atom1.symbol;
                     const sym2 = atom2.symbol;
-                    const thermalFactor = this.thermodynamics
-                        ? this.thermodynamics.getFormationFactor(sym1, sym2, this.temperature)
-                        : 0.3;
+                    let thermalFactor;
+                    if (this.thermodynamics) {
+                        const pairKey = sym1 < sym2 ? sym1 + sym2 : sym2 + sym1;
+                        thermalFactor = formationCache.get(pairKey);
+                        if (thermalFactor === undefined) {
+                            thermalFactor = this.thermodynamics.getFormationFactor(sym1, sym2, this.temperature);
+                            formationCache.set(pairKey, thermalFactor);
+                        }
+                    } else {
+                        thermalFactor = 0.3;
+                    }
                     if (Math.random() < prob * thermalFactor) {
                         const bond = tryFormBond(atom1, atom2, 1);
                         if (bond) {
@@ -11289,7 +11285,7 @@ class Environment {
         }
 
         for (const bond of this._bondsToBreak) {
-            bond.break(false);
+            bond.break(false);  // suppress kinetic impulse — thermal breakage is gradual, not explosive
             this.bonds.delete(bond.id);
         }
     }
@@ -11454,7 +11450,8 @@ class Environment {
             this.temperature = 300;
         }
 
-        this.pressure = data.pressure;
+        const rawPressure = data.pressure;
+        this.pressure = (Number.isFinite(rawPressure) && rawPressure > 0 && rawPressure <= 100) ? rawPressure : 1;
 
         // Load atoms
         const atomMap = new Map();
@@ -17123,6 +17120,20 @@ class App {
                 }
             });
         }
+    }
+
+    /**
+     * Set environment temperature and sync the slider UI.
+     * Use this for programmatic changes (e.g. tests, console) so the UI stays consistent.
+     * @param {number} temp - Temperature in Kelvin (clamped to 1–600)
+     */
+    setTemperature(temp) {
+        temp = Math.max(1, Math.min(600, temp));
+        this.environment.temperature = temp;
+        const slider = document.getElementById('temperatureSlider');
+        const label = document.getElementById('temperatureValue');
+        if (slider) slider.value = temp;
+        if (label) label.textContent = `${temp}K`;
     }
 
     /**
