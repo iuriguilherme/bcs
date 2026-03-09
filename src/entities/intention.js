@@ -4,6 +4,10 @@
  * to form molecules, polymers, or cells organically
  */
 
+// Minimum bond stability required to allow overvalence during intention-guided bonding.
+// C≡O (stability≈1.0) and N≡N (stability≈0.88) qualify; C≡N (≈0.83) intentionally does not.
+const OVERVALENCE_STABILITY_THRESHOLD = 0.85;
+
 class Intention {
     /**
      * Create a new intention zone
@@ -29,9 +33,6 @@ class Intention {
         // equals bounceForce, ensuring boundary expulsion even with multiple neighbours.
         // If attractionStrength or bounceForce change in environment.js, recalibrate.
         this.repulsionForce = 200.0;
-
-        // Thermodynamics — local temperature zone override
-        this.localTemperature = null;  // null = use global environment.temperature
 
         // Progress tracking
         this.progress = 0;
@@ -756,7 +757,7 @@ class Intention {
                 for (const seedAtom of seedMol.atoms) {
                     // Relaxed valence guard: allow 0-valence atoms if the pair qualifies for overvalence
                     const stability = getBondEnergy(atom.symbol, seedAtom.symbol, 1) / MAX_BOND_ENERGY;
-                    const allowOvervalence = stability > 0.85;
+                    const allowOvervalence = stability > OVERVALENCE_STABILITY_THRESHOLD;
                     if (!seedAtom.availableValence && !allowOvervalence) continue;
 
                     const dist = atom.position.distanceTo(seedAtom.position);
@@ -805,7 +806,7 @@ class Intention {
                     if (dist > bondingRadius) continue;
 
                     const stability = getBondEnergy(atom.symbol, other.symbol, 1) / MAX_BOND_ENERGY;
-                    const allowOvervalence = stability > 0.85;
+                    const allowOvervalence = stability > OVERVALENCE_STABILITY_THRESHOLD;
                     const ctx = { intentId: this.id, allowOvervalence };
                     if (!atom.canBondWith(other, 1, ctx)) continue;
                     if (!other.canBondWith(atom, 1, ctx)) continue;
