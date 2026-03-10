@@ -4,6 +4,10 @@
  * to form molecules, polymers, or cells organically
  */
 
+// Minimum bond stability required to allow overvalence during intention-guided bonding.
+// C≡O (stability≈1.0) and N≡N (stability≈0.88) qualify; C≡N (≈0.83) intentionally does not.
+const OVERVALENCE_STABILITY_THRESHOLD = 0.85;
+
 class Intention {
     /**
      * Create a new intention zone
@@ -751,14 +755,18 @@ class Intention {
                 const bondingRadius = (atom.radius + 15) * 2.5; // Generous bonding distance
 
                 for (const seedAtom of seedMol.atoms) {
-                    if (!seedAtom.availableValence) continue;
+                    // Relaxed valence guard: allow 0-valence atoms if the pair qualifies for overvalence
+                    const stability = getBondEnergy(atom.symbol, seedAtom.symbol, 1) / MAX_BOND_ENERGY;
+                    const allowOvervalence = stability > OVERVALENCE_STABILITY_THRESHOLD;
+                    if (!seedAtom.availableValence && !allowOvervalence) continue;
 
                     const dist = atom.position.distanceTo(seedAtom.position);
                     if (dist > bondingRadius) continue;
 
-                    // Context-aware bonding: bypasses claim restriction for this intent's atoms
-                    if (!atom.canBondWith(seedAtom, 1, { intentId: this.id })) continue;
-                    if (!seedAtom.canBondWith(atom, 1)) continue;
+                    // Context-aware bonding: both calls get context with allowOvervalence
+                    const ctx = { intentId: this.id, allowOvervalence };
+                    if (!atom.canBondWith(seedAtom, 1, ctx)) continue;
+                    if (!seedAtom.canBondWith(atom, 1, ctx)) continue;
 
                     // Create the bond
                     const bond = new Bond(atom, seedAtom, 1);
@@ -797,8 +805,11 @@ class Intention {
                     const bondingRadius = (atom.radius + other.radius) * 2.5;
                     if (dist > bondingRadius) continue;
 
-                    if (!atom.canBondWith(other, 1, { intentId: this.id })) continue;
-                    if (!other.canBondWith(atom, 1, { intentId: this.id })) continue;
+                    const stability = getBondEnergy(atom.symbol, other.symbol, 1) / MAX_BOND_ENERGY;
+                    const allowOvervalence = stability > OVERVALENCE_STABILITY_THRESHOLD;
+                    const ctx = { intentId: this.id, allowOvervalence };
+                    if (!atom.canBondWith(other, 1, ctx)) continue;
+                    if (!other.canBondWith(atom, 1, ctx)) continue;
 
                     // Create bond between two claimed atoms → this forms the initial seed
                     const bond = new Bond(atom, other, 1);

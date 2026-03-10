@@ -31,6 +31,9 @@
                 <button id="stepBtn" class="control-btn" title="Step">⏭️</button>
                 <button id="spawnerBtn" class="control-btn spawner-btn" title="Toggle Atom Spawner">⚛️</button>
                 <input type="range" id="speedSlider" min="1" max="100" value="50" title="Simulation Speed">
+                <label for="temperatureSlider" title="Temperature (K)">🌡️</label>
+                <input type="range" id="temperatureSlider" min="1" max="600" value="300" title="Temperature (K)">
+                <span id="temperatureValue">300K</span>
                 <button id="tutorialBtn" class="control-btn tutorial-btn-header" title="Tutorial">❓</button>
             </div>
         </header>
@@ -162,8 +165,8 @@
     <script src="src/entities/molecule.js"></script>
     <script src="src/entities/polymer.js"></script>
     <script src="src/entities/intention.js"></script>
-    <script src="src/systems/neural-network.js"></script>
     <script src="src/systems/atom-spawner.js"></script>
+    <script src="src/systems/neural-network.js"></script>
     <script src="src/entities/cell-memory.js"></script>
     <script src="src/entities/cell.js"></script>
     <script src="src/entities/prokaryote.js"></script>

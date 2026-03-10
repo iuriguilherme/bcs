@@ -127,6 +127,16 @@ class App {
             this.simulation.setSpeed(speed);
         });
 
+        // Temperature slider
+        const temperatureSlider = document.getElementById('temperatureSlider');
+        const temperatureValue = document.getElementById('temperatureValue');
+        temperatureSlider?.addEventListener('input', (e) => {
+            const raw = parseInt(e.target.value, 10);
+            const temp = Number.isFinite(raw) ? Math.max(1, Math.min(600, raw)) : 300;
+            this.environment.temperature = temp;
+            if (temperatureValue) temperatureValue.textContent = `${temp}K`;
+        });
+
         // Spawner button and modal
         this._setupSpawnerUI();
 
@@ -210,6 +220,20 @@ class App {
                 }
             });
         }
+    }
+
+    /**
+     * Set environment temperature and sync the slider UI.
+     * Use this for programmatic changes (e.g. tests, console) so the UI stays consistent.
+     * @param {number} temp - Temperature in Kelvin (clamped to 1–600)
+     */
+    setTemperature(temp) {
+        temp = Math.max(1, Math.min(600, temp));
+        this.environment.temperature = temp;
+        const slider = document.getElementById('temperatureSlider');
+        const label = document.getElementById('temperatureValue');
+        if (slider) slider.value = temp;
+        if (label) label.textContent = `${temp}K`;
     }
 
     /**

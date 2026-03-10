@@ -81,17 +81,18 @@ class Atom {
         if (context.intentId) {
             // This bond is being formed by an intent that claims this atom
             if (context.intentId === this.claimedByIntentId) {
-                return this.availableValence >= order
-                    && other.availableValence >= order
-                    && !this.isBondedTo(other);
+                const valenceOk = this.availableValence >= order && other.availableValence >= order;
+                if (!valenceOk && !context.allowOvervalence) return false;
+                return !this.isBondedTo(other);
             }
         }
 
         // Claimed atoms refuse bonds from non-intent sources
         if (this.claimedByIntentId) return false;
 
-        if (this.availableValence < order) return false;
-        if (other.availableValence < order) return false;
+        if (this.availableValence < order || other.availableValence < order) {
+            if (!context.intentId || !context.allowOvervalence) return false;
+        }
 
         // Sealed atoms (in stable polymers) cannot form new bonds
         if (this.isSealed || other.isSealed) return false;
@@ -347,10 +348,15 @@ class Atom {
      * Create atom from serialized data
      */
     static deserialize(data) {
-        const atom = new Atom(data.symbol, data.x, data.y);
+        const symbol = (typeof data.symbol === 'string' && ELEMENTS[data.symbol]) ? data.symbol : 'H';
+        const x = Number.isFinite(data.x) ? data.x : 0;
+        const y = Number.isFinite(data.y) ? data.y : 0;
+        const atom = new Atom(symbol, x, y);
         atom.id = data.id;
-        atom.velocity = new Vector2(data.vx, data.vy);
-        atom.charge = data.charge || 0;
+        const vx = Number.isFinite(data.vx) ? data.vx : 0;
+        const vy = Number.isFinite(data.vy) ? data.vy : 0;
+        atom.velocity = new Vector2(vx, vy);
+        atom.charge = Number.isFinite(data.charge) ? data.charge : 0;
         atom.moleculeId = data.moleculeId;
         atom.claimedByIntentId = data.claimedByIntentId || null;
         return atom;
