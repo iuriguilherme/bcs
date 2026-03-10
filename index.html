@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.26.1-8-g4030c8a"
-                    class="version-link" target="_blank">v0.26.1-8-g4030c8a</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.26.1-10-g2124ccf"
+                    class="version-link" target="_blank">v0.26.1-10-g2124ccf</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1378,8 +1378,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.26.1-8-g4030c8a
-// Generated: 2026-03-09T02:46:31.896Z
+// Version: v0.26.1-10-g2124ccf
+// Generated: 2026-03-10T00:52:03.804Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -4374,15 +4374,20 @@ class Bond {
     }
 
     /**
-     * Check if this bond should break due to thermal energy
-     * Simple kinetics model: P(break) = (1 - stability) × min(1, temp/298)
+     * Check if this bond should break due to thermal energy.
+     * Kinetics model: P(break) = (1 - stability) × max(0, (temp - 298) / 302)
+     *
+     * The factor is zero at or below 298K (room temperature — bonds are stable),
+     * rising linearly to 1.0 at 600K (slider maximum).
      * CO triple bond (stability=1.0) always returns false at any temperature.
      * @param {number} temperature - Temperature in Kelvin
      * @returns {boolean}
      */
     shouldBreakThermal(temperature) {
         const stability = this.stabilityScore;
-        const pBreak = (1 - stability) * Math.min(1, temperature / 298);
+        // 298K = stable floor (factor 0); 600K = max activity (factor 1.0)
+        const thermalFactor = Math.max(0, (temperature - 298) / 302);
+        const pBreak = (1 - stability) * thermalFactor;
         return Math.random() < pBreak;
     }
 
