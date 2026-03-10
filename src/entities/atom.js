@@ -348,9 +348,10 @@ class Atom {
      * Create atom from serialized data
      */
     static deserialize(data) {
+        const symbol = (typeof data.symbol === 'string' && ELEMENTS[data.symbol]) ? data.symbol : 'H';
         const x = Number.isFinite(data.x) ? data.x : 0;
         const y = Number.isFinite(data.y) ? data.y : 0;
-        const atom = new Atom(data.symbol, x, y);
+        const atom = new Atom(symbol, x, y);
         atom.id = data.id;
         const vx = Number.isFinite(data.vx) ? data.vx : 0;
         const vy = Number.isFinite(data.vy) ? data.vy : 0;
