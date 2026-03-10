@@ -51,7 +51,7 @@ class Bond {
      * Stability score: bond strength normalized by MAX_BOND_ENERGY (0-1, higher = more stable)
      */
     get stabilityScore() {
-        return this.strength / MAX_BOND_ENERGY;
+        return Math.min(1, this.strength / MAX_BOND_ENERGY);
     }
 
     /**

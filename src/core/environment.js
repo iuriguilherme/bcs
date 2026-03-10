@@ -35,7 +35,6 @@ class Environment {
         // Thermodynamics state
         this._thermalBreakTick = 0;
         this._bondsToBreak = [];   // persistent scratch array; avoids GC on hot ticks
-        this.thermodynamics = null;
 
         this.stats = {
             atomCount: 0,
@@ -650,16 +649,12 @@ class Environment {
 
                     const sym1 = atom1.symbol;
                     const sym2 = atom2.symbol;
-                    let thermalFactor;
-                    if (this.thermodynamics) {
-                        const pairKey = sym1 < sym2 ? sym1 + sym2 : sym2 + sym1;
-                        thermalFactor = formationCache.get(pairKey);
-                        if (thermalFactor === undefined) {
-                            thermalFactor = this.thermodynamics.getFormationFactor(sym1, sym2, this.temperature);
-                            formationCache.set(pairKey, thermalFactor);
-                        }
-                    } else {
-                        thermalFactor = 0.3;
+                    const pairKey = sym1 < sym2 ? sym1 + sym2 : sym2 + sym1;
+                    let thermalFactor = formationCache.get(pairKey);
+                    if (thermalFactor === undefined) {
+                        const stability = Math.min(1, getBondEnergy(sym1, sym2, 1) / MAX_BOND_ENERGY);
+                        thermalFactor = Math.min(1, stability * (this.temperature / 298));
+                        formationCache.set(pairKey, thermalFactor);
                     }
                     if (Math.random() < prob * thermalFactor) {
                         const bond = tryFormBond(atom1, atom2, 1);

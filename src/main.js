@@ -57,10 +57,6 @@ class App {
         // Create atom spawner
         this.atomSpawner = new AtomSpawner(this.environment);
 
-        // Create thermodynamics system
-        this.thermodynamics = new Thermodynamics(this.environment);
-        this.environment.thermodynamics = this.thermodynamics;
-
         // Set up simulation callbacks
         this.simulation.onUpdate = () => {
             this.viewer.render();
