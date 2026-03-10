@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.26.1-11-g12f1e08"
-                    class="version-link" target="_blank">v0.26.1-11-g12f1e08</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.26.1-12-g1cf834f"
+                    class="version-link" target="_blank">v0.26.1-12-g1cf834f</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1377,8 +1377,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.26.1-11-g12f1e08
-// Generated: 2026-03-10T01:09:10.257Z
+// Version: v0.26.1-12-g1cf834f
+// Generated: 2026-03-10T01:20:41.712Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -4297,9 +4297,10 @@ class Atom {
      * Create atom from serialized data
      */
     static deserialize(data) {
+        const symbol = (typeof data.symbol === 'string' && ELEMENTS[data.symbol]) ? data.symbol : 'H';
         const x = Number.isFinite(data.x) ? data.x : 0;
         const y = Number.isFinite(data.y) ? data.y : 0;
-        const atom = new Atom(data.symbol, x, y);
+        const atom = new Atom(symbol, x, y);
         atom.id = data.id;
         const vx = Number.isFinite(data.vx) ? data.vx : 0;
         const vy = Number.isFinite(data.vy) ? data.vy : 0;
@@ -10414,6 +10415,7 @@ class Environment {
         // Thermodynamics state
         this._thermalBreakTick = 0;
         this._bondsToBreak = [];   // persistent scratch array; avoids GC on hot ticks
+        this._formationCache = new Map();
 
         this.stats = {
             atomCount: 0,
@@ -10974,8 +10976,7 @@ class Environment {
 
         // Per-tick formation factor cache — temperature is constant per tick,
         // so each unique element pair is computed at most once.
-        const formationCache = this._formationCache || (this._formationCache = new Map());
-        formationCache.clear();
+        this._formationCache.clear();
 
         for (const atom1 of atoms) {
             if (atom1.availableValence === 0) continue;
@@ -11029,11 +11030,11 @@ class Environment {
                     const sym1 = atom1.symbol;
                     const sym2 = atom2.symbol;
                     const pairKey = sym1 < sym2 ? sym1 + sym2 : sym2 + sym1;
-                    let thermalFactor = formationCache.get(pairKey);
+                    let thermalFactor = this._formationCache.get(pairKey);
                     if (thermalFactor === undefined) {
                         const stability = Math.min(1, getBondEnergy(sym1, sym2, 1) / MAX_BOND_ENERGY);
                         thermalFactor = Math.min(1, stability * (this.temperature / 298));
-                        formationCache.set(pairKey, thermalFactor);
+                        this._formationCache.set(pairKey, thermalFactor);
                     }
                     if (Math.random() < prob * thermalFactor) {
                         const bond = tryFormBond(atom1, atom2, 1);
@@ -11359,6 +11360,7 @@ class Environment {
         this.grid.clear();
         this._thermalBreakTick = 0;
         this._bondsToBreak = [];
+        this._formationCache.clear();
         this.stats = {
             atomCount: 0,
             moleculeCount: 0,
