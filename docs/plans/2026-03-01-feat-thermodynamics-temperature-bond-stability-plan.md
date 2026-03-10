@@ -1,7 +1,7 @@
 ---
 title: "feat: Add Thermodynamics Temperature System for Bond Stability"
 type: feat
-status: active
+status: completed
 date: 2026-03-01
 origin: docs/brainstorms/2026-02-27-thermodynamics-bond-stability-brainstorm.md
 ---
