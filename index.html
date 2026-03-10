@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.26.1-10-g2124ccf"
-                    class="version-link" target="_blank">v0.26.1-10-g2124ccf</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.26.1-11-g12f1e08"
+                    class="version-link" target="_blank">v0.26.1-11-g12f1e08</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1373,13 +1373,12 @@ body {
     
     
     
-    
 
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.26.1-10-g2124ccf
-// Generated: 2026-03-10T00:52:03.804Z
+// Version: v0.26.1-11-g12f1e08
+// Generated: 2026-03-10T01:09:10.257Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -4370,7 +4369,7 @@ class Bond {
      * Stability score: bond strength normalized by MAX_BOND_ENERGY (0-1, higher = more stable)
      */
     get stabilityScore() {
-        return this.strength / MAX_BOND_ENERGY;
+        return Math.min(1, this.strength / MAX_BOND_ENERGY);
     }
 
     /**
@@ -8968,46 +8967,6 @@ class AtomSpawner {
 window.AtomSpawner = AtomSpawner;
 
 
-// ==== src/systems/thermodynamics.js ====
-/**
- * Thermodynamics System
- * Stateless utility class providing thermodynamics calculations
- * consumed by environment and intention.
- */
-
-class Thermodynamics {
-    constructor(environment) {
-        this.environment = environment;
-    }
-
-    /**
-     * Get stability score for a bond type (0-1, clamped)
-     * @param {string} symbol1 - First element symbol
-     * @param {string} symbol2 - Second element symbol
-     * @param {number} order - Bond order
-     * @returns {number}
-     */
-    getStabilityScore(symbol1, symbol2, order) {
-        return Math.min(1, getBondEnergy(symbol1, symbol2, order) / MAX_BOND_ENERGY);
-    }
-
-    /**
-     * Get thermal formation factor for spontaneous bonding
-     * @param {string} symbol1 - First element symbol
-     * @param {string} symbol2 - Second element symbol
-     * @param {number} temperature - Temperature in Kelvin
-     * @returns {number}
-     */
-    getFormationFactor(symbol1, symbol2, temperature) {
-        const stability = this.getStabilityScore(symbol1, symbol2, 1);
-        return Math.min(1, stability * (temperature / 298));
-    }
-
-}
-
-window.Thermodynamics = Thermodynamics;
-
-
 // ==== src/systems/neural-network.js ====
 /**
  * Neural Network
@@ -10455,7 +10414,6 @@ class Environment {
         // Thermodynamics state
         this._thermalBreakTick = 0;
         this._bondsToBreak = [];   // persistent scratch array; avoids GC on hot ticks
-        this.thermodynamics = null;
 
         this.stats = {
             atomCount: 0,
@@ -11070,16 +11028,12 @@ class Environment {
 
                     const sym1 = atom1.symbol;
                     const sym2 = atom2.symbol;
-                    let thermalFactor;
-                    if (this.thermodynamics) {
-                        const pairKey = sym1 < sym2 ? sym1 + sym2 : sym2 + sym1;
-                        thermalFactor = formationCache.get(pairKey);
-                        if (thermalFactor === undefined) {
-                            thermalFactor = this.thermodynamics.getFormationFactor(sym1, sym2, this.temperature);
-                            formationCache.set(pairKey, thermalFactor);
-                        }
-                    } else {
-                        thermalFactor = 0.3;
+                    const pairKey = sym1 < sym2 ? sym1 + sym2 : sym2 + sym1;
+                    let thermalFactor = formationCache.get(pairKey);
+                    if (thermalFactor === undefined) {
+                        const stability = Math.min(1, getBondEnergy(sym1, sym2, 1) / MAX_BOND_ENERGY);
+                        thermalFactor = Math.min(1, stability * (this.temperature / 298));
+                        formationCache.set(pairKey, thermalFactor);
                     }
                     if (Math.random() < prob * thermalFactor) {
                         const bond = tryFormBond(atom1, atom2, 1);
@@ -16957,10 +16911,6 @@ class App {
 
         // Create atom spawner
         this.atomSpawner = new AtomSpawner(this.environment);
-
-        // Create thermodynamics system
-        this.thermodynamics = new Thermodynamics(this.environment);
-        this.environment.thermodynamics = this.thermodynamics;
 
         // Set up simulation callbacks
         this.simulation.onUpdate = () => {

@@ -27,7 +27,6 @@ const scriptOrder = [
     'src/entities/polymer.js',
     'src/entities/intention.js',
     'src/systems/atom-spawner.js',
-    'src/systems/thermodynamics.js',
     'src/systems/neural-network.js',
     'src/entities/cell-memory.js',
     'src/entities/cell.js',
