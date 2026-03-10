@@ -55,15 +55,20 @@ class Bond {
     }
 
     /**
-     * Check if this bond should break due to thermal energy
-     * Simple kinetics model: P(break) = (1 - stability) × min(1, temp/298)
+     * Check if this bond should break due to thermal energy.
+     * Kinetics model: P(break) = (1 - stability) × max(0, (temp - 298) / 302)
+     *
+     * The factor is zero at or below 298K (room temperature — bonds are stable),
+     * rising linearly to 1.0 at 600K (slider maximum).
      * CO triple bond (stability=1.0) always returns false at any temperature.
      * @param {number} temperature - Temperature in Kelvin
      * @returns {boolean}
      */
     shouldBreakThermal(temperature) {
         const stability = this.stabilityScore;
-        const pBreak = (1 - stability) * Math.min(1, temperature / 298);
+        // 298K = stable floor (factor 0); 600K = max activity (factor 1.0)
+        const thermalFactor = Math.max(0, (temperature - 298) / 302);
+        const pBreak = (1 - stability) * thermalFactor;
         return Math.random() < pBreak;
     }
 
