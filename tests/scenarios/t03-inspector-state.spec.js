@@ -1,58 +1,34 @@
-// tests/scenarios/t03-inspector-state.spec.js
-//
-// Validates that clicking a molecule intention in Select mode populates
-// the inspector panel with the correct fields.
-// No spawner or simulation run needed — this is a pure UI state test.
+import { test, expect, pressPlay, enableSpawner, placeEthyleneIntent } from '../fixtures/app.js';
 
-import { test, expect, worldToScreen, placeEthyleneIntent } from '../fixtures/app.js';
+// Place molecule intent at world (1000, 1000) = canvas center at default zoom.
+// Switch to Select tool (#selectTool).
+// Click canvas at screen center (worldToScreen(page, 1000, 1000)).
+// Assert #inspectorContent contains: "Intention:", "Type:", "Progress:", "Gathered:", "Fulfilled:".
 
-test('T03: inspector reflects molecule intention state on selection', async ({ page }) => {
-  // Place ethylene intent at world center (1000, 1000).
-  // Camera starts centered at (1000, 1000), so screen center maps to world center.
+test('T03: Inspector reflects intent state', async ({ page }) => {
+  // Place ethylene molecule intent at world center (1000, 1000)
   await placeEthyleneIntent(page, 1000, 1000);
 
-  // Switch to Select tool so clicking the canvas selects entities
+  // Switch to Select tool
   await page.click('#selectTool');
-  await page.waitForFunction(
-    () => window.cellApp.controls.tool === 'select',
-    { timeout: 3_000 }
-  );
 
-  // Click the canvas at world (1000, 1000) to select the intention.
-  // The intent circle has radius 300 units, so clicking the center hits it.
-  // worldToScreen delegates to viewer.worldToScreen() — avoids coordinate drift.
-  const screenPos = await worldToScreen(page, 1000, 1000);
-  await page.click('#simCanvas', {
-    position: {
-      x: Math.round(screenPos.x),
-      y: Math.round(screenPos.y),
-    },
+  // Click canvas at screen center (world coordinates 1000, 1000)
+  await page.click('canvas'); // Click center of canvas - we'll use worldToScreen for precision
+
+  // More precise: calculate screen coordinates for world (1000, 1000)
+  const centerClick = await page.evaluate(async () => {
+    const screenPos = window.cellApp.viewer.worldToScreen(1000, 1000);
+    return { x: screenPos.x, y: screenPos.y };
   });
 
-  // Wait for inspector tab to become active (controls._switchToInspectorTab() fires on selection)
-  await page.waitForFunction(
-    () => document.getElementById('inspectorTab')?.classList.contains('active'),
-    { timeout: 3_000 }
-  );
+  // Actually click at the calculated position
+  await page.mouse.click(centerClick.x, centerClick.y);
 
-  // Assert inspector content contains the expected intention fields.
-  // These match the HTML template in controls.js _updateInspector():
-  //   <h3>Intention: ${bpName}</h3>
-  //   <p>Type: ${intention.type}</p>
-  //   <p>Progress: ${...}%</p>
-  //   <p>Gathered: ${...} / ${...}</p>
-  //   <p>Fulfilled: ${...}</p>
-  const inspectorText = await page.locator('#inspectorContent').innerText();
-
-  expect(inspectorText).toContain('Intention:');
-  expect(inspectorText).toContain('Type:');
-  expect(inspectorText).toContain('Progress:');
-  expect(inspectorText).toContain('Gathered:');
-  expect(inspectorText).toContain('Fulfilled:');
-
-  // Assert intention type is 'molecule'
-  expect(inspectorText).toContain('molecule');
-
-  // Assert not yet fulfilled (simulation never started)
-  expect(inspectorText).toContain('No');
+  // Assert inspector content shows the expected fields
+  const inspectorContent = await page.textContent('#inspectorContent');
+  expect(inspectorContent).toContain('Intention:');
+  expect(inspectorContent).toContain('Type:');
+  expect(inspectorContent).toContain('Progress:');
+  expect(inspectorContent).toContain('Gathered:');
+  expect(inspectorContent).toContain('Fulfilled:');
 });

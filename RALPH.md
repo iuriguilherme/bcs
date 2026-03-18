@@ -4,6 +4,8 @@ Ensure we read again the RALPH.md file (this file) when we start a new iteration
 
 Read the file RALPH.local.md and add the instructions to the context if they aren't in the context yet. The RALPH.md (this file) has general instructions for any and all task. The RALPH.local.md has specific instructions to the current task.  
 
+Read the files compound-engineering.local.md, CLAUDE.md and the related files in the docs/ folder, specially in the subfolders docs/architecture and docs/solutions for old documentation, as a means to ensure you don't break decisions that were made before.  
+
 # During work
 
 We use the Compound Engineering method. Follow these steps in this order:  

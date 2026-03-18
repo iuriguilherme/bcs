@@ -875,7 +875,7 @@ class Environment {
      * @param {number} dt - Delta time
      */
     update(dt) {
-        // Synchronize bonds first - clean up any broken/stale bonds
+        // Synchronize bonds bidirectionally to prevent lost bonds after reshaping
         this.syncBonds();
 
         // Thermal bond breaking (every 6 ticks)

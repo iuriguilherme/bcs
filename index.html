@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.26.1-12-g1cf834f"
-                    class="version-link" target="_blank">v0.26.1-12-g1cf834f</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.26.1-17-g2e53614"
+                    class="version-link" target="_blank">v0.26.1-17-g2e53614</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1377,8 +1377,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.26.1-12-g1cf834f
-// Generated: 2026-03-10T01:20:41.712Z
+// Version: v0.26.1-17-g2e53614
+// Generated: 2026-03-18T21:28:47.667Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -3981,7 +3981,7 @@ class Atom {
         this.selected = false;
         this.highlighted = false;
         this.moleculeId = null;       // Reference to parent molecule if bonded
-        this.claimedByIntentId = null; // Intent that has claimed this atom (null = free)
+        this.claimedByIntentId = null; // Intent ID that has claimed this atom (null = free)
 
         // Physics properties
         this.mass = this.element.mass;
@@ -4013,7 +4013,6 @@ class Atom {
      */
     get isPhysicsIsolated() {
         return !!this.claimedByIntentId;
-        // Future: add || !!this.controlledByCellId when cell physics isolation is needed
     }
 
     /**
@@ -6944,7 +6943,6 @@ class Intention {
             this._rule5_attractClaimed(environment, state);
             this._rule6_bondClaimed(environment, state);
             this._rule7_checkCompletion(environment, state);
-            this._updateProgress(state);
         } else {
             // Polymer/cell intents use existing logic (unchanged)
             this._attractComponents(environment);
@@ -11255,7 +11253,7 @@ class Environment {
      * @param {number} dt - Delta time
      */
     update(dt) {
-        // Synchronize bonds first - clean up any broken/stale bonds
+        // Synchronize bonds bidirectionally to prevent lost bonds after reshaping
         this.syncBonds();
 
         // Thermal bond breaking (every 6 ticks)

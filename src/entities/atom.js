@@ -32,7 +32,7 @@ class Atom {
         this.selected = false;
         this.highlighted = false;
         this.moleculeId = null;       // Reference to parent molecule if bonded
-        this.claimedByIntentId = null; // Intent that has claimed this atom (null = free)
+        this.claimedByIntentId = null; // Intent ID that has claimed this atom (null = free)
 
         // Physics properties
         this.mass = this.element.mass;
@@ -64,7 +64,6 @@ class Atom {
      */
     get isPhysicsIsolated() {
         return !!this.claimedByIntentId;
-        // Future: add || !!this.controlledByCellId when cell physics isolation is needed
     }
 
     /**

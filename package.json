@@ -1,5 +1,5 @@
 {
-  "name": "biochemsim-tests",
+  "name": "biochemsim",
   "private": true,
   "type": "module",
   "devDependencies": {
