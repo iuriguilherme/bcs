@@ -16,30 +16,10 @@ export const test = base.extend({
     page.on('pageerror', err => pageErrors.push(err));
     page.on('crash', () => pageErrors.push(new Error('Browser page crashed')));
 
-    // 2. Cache-busting note: page.route() ALREADY unconditionally disables the
-    //    browser's HTTP cache for this context. The route handler below is kept
-    //    only for the no-cache headers (belt-and-suspenders). If you remove it,
-    //    caching is still disabled by Playwright's routing activation.
-    await page.route('**/*.{js,css}', async route => {
-      try {
-        const response = await route.fetch();
-        await route.fulfill({
-          response,
-          headers: {
-            ...response.headers(),
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-          },
-        });
-      } catch (e) {
-        // route.fetch() can fail with ECONNREFUSED if Node.js resolves `localhost`
-        // to ::1 (IPv6) but Python's http.server only binds to IPv4 0.0.0.0.
-        // Use route.continue() as fallback — the browser resolves localhost to IPv4
-        // and fetches the file successfully. Core cache-busting still applies because
-        // having any page.route() registered unconditionally disables the HTTP cache.
-        console.error('Route intercept fallback to continue for', route.request().url(), e.message);
-        await route.continue();
-      }
-    });
+    // 2. Cache-busting: Playwright's page.route() activation unconditionally disables
+    //    the browser's HTTP cache. We don't need a route handler unless we modify responses.
+    //    Simply registering a route that does nothing also works, but is unnecessary.
+    //    The webServer + navigation will get us fresh files each reload.
 
     // 3. Navigate to the correct page based on the project name.
     const url = testInfo.project.name === DEV_PROJECT ? '/dev.html' : '/index.html';
@@ -181,4 +161,42 @@ export async function placeEthyleneIntent(page, worldX, worldY) {
     window.cellApp.environment.addIntention(intent, window.cellApp.catalogue);
     window.cellApp.viewer.render();
   }, [worldX, worldY]);
+}
+
+/**
+ * Place a polymer intention at the given world coordinates.
+ *
+ * Creates a PolymerBlueprint from CELL_ESSENTIAL_POLYMERS. The fingerprint is
+ * overridden to be position-unique to avoid catalogue conflicts when multiple
+ * polymer intents of the same type are placed.
+ */
+export async function placePolymerIntent(page, polymerId, worldX, worldY) {
+  await page.evaluate(([pid, wx, wy]) => {
+    const template = window.CELL_ESSENTIAL_POLYMERS?.[pid];
+    if (!template) throw new Error(`Polymer template ${pid} not found in window.CELL_ESSENTIAL_POLYMERS`);
+    const bp = new window.PolymerBlueprint(template);
+    bp.fingerprint = `intent-poly-${pid}-${wx}-${wy}`;
+    const intent = new window.Intention('polymer', bp, wx, wy);
+    window.cellApp.environment.addIntention(intent, window.cellApp.catalogue);
+    window.cellApp.viewer.render();
+  }, [polymerId, worldX, worldY]);
+}
+
+/**
+ * Place a cell intention at the given world coordinates.
+ *
+ * Uses window.getCellBlueprint() to obtain a CellBlueprint. The fingerprint is
+ * overridden to be position-unique to avoid catalogue conflicts.
+ */
+export async function placeCellIntent(page, cellBlueprintId, worldX, worldY) {
+  await page.evaluate(([id, wx, wy]) => {
+    const getCellBlueprint = window.getCellBlueprint;
+    if (!getCellBlueprint) throw new Error('window.getCellBlueprint not available');
+    const bp = getCellBlueprint(id);
+    if (!bp) throw new Error(`Cell blueprint ${id} not found`);
+    bp.fingerprint = `intent-cell-${id}-${wx}-${wy}`;
+    const intent = new window.Intention('cell', bp, wx, wy);
+    window.cellApp.environment.addIntention(intent, window.cellApp.catalogue);
+    window.cellApp.viewer.render();
+  }, [cellBlueprintId, worldX, worldY]);
 }

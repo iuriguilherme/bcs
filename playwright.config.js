@@ -13,7 +13,7 @@ export default defineConfig({
   // reuseExistingServer: true lets local dev keep their own server running.
   webServer: {
     command: 'python -m http.server 8765',
-    url: 'http://localhost:8765',
+    url: 'http://127.0.0.1:8765',
     reuseExistingServer: true,
     timeout: 30_000,   // cold CI start (Python interpreter + bind) can take 8-15s; 30s is safe margin
   },
@@ -38,7 +38,7 @@ export default defineConfig({
       name: 'dev',
       use: {
         ...devices['Desktop Chrome'],
-        baseURL: 'http://localhost:8765',
+        baseURL: 'http://127.0.0.1:8765',
       },
       testMatch: '**/*.spec.js',
     },
@@ -46,7 +46,7 @@ export default defineConfig({
       name: 'prod',
       use: {
         ...devices['Desktop Chrome'],
-        baseURL: 'http://localhost:8765',
+        baseURL: 'http://127.0.0.1:8765',
       },
       testMatch: '**/*.spec.js',
       retries: 0, // bundle should be stable; no retry slack

@@ -317,7 +317,6 @@ class Intention {
             this._rule5_attractClaimed(environment, state);
             this._rule6_bondClaimed(environment, state);
             this._rule7_checkCompletion(environment, state);
-            this._updateProgress(state);
         } else {
             // Polymer/cell intents use existing logic (unchanged)
             this._attractComponents(environment);
