@@ -766,6 +766,10 @@ Non-trivial bugs and their solutions are documented in `docs/solutions/`:
 
 - `logic-errors/` — Physics, molecule formation, and intention system fixes
 - `test-failures/` — Test infrastructure issues and Playwright audit findings
+- `security-issues/` — XSS and HTML escaping vulnerabilities
+- `performance-issues/` — Hot-path and code review quality findings
+- `physics-issues/` — Thermodynamics calibration and physics formula issues
+- `ui-bugs/` — Inspector display and viewer rendering bugs
 - `build-errors/` — CI, lint, and bundle pipeline issues (when added)
 
 Use the `learnings-researcher` subagent or search `docs/solutions/` before investigating a similar symptom — it may already be solved.
