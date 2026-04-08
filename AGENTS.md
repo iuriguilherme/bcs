@@ -737,28 +737,78 @@ Each requirement in `requirements` specifies:
 
 ## 🤖 Automated Testing (Playwright)
 
-Playwright tests are **mandatory** before marking any fix complete. See `CLAUDE.md` Testing Requirements section for full rules.
+### Mandatory — Run Before Marking Any Task Done
+
+Agents MUST run Playwright tests before marking any fix or feature complete.
+
+**Required evidence:**
+1. Test file path (committed to `tests/scenarios/`)
+2. Playwright output showing the relevant test(s) passing
+3. No regressions on previously passing tests
+
+**Claiming "works" without this evidence is not acceptable.**
+
+### Running Tests
+
+Prerequisites (first time only):
+```bash
+npm install && npx playwright install chromium
+```
+
+Build production bundle if testing `index.html`:
+```bash
+deno run --allow-read --allow-write --allow-run build.ts
+```
+
+The `webServer` config auto-starts the Python HTTP server — no manual start needed.
 
 ```bash
-npm test             # all scenarios, both dev.html and index.html
-npm run test:dev     # dev.html only
-npx playwright test t01  # specific scenario
+npm test                      # all scenarios (dev.html + index.html)
+npm run test:dev              # dev.html only
+npm run test:prod             # index.html only (requires bundle)
+npx playwright test t01       # specific scenario by filename prefix
 ```
+
+### Test Validity Rules
+
+- **The simulation MUST run**: Every test must click `#playPauseBtn`. Tests that never start the simulation are invalid.
+- **No console-injection setup**: Tests must not use `window.cellApp.*` calls to set up test conditions. Console is observation-only. (Exception: `page.evaluate` for test scaffolding analogous to setting `atomSpawner.zone`.)
+- **Both pages must pass**: `dev.html` and `index.html` must both pass. A fix that works in dev but fails in production is not a valid fix.
+- **Spawner-based atom delivery**: Atoms must come from `AtomSpawner`, not manual placement. This mirrors real gameplay.
+
+### Test Annotations
+
+- `test.fail()` — test exercises a known bug; expected to fail. When bug is fixed, remove annotation.
+- `test.skip()` — test is temporarily disabled. Must include a comment explaining why.
+
+### Test Output Interpretation
+
+```
+✓ dev > T01: single ethylene...    [PASSED]
+✓ dev > T05: full E2E cell...      [PASSED — test actually failed as expected]
+✗ dev > T05: full E2E cell...      [FAILED — unexpected: bug was fixed, remove test.fail()]
+```
+
+Screenshots and videos are saved to `playwright-report/` on failure.
+
+### Scenario Coverage
 
 | Scenario | Status | What it covers |
 |----------|--------|----------------|
-| `t01-molecule-formation` | ✅ Pass | C2H4 forms from spawned atoms |
-| `t02-molecule-intent` | ✅ Pass | Competing intents don't cannibalize each other |
-| `t03-polymer-formation` | ✅ Pass | Polyethylene from overlapping molecule intents |
+| `t01-single-molecule-intent` | ✅ Pass | Single C2H4 intent completes from spawned atoms |
+| `t02-concurrent-molecule-intents` | ⚠️ `test.fail()` | Two simultaneous intents — anti-cannibalization (known bug) |
+| `t03-inspector-state` | ✅ Pass | Inspector reflects intent state correctly |
 | `t04-polymer-intent` | ✅ Pass | Polymer intent drives full monomer→polymer pipeline |
-| `t05-cell-formation` | ⚠️ `test.fail()` | Cell formation (known bug — expected to fail) |
-| `t06-view-consistency` | ✅ Pass | Level-switch rendering stays non-zero |
-| `t08-intention-wrong-composition-expulsion` | ✅ Pass | Wrong-element O atoms expelled from C₂H₄ intent zone; validates Rule 1 expulsion at repulsionForce=200 |
+| `t05-cell-formation` | ⚠️ `test.fail()` | Full E2E cell formation (known bug — atoms get cramped) |
+| `t06-view-consistency` | ✅ Pass | View consistency across zoom levels |
+| `t07-intention-display` | ✅ Pass | Gathered counter and Level 2 seed-atom visibility |
 
-**Key rules:**
-- Every test must click `#playPauseBtn` — tests that never start the simulation are invalid
-- Atoms must come from `AtomSpawner`, not manual placement (mirrors real gameplay)
-- Both `dev.html` and `index.html` must pass — a dev-only fix is not a valid fix
+### Infrastructure vs Scenarios
+
+| Layer | Files | Stability |
+|-------|-------|-----------|
+| **Infrastructure** (permanent) | `playwright.config.js`, `tests/fixtures/app.js`, `tests/README.md` | High — only changes if Playwright or app loading model changes |
+| **Scenarios** (living) | `tests/scenarios/*.spec.js` | Low — update freely as bugs are fixed or behavior changes |
 
 ## 📚 Institutional Knowledge (docs/solutions/)
 
