@@ -7,7 +7,7 @@ symptoms:
   - "Temperature slider exists in UI but position resets on save/load"
   - "placeCOIntent test helper defined inline rather than in shared fixtures"
   - "pressure field loaded without validation unlike temperature/width/height"
-components: [bond.js, thermodynamics.js, environment.js, intention.js, tests/scenarios/t09]
+components: [bond.js, environment.js, intention.js]
 category: physics-issues
 pr: "5"
 status: documented
@@ -365,11 +365,12 @@ const placeCOIntent = async (page, worldX, worldY) => { ... };
 
 ## Related Solutions
 
-- `docs/solutions/logic-errors/dead-code-redundant-guard-stale-bundle.md` — prior dead code removal patterns from PR #6 review
+- `docs/solutions/logic-errors/dead-code-review-environment-intention-stale-bundle.md` — prior dead code removal patterns from PR #6 review
 - `docs/solutions/physics-issues/` — this directory for future thermodynamics calibration issues
 
 ---
 
 ## Work Log
 
+- **2026-03-09**: Issues 037 (shouldBreakThermal inverted formula) and 033 (stabilityScore missing clamp) resolved in a same-session fix; `src/systems/thermodynamics.js` deleted; logic inlined into `environment.js` and `bond.js`. See `docs/solutions/logic-errors/thermodynamics-shouldBreakThermal-inverted-formula-298K-floor.md` for the detailed fix.
 - **2026-03-19**: PR #5 merged. Issues identified by parallel review agents (performance-oracle, security-sentinel, architecture-strategist, pattern-recognition-specialist, code-simplicity-reviewer, agent-native-reviewer) during `/workflows:review`. Nine todo items created (032–040). This solution document assembled via `/workflows:compound`.

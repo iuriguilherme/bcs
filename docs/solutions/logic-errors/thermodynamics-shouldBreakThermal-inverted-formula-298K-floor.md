@@ -241,7 +241,7 @@ assert(saturatedAtom.canBondWith(otherAtom, 1, context) === false);
 
 ## Related Documentation
 
-- `docs/brainstorms/2026-02-27-thermodynamics-bond-stability-brainstorm.md` — Original design: temperature range, kinetics model, CO triple bond motivation, rejected alternatives (Boltzmann, Enthalpy)
+- `docs/brainstorms/archive/2026-02-27-thermodynamics-bond-stability-brainstorm.md` — Original design: temperature range, kinetics model, CO triple bond motivation, rejected alternatives (Boltzmann, Enthalpy)
 - `docs/plans/2026-03-01-feat-thermodynamics-temperature-bond-stability-plan.md` — Implementation plan; "Deep Review Enhancements" section is the direct origin of all six fixes
 - `docs/solutions/physics-issues/wrong-element-atoms-crowding-intention-zones.md` — Force balance invariants and hot-path performance rules; informed `bond.break(false)` thermal breaking pattern
 - `docs/solutions/performance-issues/2026-02-28-code-review-6-findings-hotpath-alloc-style-testaccess.md` — No `console.log` in hot paths, persistent scratch arrays; applies to `tryBreakThermalBonds()`

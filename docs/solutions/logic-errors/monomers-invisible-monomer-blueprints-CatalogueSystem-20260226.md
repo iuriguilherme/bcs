@@ -12,8 +12,6 @@ tags:
   - xss
   - agent-native
   - code-deduplication
-related_plans:
-  - docs/plans/2026-02-26-fix-show-monomers-in-catalogue-ui-plan.md
 related_solutions:
   - docs/solutions/logic-errors/molecule-intent-stuck-reshaping-IntentionSystem-20260225.md
 ---
