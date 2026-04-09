@@ -188,7 +188,9 @@ grep -r "oldMethodName" src/  # should return zero after move
 
 When adding an outer conditional that makes an inner one redundant, remove the inner one in the same PR. ESLint's `no-dupe-else-if` and `no-constant-condition` rules catch some of these patterns. For manual review: any `if (X) { if (X) { ... } else { ... } }` requires justification.
 
-> **Case study**: this very flattening accidentally dropped `_updateProgress(state)` — the last call in the old inner block. The line wasn't carried through when the block was collapsed. See [`getAtomsNear-grid-removal-and-progress-regression.md`](getAtomsNear-grid-removal-and-progress-regression.md) for the follow-up fix. When flattening, compare the old inner block line-by-line against the new flat block — the final statement is the most likely to be lost.
+> **Case study (guard flattening)**: this very flattening accidentally dropped `_updateProgress(state)` — the last call in the old inner block. The line wasn't carried through when the block was collapsed. See [`getAtomsNear-grid-removal-and-progress-regression.md`](getAtomsNear-grid-removal-and-progress-regression.md) for the follow-up fix. When flattening, compare the old inner block line-by-line against the new flat block — the final statement is the most likely to be lost.
+
+> **Case study (premature loop closure)**: a Python patch script attempting to add an `isTarBall` block inside `_rule2_repelIrrelevantMolecules` inserted an extra `}` that prematurely closed the `for (const mol of ...)` loop. The `shouldRepel` check and all `applyForce` calls ended up orphaned outside the method body — a JavaScript syntax error. Automated regex/line-range patching of nested JavaScript is especially prone to this: even one misplaced closing brace silently breaks control flow. See [`intention-rule2-loop-orphaned-dead-code-floor-fix-2026-04-09.md`](intention-rule2-loop-orphaned-dead-code-floor-fix-2026-04-09.md) for the fix.
 
 ### Mandatory bundle rebuild before prod tests
 
