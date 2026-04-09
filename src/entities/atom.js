@@ -81,17 +81,18 @@ class Atom {
         if (context.intentId) {
             // This bond is being formed by an intent that claims this atom
             if (context.intentId === this.claimedByIntentId) {
-                return this.availableValence >= order
-                    && other.availableValence >= order
-                    && !this.isBondedTo(other);
+                const valenceOk = this.availableValence >= order && other.availableValence >= order;
+                if (!valenceOk && !context.allowOvervalence) return false;
+                return !this.isBondedTo(other);
             }
         }
 
         // Claimed atoms refuse bonds from non-intent sources
         if (this.claimedByIntentId) return false;
 
-        if (this.availableValence < order) return false;
-        if (other.availableValence < order) return false;
+        if (this.availableValence < order || other.availableValence < order) {
+            if (!context.allowOvervalence) return false;
+        }
 
         // Sealed atoms (in stable polymers) cannot form new bonds
         if (this.isSealed || other.isSealed) return false;

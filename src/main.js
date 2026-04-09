@@ -57,6 +57,10 @@ class App {
         // Create atom spawner
         this.atomSpawner = new AtomSpawner(this.environment);
 
+        // Create thermodynamics system
+        this.thermodynamics = new Thermodynamics(this.environment);
+        this.environment.thermodynamics = this.thermodynamics;
+
         // Set up simulation callbacks
         this.simulation.onUpdate = () => {
             this.viewer.render();
@@ -125,6 +129,16 @@ class App {
         speedSlider?.addEventListener('input', (e) => {
             const speed = e.target.value / 50;  // 0.02 to 2.0
             this.simulation.setSpeed(speed);
+        });
+
+        // Temperature slider
+        const temperatureSlider = document.getElementById('temperatureSlider');
+        const temperatureValue = document.getElementById('temperatureValue');
+        temperatureSlider?.addEventListener('input', (e) => {
+            const raw = parseInt(e.target.value, 10);
+            const temp = Number.isFinite(raw) ? Math.max(1, Math.min(600, raw)) : 300;
+            this.environment.temperature = temp;
+            if (temperatureValue) temperatureValue.textContent = `${temp}K`;
         });
 
         // Spawner button and modal

@@ -167,6 +167,7 @@ const BOND_ENERGIES = {
     'C-N': 73,
     'C=N': 147,
     'C≡N': 213,
+    'C≡O': 257,   // carbon monoxide triple bond (strongest in the table)
     'O-H': 111,
     'O-O': 35,
     'O=O': 119,
@@ -179,6 +180,10 @@ const BOND_ENERGIES = {
     'S-S': 54,
     'DEFAULT': 60
 };
+
+// Normalization constant for stability scoring (strongest bond in the table)
+const MAX_BOND_ENERGY = 257;  // C≡O
+window.MAX_BOND_ENERGY = MAX_BOND_ENERGY;
 
 // Electronegativity values (Pauling scale)
 const ELECTRONEGATIVITY = {

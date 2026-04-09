@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.26.1"
-                    class="version-link" target="_blank">v0.26.1</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.26.1-7-g6f59711"
+                    class="version-link" target="_blank">v0.26.1-7-g6f59711</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1221,6 +1221,9 @@ body {
                 <button id="stepBtn" class="control-btn" title="Step">⏭️</button>
                 <button id="spawnerBtn" class="control-btn spawner-btn" title="Toggle Atom Spawner">⚛️</button>
                 <input type="range" id="speedSlider" min="1" max="100" value="50" title="Simulation Speed">
+                <label for="temperatureSlider" title="Temperature (K)">🌡️</label>
+                <input type="range" id="temperatureSlider" min="1" max="600" value="300" title="Temperature (K)">
+                <span id="temperatureValue">300K</span>
                 <button id="tutorialBtn" class="control-btn tutorial-btn-header" title="Tutorial">❓</button>
             </div>
         </header>
@@ -1370,12 +1373,13 @@ body {
     
     
     
+    
 
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.26.1
-// Generated: 2026-03-01T17:53:14.937Z
+// Version: v0.26.1-7-g6f59711
+// Generated: 2026-03-02T00:50:55.711Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -1917,6 +1921,7 @@ const BOND_ENERGIES = {
     'C-N': 73,
     'C=N': 147,
     'C≡N': 213,
+    'C≡O': 257,   // carbon monoxide triple bond (strongest in the table)
     'O-H': 111,
     'O-O': 35,
     'O=O': 119,
@@ -1929,6 +1934,10 @@ const BOND_ENERGIES = {
     'S-S': 54,
     'DEFAULT': 60
 };
+
+// Normalization constant for stability scoring (strongest bond in the table)
+const MAX_BOND_ENERGY = 257;  // C≡O
+window.MAX_BOND_ENERGY = MAX_BOND_ENERGY;
 
 // Electronegativity values (Pauling scale)
 const ELECTRONEGATIVITY = {
@@ -4022,17 +4031,18 @@ class Atom {
         if (context.intentId) {
             // This bond is being formed by an intent that claims this atom
             if (context.intentId === this.claimedByIntentId) {
-                return this.availableValence >= order
-                    && other.availableValence >= order
-                    && !this.isBondedTo(other);
+                const valenceOk = this.availableValence >= order && other.availableValence >= order;
+                if (!valenceOk && !context.allowOvervalence) return false;
+                return !this.isBondedTo(other);
             }
         }
 
         // Claimed atoms refuse bonds from non-intent sources
         if (this.claimedByIntentId) return false;
 
-        if (this.availableValence < order) return false;
-        if (other.availableValence < order) return false;
+        if (this.availableValence < order || other.availableValence < order) {
+            if (!context.allowOvervalence) return false;
+        }
 
         // Sealed atoms (in stable polymers) cannot form new bonds
         if (this.isSealed || other.isSealed) return false;
@@ -4353,6 +4363,26 @@ class Bond {
     }
 
     /**
+     * Stability score: bond strength normalized by MAX_BOND_ENERGY (0-1, higher = more stable)
+     */
+    get stabilityScore() {
+        return this.strength / MAX_BOND_ENERGY;
+    }
+
+    /**
+     * Check if this bond should break due to thermal energy
+     * Simple kinetics model: P(break) = (1 - stability) × min(1, temp/298)
+     * CO triple bond (stability=1.0) always returns false at any temperature.
+     * @param {number} temperature - Temperature in Kelvin
+     * @returns {boolean}
+     */
+    shouldBreakThermal(temperature) {
+        const stability = this.stabilityScore;
+        const pBreak = (1 - stability) * Math.min(1, temperature / 298);
+        return Math.random() < pBreak;
+    }
+
+    /**
      * Get the current length of the bond
      */
     get length() {
@@ -4595,8 +4625,8 @@ class Bond {
  * @param {number} order - Desired bond order
  * @returns {Bond|null} The created bond or null if not possible
  */
-function tryFormBond(atom1, atom2, order = 1) {
-    if (!atom1.canBondWith(atom2, order)) {
+function tryFormBond(atom1, atom2, order = 1, context = {}) {
+    if (!atom1.canBondWith(atom2, order, context)) {
         return null;
     }
 
@@ -6618,6 +6648,9 @@ class Intention {
         // If attractionStrength or bounceForce change in environment.js, recalibrate.
         this.repulsionForce = 200.0;
 
+        // Thermodynamics — local temperature zone override
+        this.localTemperature = null;  // null = use global environment.temperature
+
         // Progress tracking
         this.progress = 0;
         // NOTE: gatheredComponents is only populated for type='polymer'/'cell'.
@@ -7339,14 +7372,18 @@ class Intention {
                 const bondingRadius = (atom.radius + 15) * 2.5; // Generous bonding distance
 
                 for (const seedAtom of seedMol.atoms) {
-                    if (!seedAtom.availableValence) continue;
+                    // Relaxed valence guard: allow 0-valence atoms if the pair qualifies for overvalence
+                    const stability = getBondEnergy(atom.symbol, seedAtom.symbol, 1) / MAX_BOND_ENERGY;
+                    const allowOvervalence = stability > 0.85;
+                    if (!seedAtom.availableValence && !allowOvervalence) continue;
 
                     const dist = atom.position.distanceTo(seedAtom.position);
                     if (dist > bondingRadius) continue;
 
-                    // Context-aware bonding: bypasses claim restriction for this intent's atoms
-                    if (!atom.canBondWith(seedAtom, 1, { intentId: this.id })) continue;
-                    if (!seedAtom.canBondWith(atom, 1)) continue;
+                    // Context-aware bonding: both calls get context with allowOvervalence
+                    const ctx = { intentId: this.id, allowOvervalence };
+                    if (!atom.canBondWith(seedAtom, 1, ctx)) continue;
+                    if (!seedAtom.canBondWith(atom, 1, ctx)) continue;
 
                     // Create the bond
                     const bond = new Bond(atom, seedAtom, 1);
@@ -7385,8 +7422,11 @@ class Intention {
                     const bondingRadius = (atom.radius + other.radius) * 2.5;
                     if (dist > bondingRadius) continue;
 
-                    if (!atom.canBondWith(other, 1, { intentId: this.id })) continue;
-                    if (!other.canBondWith(atom, 1, { intentId: this.id })) continue;
+                    const stability = getBondEnergy(atom.symbol, other.symbol, 1) / MAX_BOND_ENERGY;
+                    const allowOvervalence = stability > 0.85;
+                    const ctx = { intentId: this.id, allowOvervalence };
+                    if (!atom.canBondWith(other, 1, ctx)) continue;
+                    if (!other.canBondWith(atom, 1, ctx)) continue;
 
                     // Create bond between two claimed atoms → this forms the initial seed
                     const bond = new Bond(atom, other, 1);
@@ -8918,6 +8958,68 @@ class AtomSpawner {
 window.AtomSpawner = AtomSpawner;
 
 
+// ==== src/systems/thermodynamics.js ====
+/**
+ * Thermodynamics System
+ * Stateless utility class providing thermodynamics calculations
+ * consumed by environment and intention.
+ */
+
+class Thermodynamics {
+    constructor(environment) {
+        this.environment = environment;
+    }
+
+    /**
+     * Get stability score for a bond type (0-1, clamped)
+     * @param {string} symbol1 - First element symbol
+     * @param {string} symbol2 - Second element symbol
+     * @param {number} order - Bond order
+     * @returns {number}
+     */
+    getStabilityScore(symbol1, symbol2, order) {
+        return Math.min(1, getBondEnergy(symbol1, symbol2, order) / MAX_BOND_ENERGY);
+    }
+
+    /**
+     * Get thermal formation factor for spontaneous bonding
+     * @param {string} symbol1 - First element symbol
+     * @param {string} symbol2 - Second element symbol
+     * @param {number} temperature - Temperature in Kelvin
+     * @returns {number}
+     */
+    getFormationFactor(symbol1, symbol2, temperature) {
+        const stability = this.getStabilityScore(symbol1, symbol2, 1);
+        return Math.min(1, stability * (temperature / 298));
+    }
+
+    /**
+     * Get effective temperature at a position — intention zones override global temp
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     * @returns {number} Temperature in Kelvin
+     */
+    getTemperatureAt(x, y) {
+        for (const intention of this.environment.intentions.values()) {
+            if (intention.localTemperature == null) continue;
+            if (intention.fulfilled) continue;
+            const localTemp = intention.localTemperature;
+            if (!Number.isFinite(localTemp) || localTemp < 1 || localTemp > 600) continue;
+            const dx = x - intention.position.x;
+            const dy = y - intention.position.y;
+            const distSq = dx * dx + dy * dy;
+            const radiusSq = intention.radius * intention.radius;
+            if (distSq <= radiusSq) {
+                return localTemp;
+            }
+        }
+        return this.environment.temperature;
+    }
+}
+
+window.Thermodynamics = Thermodynamics;
+
+
 // ==== src/systems/neural-network.js ====
 /**
  * Neural Network
@@ -10362,6 +10464,11 @@ class Environment {
         this.temperature = 300;  // Kelvin
         this.pressure = 1;       // Atmospheres
 
+        // Thermodynamics state
+        this._thermalBreakTick = 0;
+        this._bondsToBreak = [];   // persistent scratch array; avoids GC on hot ticks
+        this.thermodynamics = null;
+
         this.stats = {
             atomCount: 0,
             moleculeCount: 0,
@@ -10968,7 +11075,12 @@ class Environment {
                         if (intention2) prob = 0;
                     }
 
-                    if (Math.random() < prob * 0.3) {
+                    const sym1 = atom1.symbol;
+                    const sym2 = atom2.symbol;
+                    const thermalFactor = this.thermodynamics
+                        ? this.thermodynamics.getFormationFactor(sym1, sym2, this.temperature)
+                        : 0.3;
+                    if (Math.random() < prob * thermalFactor) {
                         const bond = tryFormBond(atom1, atom2, 1);
                         if (bond) {
                             this.addBond(bond);
@@ -11159,13 +11271,40 @@ class Environment {
     }
 
     /**
+     * Thermal bond breaking sweep — runs every 6 ticks
+     * Uses simple kinetics: P(break) = (1-stability) × min(1, temp/298)
+     */
+    tryBreakThermalBonds() {
+        this._thermalBreakTick++;
+        if (this._thermalBreakTick % 6 !== 0) return;
+
+        const temp = this.temperature;
+        this._bondsToBreak.length = 0;
+
+        for (const bond of this.bonds.values()) {
+            if (bond.atom1.isSealed || bond.atom2.isSealed) continue;
+            if (bond.shouldBreakThermal(temp)) {
+                this._bondsToBreak.push(bond);
+            }
+        }
+
+        for (const bond of this._bondsToBreak) {
+            bond.break(false);
+            this.bonds.delete(bond.id);
+        }
+    }
+
+    /**
      * Update all entities
      * @param {number} dt - Delta time
      */
     update(dt) {
         // Synchronize bonds first - clean up any broken/stale bonds
         this.syncBonds();
-        
+
+        // Thermal bond breaking (every 6 ticks)
+        this.tryBreakThermalBonds();
+
         // Apply forces
         this.applyBoundaries();
         this.applyAtomicForces();
@@ -11263,6 +11402,8 @@ class Environment {
         this.organisms.clear();
         this.intentions.clear();
         this.grid.clear();
+        this._thermalBreakTick = 0;
+        this._bondsToBreak = [];
         this.stats = {
             atomCount: 0,
             moleculeCount: 0,
@@ -11299,9 +11440,20 @@ class Environment {
     deserialize(data) {
         this.clear();
 
-        this.width = data.width;
-        this.height = data.height;
-        this.temperature = data.temperature;
+        // Validate width/height — Infinity/NaN causes spatial grid infinite loops
+        const rawWidth = data.width;
+        const rawHeight = data.height;
+        this.width = (Number.isFinite(rawWidth) && rawWidth > 0 && rawWidth <= 10000) ? rawWidth : 2000;
+        this.height = (Number.isFinite(rawHeight) && rawHeight > 0 && rawHeight <= 10000) ? rawHeight : 2000;
+
+        // Validate temperature — prevents corrupted saves from breaking thermal math
+        const rawTemp = data.temperature;
+        if (Number.isFinite(rawTemp) && rawTemp >= 1 && rawTemp <= 600) {
+            this.temperature = rawTemp;
+        } else {
+            this.temperature = 300;
+        }
+
         this.pressure = data.pressure;
 
         // Load atoms
@@ -14815,7 +14967,7 @@ class Controls {
                     <h3>${atom.element.name} (${atom.symbol})</h3>
                     <p>Atomic Number: ${atom.element.number}</p>
                     <p>Mass: ${atom.mass.toFixed(3)} u</p>
-                    <p>Valence: ${atom.bondCount}/${atom.maxBonds}</p>
+                    <p>Valence: ${atom.bondCount}/${atom.bondCount > atom.maxBonds ? atom.bondCount + '*' : atom.maxBonds}</p>
                     <p>Bonds: ${atom.bonds.length}</p>
                     <p>Position: (${atom.position.x.toFixed(1)}, ${atom.position.y.toFixed(1)})</p>
                     ${atom.moleculeId ? `<p>Molecule ID: ${atom.moleculeId}</p>` : ''}
@@ -16804,6 +16956,10 @@ class App {
         // Create atom spawner
         this.atomSpawner = new AtomSpawner(this.environment);
 
+        // Create thermodynamics system
+        this.thermodynamics = new Thermodynamics(this.environment);
+        this.environment.thermodynamics = this.thermodynamics;
+
         // Set up simulation callbacks
         this.simulation.onUpdate = () => {
             this.viewer.render();
@@ -16872,6 +17028,16 @@ class App {
         speedSlider?.addEventListener('input', (e) => {
             const speed = e.target.value / 50;  // 0.02 to 2.0
             this.simulation.setSpeed(speed);
+        });
+
+        // Temperature slider
+        const temperatureSlider = document.getElementById('temperatureSlider');
+        const temperatureValue = document.getElementById('temperatureValue');
+        temperatureSlider?.addEventListener('input', (e) => {
+            const raw = parseInt(e.target.value, 10);
+            const temp = Number.isFinite(raw) ? Math.max(1, Math.min(600, raw)) : 300;
+            this.environment.temperature = temp;
+            if (temperatureValue) temperatureValue.textContent = `${temp}K`;
         });
 
         // Spawner button and modal
