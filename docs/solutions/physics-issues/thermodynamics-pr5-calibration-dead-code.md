@@ -1,6 +1,7 @@
 ---
 title: "PR #5 Thermodynamics: Physics Calibration Issues & Dead Code"
 date: 2026-03-19
+last_updated: 2026-04-09
 tags: [thermodynamics, physics-calibration, dead-code, serialization, testing, monte-carlo]
 symptoms:
   - "CO triple bond forms correctly but all other bonds dissolve instantly at room temperature"
@@ -374,3 +375,9 @@ const placeCOIntent = async (page, worldX, worldY) => { ... };
 
 - **2026-03-09**: Issues 037 (shouldBreakThermal inverted formula) and 033 (stabilityScore missing clamp) resolved in a same-session fix; `src/systems/thermodynamics.js` deleted; logic inlined into `environment.js` and `bond.js`. See `docs/solutions/logic-errors/thermodynamics-shouldBreakThermal-inverted-formula-298K-floor.md` for the detailed fix.
 - **2026-03-19**: PR #5 merged. Issues identified by parallel review agents (performance-oracle, security-sentinel, architecture-strategist, pattern-recognition-specialist, code-simplicity-reviewer, agent-native-reviewer) during `/workflows:review`. Nine todo items created (032–040). This solution document assembled via `/workflows:compound`.
+- **2026-04-09**: Issues 039, 035, 036, 032, and 034 resolved:
+  - **039** — `pressure` deserialization guard added to `environment.js` (`rawPressure` validated with `Number.isFinite` and range `0 < p ≤ 100`, fallback to `1`).
+  - **035** — Temperature slider sync restored via `setTemperature()` in `main.js` (line 230); called after `environment.deserialize()` so the slider thumb reflects saved state.
+  - **036** — Magic `0.85` extracted to `OVERVALENCE_STABILITY_THRESHOLD` constant at the top of `intention.js` (line 9); both `_rule6_bondClaimed` call sites now reference the constant.
+  - **032 / 034** — `src/systems/thermodynamics.js` deleted entirely. The `Thermodynamics` class and `localTemperature` zone system were never wired to any call site; dead code removed. The `298` constant and `shouldBreakThermal` formula were inlined into `bond.js` and `environment.js` (see `docs/solutions/logic-errors/thermodynamics-shouldBreakThermal-inverted-formula-298K-floor.md`).
+  - **038 / 040** — Issues remain open. `tests/scenarios/t09-thermo-co-triple-bond.spec.js` was **never created** — T09 does not exist in the scenarios directory. The thermal bond-breaking test and `placeCOIntent` fixture migration are still pending.
