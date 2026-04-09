@@ -181,7 +181,7 @@ expect(initialCount, 'H2 injection failed — no molecules in environment').toBe
 
 **Result**: T06 completes in <5 seconds instead of 90+ seconds.
 
-> `page.evaluate` for test scaffolding is explicitly permitted by CLAUDE.md's test validity rules:
+> `page.evaluate` for test scaffolding is explicitly permitted by AGENTS.md's test validity rules:
 > "Exception: page.evaluate for test scaffolding analogous to setting atomSpawner.zone."
 
 ---
@@ -381,7 +381,7 @@ separately. Future refactor should move to `utils.js`, but this commit kept scop
 - [`docs/plans/2026-02-26-feat-playwright-testing-infrastructure-plan.md`](../../plans/2026-02-26-feat-playwright-testing-infrastructure-plan.md) — The infrastructure plan this audit reviewed
 - [`docs/solutions/logic-errors/molecule-intent-stuck-reshaping-IntentionSystem-20260225.md`](../logic-errors/molecule-intent-stuck-reshaping-IntentionSystem-20260225.md) — Earlier fix exercised by T04
 - [`docs/solutions/logic-errors/monomers-invisible-monomer-blueprints-CatalogueSystem-20260226.md`](../logic-errors/monomers-invisible-monomer-blueprints-CatalogueSystem-20260226.md) — Earlier fix in the test suite's coverage area
-- `CLAUDE.md` — Testing Requirements section (mandatory Playwright before any task is "done")
+- `AGENTS.md` — `## 🤖 Automated Testing` section (mandatory Playwright before any task is "done")
 
 ### CI Pipeline Fix Commits (Preconditions for This Fix)
 
