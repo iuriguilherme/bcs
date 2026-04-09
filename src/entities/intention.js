@@ -486,6 +486,8 @@ class Intention {
                 const dist = atom.position.distanceTo(this.position);
                 if (dist < this.radius && dist > 1) {
                     const dir = atom.position.sub(this.position).normalize();
+                    // Floor multiplier: repulsionForce * 0.5 ensures boundary expulsion
+                    // with minimum force (e.g., 100) to overcome inward attraction.
                     const strength = Math.max(
                         this.repulsionForce * (1 - dist / this.radius),
                         this.repulsionForce * 0.5
@@ -502,11 +504,16 @@ class Intention {
         const { targetFormula, totalNeeded, targetComp, claimed } = state;
         if (!targetFormula) return;
 
-        // Precompute claimed element counts for the surplus check below.
+        // Precompute element counts for correct-element checks (surplus/safety check).
         const targetElements = new Set(Object.keys(targetComp));
-        const claimedCount = {};
+        const claimedByElement = {};
         for (const atom of claimed) {
-            claimedCount[atom.symbol] = (claimedCount[atom.symbol] || 0) + 1;
+            claimedByElement[atom.symbol] = (claimedByElement[atom.symbol] || 0) + 1;
+        }
+        // Compute remaining needed per element.
+        const remainingNeeded = {};
+        for (const [el, count] of Object.entries(targetComp)) {
+            remainingNeeded[el] = Math.max(0, count - (claimedByElement[el] || 0));
         }
 
         for (const mol of environment.molecules.values()) {
@@ -519,29 +526,27 @@ class Intention {
             // the target molecule through chemistry, so expel it immediately.
             const hasWrongElement = mol.atoms.some(a => !targetElements.has(a.symbol));
 
-            // Condition 2: surplus check.
+            // Condition 2: surplus check (safe-keep).
             // A molecule with only correct elements but whose elements are all already
             // fully claimed is surplus — expel it to prevent late-assembly crowding.
-            //
             // NOTE: This intentionally overrides Bug #11's "leave unstable molecules alone" rule.
-            // An unstable same-element mol (e.g. C2H3 in a C2H4 zone where 2C+4H are claimed)
-            // could theoretically gain an H and become the target, but once claiming is complete
-            // the intent bonds and fulfills within a few ticks — that window is negligible and
-            // leaving surplus molecules creates late-assembly gridlock. Do NOT remove isSurplus
-            // citing Bug #11; the trade-off is deliberate.
-            // Ref: docs/brainstorms/2026-02-27-intention-zone-crowding-brainstorm.md
+            // Once claiming is complete the intent bonds within a few ticks — leaving surplus
+            // molecules creates late-assembly gridlock. Do NOT remove isSurplus citing Bug #11.
             const isSurplus = !hasWrongElement &&
-                mol.atoms.every(a => (claimedCount[a.symbol] || 0) >= (targetComp[a.symbol] || 0));
+                mol.atoms.every(a => remainingNeeded[a.symbol] === 0);
+
+            // Condition 3: tar-ball protection (large unstable molecules).
+            // Large unstable molecules create dense repulsion fields that push seeds away.
+            const isTarBall = mol.atoms.length > totalNeeded * 1.5;
 
             // Repel stable molecules always (they block assembly space).
-            // Also repel large unstable molecules larger than the target (tar-balls):
-            // they create dense repulsion fields that push seeds away from intent center
-            // and occupy atoms the intent needs. Small unstable molecules (e.g. C2H2 when
-            // assembling C2H4) are left alone unless they contain wrong elements or are surplus.
+            // Also repel wrong-element, surplus, and tar-ball molecules.
+            // Small unstable same-element molecules (e.g. C2H2 assembling C2H4) are left alone.
             const shouldRepel = mol.isStable()
                 || mol.atoms.length > totalNeeded
                 || hasWrongElement
-                || isSurplus;
+                || (isSurplus && !isTarBall)
+                || isTarBall;
             if (!shouldRepel) continue;
 
             const center = mol.centerOfMass;
@@ -549,13 +554,13 @@ class Intention {
             if (dist >= this.radius || dist <= 10) continue;
 
             const dir = center.sub(this.position).normalize();
+            // Floor multiplier: 0.5 ensures atoms at zone boundary always receive
+            // at least 100 force units outward, overcoming any inward inter-particle attraction.
             const strength = Math.max(
                 this.repulsionForce * (1 - dist / this.radius),
                 this.repulsionForce * 0.5
             );
             // Apply force per atom (not via mol.applyForce which divides by total mass).
-            // mol.applyForce gives each atom force * atom_mass/total_mass → acceleration
-            // of force/total_mass, which is negligible for a 200-atom tar-ball.
             // Per-atom application gives each atom acceleration = strength/atom_mass,
             // strong enough to actually move large clusters out of the intent zone.
             for (const atom of mol.atoms) {
