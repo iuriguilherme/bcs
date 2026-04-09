@@ -1,30 +1,28 @@
 ---
 title: "Dead method on wrong class, redundant type guard, and stale production bundle in molecule intent system"
 date: 2026-03-18
-type: logic-error
+last_updated: 2026-04-08
+module: intention-system
+problem_type: logic_error
 severity: medium
-component: src/entities/intention.js, src/core/environment.js
+component: tooling
 symptoms:
   - Environment class contained a method named with the _rule1_* convention that belongs exclusively to Intention
   - Dead method Environment._rule1_repelIrrelevantAtoms was never called from anywhere
-  - Method referenced state.atom which does not exist in the state object produced by _buildState()
-  - Force vector was inverted — intention.position - atom.position attracts rather than repels
-  - Guard clause !intention was placed inside the for loop instead of before it (O(n) waste when intention is null)
   - Intention.update() contained a nested if(this.type === 'molecule') branch that was always true, making its else block unreachable
-  - Dead else branch in inner guard duplicated the outer else logic (_attractComponents, _checkCompletion)
   - Production bundle index.html was stale, built before intention.js changes were complete
   - T04 prod timed out at 3 minutes; passed in 7 seconds after rebuild
+root_cause: logic_error
+resolution_type: code_fix
 tags:
   - dead-code
   - wrong-class-responsibility
-  - inverted-force-vector
   - redundant-branch
   - stale-bundle
-  - naming-convention-violation
   - unreachable-code
-  - state-shape-mismatch
-  - code-review
   - intention-system
+  - regression
+  - code-review
 related_files:
   - src/entities/intention.js
   - src/core/environment.js
@@ -121,7 +119,9 @@ Removed `Environment._rule1_repelIrrelevantAtoms` (lines 932–953 of `environme
 ### 2. Flatten the redundant inner guard in `Intention.update()`
 
 ```js
-// AFTER — clean, flat structure
+// AFTER PR #6 — flat structure (as committed in 7f1a4fb)
+// ⚠️ Note: _updateProgress(state) was accidentally dropped during this flattening
+// and later restored in a follow-up fix (see getAtomsNear-grid-removal-and-progress-regression.md)
 if (this.type === 'molecule') {
     this._validateSeed(environment);
     const state = this._buildState(environment);
@@ -132,6 +132,7 @@ if (this.type === 'molecule') {
     this._rule5_attractClaimed(environment, state);
     this._rule6_bondClaimed(environment, state);
     this._rule7_checkCompletion(environment, state);
+    this._updateProgress(state);  // ← restored in follow-up; was missing here
 } else {
     // polymer / cell intents
     this._attractComponents(environment);
@@ -187,6 +188,8 @@ grep -r "oldMethodName" src/  # should return zero after move
 
 When adding an outer conditional that makes an inner one redundant, remove the inner one in the same PR. ESLint's `no-dupe-else-if` and `no-constant-condition` rules catch some of these patterns. For manual review: any `if (X) { if (X) { ... } else { ... } }` requires justification.
 
+> **Case study**: this very flattening accidentally dropped `_updateProgress(state)` — the last call in the old inner block. The line wasn't carried through when the block was collapsed. See [`getAtomsNear-grid-removal-and-progress-regression.md`](getAtomsNear-grid-removal-and-progress-regression.md) for the follow-up fix. When flattening, compare the old inner block line-by-line against the new flat block — the final statement is the most likely to be lost.
+
 ### Mandatory bundle rebuild before prod tests
 
 **If `dev.html` passes but `index.html` times out → rebuild the bundle first.** Don't investigate physics.
@@ -217,6 +220,7 @@ A quick sign check: if the force is supposed to push atoms outward and you see `
 
 ## Related
 
+- [`docs/solutions/logic-errors/getAtomsNear-grid-removal-and-progress-regression.md`](getAtomsNear-grid-removal-and-progress-regression.md) — follow-up fix that restored `_updateProgress(state)` accidentally dropped during this PR's flattening; also removed stale `getAtomsNear()` grid query and cleaned up additional defensive guards
 - [`docs/solutions/build-errors/git-rebase-index-html-bundle-conflicts.md`](../build-errors/git-rebase-index-html-bundle-conflicts.md) — bundle staleness during rebases; pre-push checklist includes `git diff --quiet index.html || echo "needs regenerating"`
 - [`docs/solutions/logic-errors/monomers-invisible-monomer-blueprints-CatalogueSystem-20260226.md`](monomers-invisible-monomer-blueprints-CatalogueSystem-20260226.md) — prior dead methods removed from `environment.js` (`isAtomRelevantToIntention`, `getAtomBondingPriority`)
 - [`docs/solutions/physics-issues/wrong-element-atoms-crowding-intention-zones.md`](../physics-issues/wrong-element-atoms-crowding-intention-zones.md) — `_rule1_repelIrrelevantAtoms` and `_rule2_repelIrrelevantMolecules` working correctly; force per-atom vs per-molecule direction/magnitude
