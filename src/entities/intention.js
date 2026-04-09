@@ -123,8 +123,8 @@ class Intention {
 
     /**
      * Get the number of gathered components for display.
-     * For molecule intents, gatheredComponents is never populated — use progress instead.
-     * For polymer/cell intents, gatheredComponents is maintained by _attractComponents.
+     * For molecule intents, returns progress as a percentage (atoms already assembled out of target).
+     * For polymer/cell intents, uses the maintained `gatheredComponents` Set.
      * @returns {number}
      */
     getGatheredCount() {
@@ -317,6 +317,8 @@ class Intention {
             this._rule5_attractClaimed(environment, state);
             this._rule6_bondClaimed(environment, state);
             this._rule7_checkCompletion(environment, state);
+            // Update progress based on gathered atoms (Fix for Bug #1)
+            this._updateProgress(state);
         } else {
             // Polymer/cell intents use existing logic (unchanged)
             this._attractComponents(environment);
@@ -334,8 +336,8 @@ class Intention {
      * giving ~6x performance improvement per intent per tick.
      */
     _buildState(environment) {
-        const nearbyAtoms = environment.getAtomsNear(
-            this.position.x, this.position.y, this.radius * 1.2
+        const nearbyAtoms = Array.from(environment.atoms.values()).filter(
+            a => a.position.distanceTo(this.position) < this.radius * 1.2
         );
         const targetComp = this.getTargetComposition() || {};
         const targetFormula = this.blueprint ? this.blueprint.formula : null;

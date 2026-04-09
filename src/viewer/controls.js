@@ -767,7 +767,7 @@ class Controls {
                     ${reqDetails}
                     <hr style="border-color: #444; margin: 8px 0;">
                     <p>Progress: ${Math.round(intention.progress * 100)}%</p>
-                    <p>Gathered: ${typeof intention.getGatheredCount === 'function' ? intention.getGatheredCount() : intention.gatheredComponents.size} / ${escHtml(String(reqCount))}</p>
+                    <p>Gathered: ${intention.getGatheredCount()} / ${escHtml(String(reqCount))}</p>
                     <p>Radius: ${intention.radius} units</p>
                     <p>Position: (${intention.position.x.toFixed(0)}, ${intention.position.y.toFixed(0)})</p>
                     <p>Fulfilled: ${intention.fulfilled ? 'Yes &#10003;' : 'No'}</p>

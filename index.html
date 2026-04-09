@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.26.1-17-g2e53614"
-                    class="version-link" target="_blank">v0.26.1-17-g2e53614</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.26.1-21-g8b2af50"
+                    class="version-link" target="_blank">v0.26.1-21-g8b2af50</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1377,8 +1377,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.26.1-17-g2e53614
-// Generated: 2026-03-18T21:28:47.667Z
+// Version: v0.26.1-21-g8b2af50
+// Generated: 2026-04-07T23:32:07.920Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -6749,8 +6749,8 @@ class Intention {
 
     /**
      * Get the number of gathered components for display.
-     * For molecule intents, gatheredComponents is never populated — use progress instead.
-     * For polymer/cell intents, gatheredComponents is maintained by _attractComponents.
+     * For molecule intents, returns progress as a percentage (atoms already assembled out of target).
+     * For polymer/cell intents, uses the maintained `gatheredComponents` Set.
      * @returns {number}
      */
     getGatheredCount() {
@@ -6943,6 +6943,8 @@ class Intention {
             this._rule5_attractClaimed(environment, state);
             this._rule6_bondClaimed(environment, state);
             this._rule7_checkCompletion(environment, state);
+            // Update progress based on gathered atoms (Fix for Bug #1)
+            this._updateProgress(state);
         } else {
             // Polymer/cell intents use existing logic (unchanged)
             this._attractComponents(environment);
@@ -6960,8 +6962,8 @@ class Intention {
      * giving ~6x performance improvement per intent per tick.
      */
     _buildState(environment) {
-        const nearbyAtoms = environment.getAtomsNear(
-            this.position.x, this.position.y, this.radius * 1.2
+        const nearbyAtoms = Array.from(environment.atoms.values()).filter(
+            a => a.position.distanceTo(this.position) < this.radius * 1.2
         );
         const targetComp = this.getTargetComposition() || {};
         const targetFormula = this.blueprint ? this.blueprint.formula : null;
@@ -10733,7 +10735,8 @@ class Environment {
         for (const intention of this.intentions.values()) {
             if (intention.type !== 'molecule') continue;
             if (intention.fulfilled) continue;
-            
+
+            // Simple distance check without grid - faster and more accurate
             const dist = atom.position.distanceTo(intention.position);
             if (dist < intention.radius) {
                 return intention;
@@ -10844,45 +10847,6 @@ class Environment {
     }
 
     /**
-     * Get atoms near a position
-     * @param {number} x - X position
-     * @param {number} y - Y position
-     * @param {number} radius - Search radius
-     * @returns {Atom[]}
-     */
-    getAtomsNear(x, y, radius) {
-        const results = [];
-        const radiusSq = radius * radius;
-
-        // Check surrounding grid cells
-        const minCellX = Math.floor((x - radius) / this.gridSize);
-        const maxCellX = Math.floor((x + radius) / this.gridSize);
-        const minCellY = Math.floor((y - radius) / this.gridSize);
-        const maxCellY = Math.floor((y + radius) / this.gridSize);
-
-        for (let cx = minCellX; cx <= maxCellX; cx++) {
-            for (let cy = minCellY; cy <= maxCellY; cy++) {
-                const key = `${cx},${cy}`;
-                const cell = this.grid.get(key);
-                if (!cell) continue;
-
-                for (const atomId of cell) {
-                    const atom = this.atoms.get(atomId);
-                    if (!atom) continue;
-
-                    const dx = atom.position.x - x;
-                    const dy = atom.position.y - y;
-                    if (dx * dx + dy * dy <= radiusSq) {
-                        results.push(atom);
-                    }
-                }
-            }
-        }
-
-        return results;
-    }
-
-    /**
      * Get atom at a screen position
      * @param {number} screenX - Screen X coordinate
      * @param {number} screenY - Screen Y coordinate
@@ -10910,12 +10874,8 @@ class Environment {
         for (let i = 0; i < atoms.length; i++) {
             const atom1 = atoms[i];
 
-            // Get nearby atoms from grid
-            const nearby = this.getAtomsNear(
-                atom1.position.x,
-                atom1.position.y,
-                100
-            );
+            // Simple distance check instead of getAtomsNear - avoids non-existent function
+            const nearby = atoms.filter(a => a.position.distanceTo(atom1.position) < 100);
 
             for (const atom2 of nearby) {
                 if (atom1 === atom2) continue;
@@ -10983,11 +10943,7 @@ class Environment {
             // Skip claimed atoms - their bonding is controlled exclusively by Rule 6
             if (atom1.claimedByIntentId) continue;
 
-            const nearby = this.getAtomsNear(
-                atom1.position.x,
-                atom1.position.y,
-                bondingRadius
-            );
+            const nearby = atoms.filter(a => a.position.distanceTo(atom1.position) < bondingRadius);
 
             // Hoist intention check outside inner loop — one call per atom1 iteration
             const intention1 = this.getIntentionForAtom(atom1);
@@ -14049,12 +14005,14 @@ class Viewer {
             molecule.renderSimplified(this.ctx, scale, offset);
         }
 
-        // Render in-progress intention assemblies (seed molecules) as individual atoms
+        // Render in-progress intention assemblies (seed molecules)
+        // At Level 1, atoms are shown. At Levels 2+, seed atoms should be visible
+        // to allow selection and inspection of mid-assembly state
         this._renderSeedMoleculeAtoms(scale, offset);
 
-        // Render free atoms (not in molecules)
+        // Render free atoms (not in molecules or seeds)
         for (const atom of this.environment.getAllAtoms()) {
-            if (!atom.moleculeId) {
+            if (!atom.moleculeId && !atom.isSeedAtom) {
                 atom.render(this.ctx, scale, offset);
             }
         }
@@ -14316,45 +14274,36 @@ class Viewer {
             }
         }
 
-        // At molecule level or higher, check molecules
+        // At molecule level or higher, check molecules and seed molecules
         if (this.level >= 1) {
-            // Check molecules first
-            for (const molecule of this.environment.getAllMolecules()) {
+            const molecules = this.environment.getAllMolecules() || [];
+            for (const molecule of molecules) {
                 if (molecule.containsPoint(screenX, screenY, scale, offset)) {
                     return { type: 'molecule', entity: molecule };
                 }
             }
-            // Also check in-progress seed molecules (stored separately in environment.seedMolecules)
-            const seedMolecules = this.environment.getAllSeedMolecules
-                ? this.environment.getAllSeedMolecules()
-                : [];
+            // Check seed molecules
+            const seedMolecules = this.environment.getAllSeedMolecules() || [];
             for (const seedMol of seedMolecules) {
                 if (seedMol.containsPoint(screenX, screenY, scale, offset)) {
                     return { type: 'molecule', entity: seedMol };
                 }
             }
-            // Then check free atoms (not in molecules)
+            // Then check free atoms
             for (const atom of this.environment.getAllAtoms()) {
-                if (!atom.moleculeId && atom.containsPoint(screenX, screenY, scale, offset)) {
+                if (!atom.moleculeId && !atom.isSeedAtom && atom.containsPoint(screenX, screenY, scale, offset)) {
                     return { type: 'atom', entity: atom };
                 }
             }
         } else {
-            // At atom level, prioritize atoms
+            // At atom level
             for (const atom of this.environment.getAllAtoms()) {
                 if (atom.containsPoint(screenX, screenY, scale, offset)) {
                     return { type: 'atom', entity: atom };
                 }
             }
-            // Then check molecules
-            for (const molecule of this.environment.getAllMolecules()) {
-                if (molecule.containsPoint(screenX, screenY, scale, offset)) {
-                    return { type: 'molecule', entity: molecule };
-                }
-            }
+            return null;
         }
-
-        return null;
     }
 
     /**
@@ -15141,7 +15090,7 @@ class Controls {
                     ${reqDetails}
                     <hr style="border-color: #444; margin: 8px 0;">
                     <p>Progress: ${Math.round(intention.progress * 100)}%</p>
-                    <p>Gathered: ${typeof intention.getGatheredCount === 'function' ? intention.getGatheredCount() : intention.gatheredComponents.size} / ${escHtml(String(reqCount))}</p>
+                    <p>Gathered: ${intention.getGatheredCount()} / ${escHtml(String(reqCount))}</p>
                     <p>Radius: ${intention.radius} units</p>
                     <p>Position: (${intention.position.x.toFixed(0)}, ${intention.position.y.toFixed(0)})</p>
                     <p>Fulfilled: ${intention.fulfilled ? 'Yes &#10003;' : 'No'}</p>
