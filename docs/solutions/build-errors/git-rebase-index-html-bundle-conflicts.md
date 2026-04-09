@@ -228,7 +228,7 @@ no manual intervention needed. The driver copies the rebase HEAD version (equiva
 
 GitHub Pages serves static files directly from the repository root. Gitignoring `index.html`
 would cause a 404 for all production users. The file must stay tracked. See also:
-**CLAUDE.md → "Critical: The Bundle Problem"**.
+**AGENTS.md → "⚠️ CRITICAL: The Bundle Problem"**.
 
 The trade-off is intentional: committing the bundle creates occasional rebase friction but
 ensures GitHub Pages always serves the correct, up-to-date application with no CI pipeline
@@ -238,7 +238,7 @@ required.
 
 ## Related Documentation
 
-- **CLAUDE.md "Critical: The Bundle Problem"** — why `index.html` must stay committed alongside source changes
-- **CLAUDE.md "Critical: Git Safety Rules"** — safe alternatives to destructive git commands
+- **AGENTS.md "⚠️ CRITICAL: The Bundle Problem"** — why `index.html` must stay committed alongside source changes
+- **AGENTS.md "🚫 Common Mistakes to Avoid"** — safe alternatives to destructive git commands
 - **`build.ts`** — the build script; see `scriptOrder` array for file concatenation sequence
 - **[`docs/solutions/build-errors/`](./)** — this file; no prior build-error solutions existed

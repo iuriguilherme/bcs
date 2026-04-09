@@ -820,6 +820,7 @@ Non-trivial bugs and their solutions are documented in `docs/solutions/`:
 - `performance-issues/` — Hot-path and code review quality findings
 - `physics-issues/` — Thermodynamics calibration and physics formula issues
 - `ui-bugs/` — Inspector display and viewer rendering bugs
+- `workflow-issues/` — Agent guidelines, documentation conventions, and development workflow patterns
 - `build-errors/` — CI, lint, and bundle pipeline issues (when added)
 
 Use the `learnings-researcher` subagent or search `docs/solutions/` before investigating a similar symptom — it may already be solved.
