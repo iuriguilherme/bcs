@@ -607,6 +607,46 @@ class Polymer {
     }
 
     /**
+     * Create a structural clone of this polymer with no live atoms.
+     * The clone carries the same type, name, monomerTemplate, and molecule metadata
+     * but molecule stubs have atoms=[] — they are descriptors, not live chemistry.
+     * Used when a Prokaryote divides and passes copies of its polymers to the daughter.
+     * @returns {Polymer}
+     */
+    clone() {
+        // Build lightweight molecule stubs: no atoms, but formula/mass/fingerprint preserved.
+        // Stubs must implement the Molecule interface methods called during Polymer.update()
+        // and Polymer.isStable() to avoid TypeErrors on the daughter's first update tick.
+        const clonedMolecules = this.molecules.map(mol => ({
+            id: Utils.generateId(),
+            formula: mol.formula || '',
+            mass: mol.mass || 0,
+            fingerprint: mol.fingerprint || '',
+            atoms: [],
+            bonds: [],
+            isMonomer: mol.isMonomer || false,
+            monomerTemplate: mol.monomerTemplate || null,
+            // monomerId is set externally by monomer-templates.js — copy directly
+            monomerId: mol.monomerId || null,
+            proteinId: null,
+            polymerId: null,
+            getCenter() { return new Vector2(0, 0); },
+            update() {},           // called by Polymer.update() every tick
+            isStable() { return true; }  // called by Polymer.isStable() and findPotentialPolymers
+        }));
+
+        const cloned = new Polymer(clonedMolecules, this.monomerTemplate, this.name);
+
+        // If monomerTemplate didn't provide polymerCategory, preserve type explicitly
+        if (!this.monomerTemplate || !this.monomerTemplate.polymerCategory) {
+            cloned.type = this.type;
+        }
+
+        cloned.cellRole = this.cellRole;
+        return cloned;
+    }
+
+    /**
      * Serialize polymer for storage
      */
     serialize() {
