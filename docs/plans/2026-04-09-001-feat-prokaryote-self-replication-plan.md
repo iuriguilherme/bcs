@@ -1,7 +1,7 @@
 ---
 title: "feat: Add Prokaryote Self-Replication via Binary Fission"
 type: feat
-status: active
+status: completed
 date: 2026-04-09
 origin: docs/brainstorms/2026-02-27-prokaryote-self-replication-brainstorm.md
 deepened: 2026-04-09
