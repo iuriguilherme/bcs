@@ -1,13 +1,18 @@
 ---
 title: "Resolving Git Rebase Conflicts in the Auto-Generated index.html Bundle"
 date: 2026-03-01
+last_updated: 2026-04-10
 problem_type: build_error
-component: git-workflow / build-system
+component: development_workflow
+severity: high
 symptoms:
   - "CONFLICT (content): Merge conflict in index.html at every commit during rebase"
   - "Source files (src/, intention.js, atom.js) auto-merge cleanly; only index.html conflicts"
   - "Rebase stops at each of N commits with the same error"
   - "git rebase --continue immediately hits the same error again if bundle is not rebuilt"
+  - "Tagged commit contains stale pre-tag version string (e.g. v0.26.1-51-gc5640da) in bundle"
+root_cause: config_error
+resolution_type: workflow_improvement
 affected_files:
   - index.html
   - build.ts
@@ -18,6 +23,10 @@ tags:
   - index-html
   - deno-build
   - github-pages
+  - semver
+  - git-tagging
+  - release-workflow
+  - branch-hygiene
 related_tools: [git, deno]
 ---
 
@@ -173,6 +182,64 @@ For real source conflicts: resolve those files first, then apply the bundle rebu
 | `git checkout --theirs index.html` without rebuilding | Main's old bundle doesn't include this commit's source changes |
 | Manually editing conflict markers in `index.html` | 630 KB of concatenated code is not hand-mergeable; syntax errors likely |
 | Committing source changes without rebuilding the bundle | `dev.html` and `index.html` diverge; production site runs old code |
+
+---
+
+## Release Tagging Workflow
+
+Creating a semver git tag requires rebuilding the bundle with the **explicit version argument**
+before committing. Without it, `build.ts` falls back to `git describe --tags --always`, which
+embeds a pre-tag dirty string (e.g. `v0.26.1-51-gc5640da`) into the tagged commit's bundle.
+
+**Golden rule: Rebuild → Commit → Tag → Push (in one logical unit). Never tag, then rebuild.**
+
+```bash
+# 1. All PRs merged to main, decide new semver tag
+#    PATCH: bug fixes, docs  |  MINOR: new features  |  MAJOR: breaking changes
+
+# 2. Rebuild with explicit version (part of release prep, NOT a standalone commit)
+deno run --allow-read --allow-write --allow-run build.ts v0.28.0
+
+# 3. Stage EVERYTHING together — bundle + any remaining changes — in ONE commit
+git add -A
+git commit -m "feat: release v0.28.0 - add prokaryote self-replication"
+
+# 4. Tag that commit
+git tag v0.28.0
+
+# 5. Push commits and tag
+git push && git push origin v0.28.0
+```
+
+**What not to do:**
+
+| Anti-Pattern | Why It Breaks |
+|---|---|
+| `git tag v0.28.0` before rebuilding | Tagged commit embeds stale `git describe` string |
+| Separate commit containing only `index.html` | Adds noise to history; tag still points to wrong commit |
+| `deno run build.ts` without version arg at release time | Embeds `v0.27.0-3-gabcdef` instead of clean `v0.28.0` |
+
+### Branch Hygiene After Release
+
+Delete merged branches from both local and remote:
+
+```bash
+# Delete local merged branches
+git branch -d feat/prokaryote-self-replication fix/intention-display-bugs
+
+# Delete remote merged branches
+git push origin --delete feat/prokaryote-self-replication fix/intention-display-bugs
+
+# Delete stale bot-generated branches too far diverged to merge
+git push origin --delete copilot/update-license-to-gplv3
+```
+
+Check for unmerged branches before assuming cleanup is complete:
+
+```bash
+git branch -a --merged main    # Should only show main and remotes/origin/HEAD → origin/main
+git branch -a --no-merged main # Anything here needs a decision: merge or delete
+```
 
 ---
 
