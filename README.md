@@ -124,6 +124,16 @@ Polymers are chains of molecules. They form from molecules that:
 
 **Critical Rule**: Fully stable molecules (like H2, O2, CH4) CANNOT polymerize because they have no available valence for forming polymer bonds.
 
+### Prokaryotes
+
+Prokaryotes are the simplest living cells, assembled from polymer components (membrane lipids, nucleoid DNA, ribosomes). Once assembled, they are self-sustaining entities that:
+
+1. **Metabolize** — consume ATP continuously to stay alive; absorb nearby carbohydrate polymers as nutrients
+2. **Replicate** — when ATP exceeds a threshold and the cell has ribosomes, synthesis begins (progress 0→1, driven by ribosome count); at completion the cell divides via **binary fission**, spawning a daughter cell with cloned polymer structure
+3. **Die** — when ATP is exhausted
+
+The replication cycle is: `idle → synthesizing → idle`. A visual tint (green→amber) marks cells mid-synthesis. Daughter cells start with a small ATP reserve and must reach maturity (age > 100 ticks) before they can divide again.
+
 ## Available Elements
 
 The following elements are available in the atom palette:
