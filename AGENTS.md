@@ -802,6 +802,7 @@ Screenshots and videos are saved to `playwright-report/` on failure.
 | `t05-cell-formation` | ⚠️ `test.fail()` | Full E2E cell formation (known bug — atoms get cramped) |
 | `t06-view-consistency` | ✅ Pass | View consistency across zoom levels |
 | `t07-intention-display` | ✅ Pass | Gathered counter and Level 2 seed-atom visibility |
+| `t08-prokaryote-replication` | ✅ Pass | Prokaryote binary fission: synthesis progress, ATP-gated division, daughter validity; T08b: no-ribosome guard |
 
 ### Infrastructure vs Scenarios
 

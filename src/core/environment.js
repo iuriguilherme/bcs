@@ -262,14 +262,20 @@ class Environment {
      * @param {number} dt - Delta time
      */
     updateProkaryotes(dt) {
-        for (const prokaryote of this.prokaryotes.values()) {
+        // Snapshot the current prokaryote set before updating.
+        // Without a snapshot, a daughter spawned during _divide() would be
+        // added to this.prokaryotes and visited by the same for-of loop —
+        // triggering its first update() at age=0, within the parent's tick.
+        const snapshot = Array.from(this.prokaryotes.values());
+        for (const prokaryote of snapshot) {
             if (prokaryote.isAlive) {
                 prokaryote.update(dt, this);
             }
         }
 
-        // Remove dead prokaryotes
-        for (const [id, prokaryote] of this.prokaryotes) {
+        // Remove dead prokaryotes — use Array.from snapshot so daughters added
+        // during the update loop are visible here but safe to iterate while deleting
+        for (const [id, prokaryote] of Array.from(this.prokaryotes)) {
             if (!prokaryote.isAlive) {
                 this.prokaryotes.delete(id);
             }
