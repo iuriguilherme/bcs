@@ -566,7 +566,7 @@ class Molecule {
     applyForce(force) {
         if (this.abstracted) {
             const m = this.mass;
-            if (m === 0) return; // Guard against zero/uninitialised mass
+            if (m === 0) return; // Guard against zero/uninitialized mass
             const a = force.div(m);
             this.acceleration = this.acceleration.add(a);
             return;

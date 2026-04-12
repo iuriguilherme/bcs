@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.27.1-1-gf2ff066"
-                    class="version-link" target="_blank">v0.27.1-1-gf2ff066</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.27.1-2-gb8ca390"
+                    class="version-link" target="_blank">v0.27.1-2-gb8ca390</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1379,8 +1379,8 @@ body {
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.27.1-1-gf2ff066
-// Generated: 2026-04-12T05:03:31.085Z
+// Version: v0.27.1-2-gb8ca390
+// Generated: 2026-04-12T05:30:53.381Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -5403,7 +5403,7 @@ class Molecule {
     applyForce(force) {
         if (this.abstracted) {
             const m = this.mass;
-            if (m === 0) return; // Guard against zero/uninitialised mass
+            if (m === 0) return; // Guard against zero/uninitialized mass
             const a = force.div(m);
             this.acceleration = this.acceleration.add(a);
             return;
@@ -7508,6 +7508,9 @@ class Intention {
 
             const molecule = new Molecule();
             molecule.name = template.name;
+            if (!template.formula) {
+                console.warn(`Abstract intent: template for '${this.blueprint.formula}' has no formula; falling back to blueprint formula`);
+            }
             molecule.formula = template.formula || this.blueprint.formula;
 
             // Set up virtual properties

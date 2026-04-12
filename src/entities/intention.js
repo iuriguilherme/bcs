@@ -391,6 +391,9 @@ class Intention {
 
             const molecule = new Molecule();
             molecule.name = template.name;
+            if (!template.formula) {
+                console.warn(`Abstract intent: template for '${this.blueprint.formula}' has no formula; falling back to blueprint formula`);
+            }
             molecule.formula = template.formula || this.blueprint.formula;
 
             // Set up virtual properties
