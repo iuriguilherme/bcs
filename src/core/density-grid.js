@@ -119,7 +119,8 @@ class DensityGrid {
 
                 // Diffuse a small amount of this element to neighbors
                 // Since counts are integers, we use probability for fractional diffusion
-                const diffusionAmount = count * this.diffusionRate;
+                // Scale by dt so diffusion rate is timestep-independent
+                const diffusionAmount = count * this.diffusionRate * dt;
                 const wholeAmount = Math.floor(diffusionAmount);
                 const fraction = diffusionAmount - wholeAmount;
 

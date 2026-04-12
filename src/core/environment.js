@@ -996,7 +996,7 @@ class Environment {
             this.densityGrid.addDensity(atom.position.x, atom.position.y, atom.symbol, 1);
 
             // Remove atom
-            this.removeAtom(atom);
+            this.removeAtom(atom.id);
         }
 
         // 4. Remove all remaining bonds

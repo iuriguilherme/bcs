@@ -1203,8 +1203,8 @@ body {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.27.1"
-                    class="version-link" target="_blank">v0.27.1</a></h1>
+            <h1 class="logo">🧬 BioChemSim <a href="https://github.com/iuriguilherme/bcs/releases/tag/v0.27.1-1-gf2ff066"
+                    class="version-link" target="_blank">v0.27.1-1-gf2ff066</a></h1>
             <div class="level-indicator">
                 <span class="level-label">Level:</span>
                 <div class="level-buttons" id="levelButtons">
@@ -1372,15 +1372,15 @@ body {
     
     
     
-
+    
     
     
 
     <script>
 // ============================================
 // Bundled BioChemSim Scripts
-// Version: v0.27.1
-// Generated: 2026-04-12T03:30:30.006Z
+// Version: v0.27.1-1-gf2ff066
+// Generated: 2026-04-12T05:03:31.085Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -1874,7 +1874,8 @@ class DensityGrid {
 
                 // Diffuse a small amount of this element to neighbors
                 // Since counts are integers, we use probability for fractional diffusion
-                const diffusionAmount = count * this.diffusionRate;
+                // Scale by dt so diffusion rate is timestep-independent
+                const diffusionAmount = count * this.diffusionRate * dt;
                 const wholeAmount = Math.floor(diffusionAmount);
                 const fraction = diffusionAmount - wholeAmount;
 
@@ -5401,7 +5402,9 @@ class Molecule {
      */
     applyForce(force) {
         if (this.abstracted) {
-            const a = force.div(this.mass);
+            const m = this.mass;
+            if (m === 0) return; // Guard against zero/uninitialised mass
+            const a = force.div(m);
             this.acceleration = this.acceleration.add(a);
             return;
         }
@@ -5432,8 +5435,8 @@ class Molecule {
             }
         }
 
-        // If molecule is stable and abstracted, skip individual atom physics
-        if (this.abstracted && this.isStable()) {
+        // If molecule is abstracted, skip individual atom physics
+        if (this.abstracted) {
             // Just update center position based on velocity if moving
             this.velocity = this.velocity.add(this.acceleration.mul(dt));
             this.velocity = this.velocity.mul(0.99); // damping
@@ -5446,7 +5449,13 @@ class Molecule {
 
             this.position = this.position.add(this.velocity.mul(dt));
             this.acceleration = new Vector2(0, 0);
-            return null;
+
+            // If it's a stable abstracted molecule, return here to skip concrete reshaping/decay
+            if (this.isStable()) {
+                return null;
+            }
+            // For unstable abstracted molecules, allow them to hit the decay/reshape logic below
+            // However, skip the atom positions loop at the end.
         }
 
         // Handle reshaping animation (takes priority over decay)
@@ -5503,14 +5512,16 @@ class Molecule {
             }
         }
 
-        // Apply bond spring forces
-        for (const bond of this.bonds) {
-            bond.applySpringForce(0.8);
-        }
+        if (!this.abstracted) {
+            // Apply bond spring forces
+            for (const bond of this.bonds) {
+                bond.applySpringForce(0.8);
+            }
 
-        // Update atom positions
-        for (const atom of this.atoms) {
-            atom.update(dt);
+            // Update atom positions
+            for (const atom of this.atoms) {
+                atom.update(dt);
+            }
         }
 
         return null;
@@ -5734,6 +5745,123 @@ class Molecule {
      * @param {Vector2} offset - Camera offset
      */
     render(ctx, scale = 1, offset = { x: 0, y: 0 }) {
+        if (this.abstracted) {
+            // Render virtual bonds
+            for (const vBond of this.virtualBonds) {
+                const vAtom1 = this.virtualAtoms[vBond.atom1Index];
+                const vAtom2 = this.virtualAtoms[vBond.atom2Index];
+                if (!vAtom1 || !vAtom2) continue;
+
+                const pos1 = this.position.add(vAtom1.relativePos);
+                const pos2 = this.position.add(vAtom2.relativePos);
+
+                const x1 = (pos1.x + offset.x) * scale;
+                const y1 = (pos1.y + offset.y) * scale;
+                const x2 = (pos2.x + offset.x) * scale;
+                const y2 = (pos2.y + offset.y) * scale;
+
+                // Calculate perpendicular direction for multiple lines
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                if (length === 0) continue; // Atoms overlap; skip this bond
+                const perpX = -dy / length;
+                const perpY = dx / length;
+
+                // Line spacing for multiple bonds
+                const spacing = 4 * scale;
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.lineWidth = 2;
+
+                // Draw bond lines based on order
+                if (vBond.order === 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                } else if (vBond.order === 2) {
+                    ctx.beginPath();
+                    ctx.moveTo(x1 + perpX * spacing, y1 + perpY * spacing);
+                    ctx.lineTo(x2 + perpX * spacing, y2 + perpY * spacing);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1 - perpX * spacing, y1 - perpY * spacing);
+                    ctx.lineTo(x2 - perpX * spacing, y2 - perpY * spacing);
+                    ctx.stroke();
+                } else if (vBond.order === 3) {
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1 + perpX * spacing * 1.5, y1 + perpY * spacing * 1.5);
+                    ctx.lineTo(x2 + perpX * spacing * 1.5, y2 + perpY * spacing * 1.5);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1 - perpX * spacing * 1.5, y1 - perpY * spacing * 1.5);
+                    ctx.lineTo(x2 - perpX * spacing * 1.5, y2 - perpY * spacing * 1.5);
+                    ctx.stroke();
+                }
+            }
+
+            // Render virtual atoms
+            for (const vAtom of this.virtualAtoms) {
+                const element = window.getElement(vAtom.symbol);
+                if (!element) continue;
+
+                const pos = this.position.add(vAtom.relativePos);
+                const screenX = (pos.x + offset.x) * scale;
+                const screenY = (pos.y + offset.y) * scale;
+                const screenRadius = element.radius * scale;
+
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, screenRadius, 0, Math.PI * 2);
+
+                const num = parseInt(element.color.replace('#', ''), 16);
+                const amt = Math.round(2.55 * 40);
+                const R = Math.min(255, (num >> 16) + amt);
+                const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
+                const B = Math.min(255, (num & 0x0000FF) + amt);
+                const lightColor = `rgb(${R}, ${G}, ${B})`;
+
+                const gradient = ctx.createRadialGradient(
+                    screenX - screenRadius * 0.3,
+                    screenY - screenRadius * 0.3,
+                    0,
+                    screenX,
+                    screenY,
+                    screenRadius
+                );
+                gradient.addColorStop(0, lightColor);
+                gradient.addColorStop(1, element.color);
+
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                if (screenRadius > 10) {
+                    const brightness = ((num >> 16) * 299 + ((num >> 8) & 255) * 587 + (num & 255) * 114) / 1000;
+                    ctx.fillStyle = brightness > 128 ? '#000000' : '#FFFFFF';
+                    ctx.font = `bold ${Math.max(10, screenRadius * 0.7)}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(vAtom.symbol, screenX, screenY);
+                }
+            }
+
+            if (this.selected || this.highlighted) {
+                this.renderBoundingBox(ctx, scale, offset);
+            }
+            return;
+        }
+
         // Draw reshaping indicator if molecule is transitioning
         if (this.isReshaping) {
             this._renderReshapingIndicator(ctx, scale, offset);
@@ -5971,6 +6099,29 @@ class Molecule {
     getBounds() {
         let minX = Infinity, minY = Infinity;
         let maxX = -Infinity, maxY = -Infinity;
+
+        if (this.abstracted) {
+            // Compute bounds from virtual atoms (positions are relative to this.position)
+            for (const vAtom of this.virtualAtoms) {
+                const element = window.getElement ? window.getElement(vAtom.symbol) : null;
+                const r = (element ? element.radius : 10);
+                const wx = this.position.x + vAtom.relativePos.x;
+                const wy = this.position.y + vAtom.relativePos.y;
+                minX = Math.min(minX, wx - r);
+                minY = Math.min(minY, wy - r);
+                maxX = Math.max(maxX, wx + r);
+                maxY = Math.max(maxY, wy + r);
+            }
+            // Fallback: if no virtual atoms, use a small box around position
+            if (this.virtualAtoms.length === 0) {
+                const r = 10;
+                minX = this.position.x - r;
+                minY = this.position.y - r;
+                maxX = this.position.x + r;
+                maxY = this.position.y + r;
+            }
+            return { minX, minY, maxX, maxY };
+        }
 
         for (const atom of this.atoms) {
             minX = Math.min(minX, atom.position.x - atom.radius);
@@ -7304,6 +7455,20 @@ class Intention {
         // Initialize abstract tracking
         if (!this.abstractConsumed) {
             this.abstractConsumed = {};
+
+            // Inherit atoms from existing seed molecule if one exists
+            if (this.seedMoleculeId) {
+                const seedMol = environment.seedMolecules.get(this.seedMoleculeId);
+                if (seedMol) {
+                    for (const atom of seedMol.atoms) {
+                        this.abstractConsumed[atom.symbol] = (this.abstractConsumed[atom.symbol] || 0) + 1;
+                    }
+                    // The seed molecule is no longer needed in abstract mode
+                    // Its real atoms were destroyed in environment.convertToAbstractMode
+                    environment.seedMolecules.delete(this.seedMoleculeId);
+                    this.seedMoleculeId = null;
+                }
+            }
         }
 
         const targetComp = this.getTargetComposition();
@@ -7333,7 +7498,9 @@ class Intention {
 
         if (this.progress >= 1) {
             // Fulfill the intention instantly by spawning the completed virtual molecule
-            const template = window.matchesStableTemplate && window.findTemplateByName ? window.findTemplateByName(this.blueprint.name) : null;
+            const template = window.getStableMoleculeTemplate
+                ? window.getStableMoleculeTemplate(this.blueprint.formula)
+                : null;
             if (!template) {
                 console.warn("Could not find template for abstract molecule intent completion");
                 return;
@@ -7341,46 +7508,44 @@ class Intention {
 
             const molecule = new Molecule();
             molecule.name = template.name;
-            molecule.formula = template.formula;
+            molecule.formula = template.formula || this.blueprint.formula;
 
             // Set up virtual properties
             molecule.position = new Vector2(this.position.x, this.position.y);
             molecule.velocity = new Vector2(0, 0);
             molecule.acceleration = new Vector2(0, 0);
 
-            // Reconstruct atoms according to template
-            const elements = Object.entries(targetComp).flatMap(([sym, count]) => Array(count).fill(sym));
+            // Build virtualAtoms from template.atoms (preserving atom order for bond indexing)
             let currentMass = 0;
-            molecule.virtualAtoms = elements.map((sym, i) => {
-                const elementDef = window.getElement(sym);
+            molecule.virtualAtoms = template.atoms.map(a => {
+                const elementDef = window.getElement ? window.getElement(a.symbol) : null;
                 currentMass += elementDef ? elementDef.mass : 1;
-                // Template may have posData
-                const pos = template.atomData && template.atomData[i] ? new Vector2(template.atomData[i].x, template.atomData[i].y) : new Vector2(Math.random() * 20 - 10, Math.random() * 20 - 10);
                 return {
-                    symbol: sym,
-                    relativePos: pos
+                    symbol: a.symbol,
+                    relativePos: new Vector2(a.relX, a.relY)
                 };
             });
             molecule.cachedMass = currentMass;
 
-            // Copy bonds
-            molecule.virtualBonds = template.bonds ? [...template.bonds] : [];
+            // Map bonds from {atom1, atom2, order} → {atom1Index, atom2Index, order}
+            molecule.virtualBonds = template.bonds
+                ? template.bonds.map(b => ({ atom1Index: b.atom1, atom2Index: b.atom2, order: b.order }))
+                : [];
             molecule.abstracted = true;
 
-            // Compute center of mass to recenter virtual atoms
-            if (template.atomData) {
-                let cmX = 0, cmY = 0;
-                let mass = 0;
-                for (let i=0; i<molecule.virtualAtoms.length; i++) {
-                    const m = window.getElement(molecule.virtualAtoms[i].symbol)?.mass || 1;
-                    cmX += molecule.virtualAtoms[i].relativePos.x * m;
-                    cmY += molecule.virtualAtoms[i].relativePos.y * m;
-                    mass += m;
-                }
-                cmX /= mass; cmY /= mass;
-                for (let i=0; i<molecule.virtualAtoms.length; i++) {
-                    molecule.virtualAtoms[i].relativePos.x -= cmX;
-                    molecule.virtualAtoms[i].relativePos.y -= cmY;
+            // Center virtual atoms around the molecule's center of mass
+            let cmX = 0, cmY = 0, totalMass = 0;
+            for (const vAtom of molecule.virtualAtoms) {
+                const m = (window.getElement ? window.getElement(vAtom.symbol)?.mass : null) || 1;
+                cmX += vAtom.relativePos.x * m;
+                cmY += vAtom.relativePos.y * m;
+                totalMass += m;
+            }
+            if (totalMass > 0) {
+                cmX /= totalMass;
+                cmY /= totalMass;
+                for (const vAtom of molecule.virtualAtoms) {
+                    vAtom.relativePos = new Vector2(vAtom.relativePos.x - cmX, vAtom.relativePos.y - cmY);
                 }
             }
 
@@ -11901,7 +12066,7 @@ class Environment {
             this.densityGrid.addDensity(atom.position.x, atom.position.y, atom.symbol, 1);
 
             // Remove atom
-            this.removeAtom(atom);
+            this.removeAtom(atom.id);
         }
 
         // 4. Remove all remaining bonds
@@ -14681,6 +14846,12 @@ class Viewer {
         // Render atoms
         for (const atom of this.environment.getAllAtoms()) {
             atom.render(this.ctx, scale, offset);
+        }
+
+        if (this.environment.abstractMode) {
+            for (const molecule of this.environment.getAllMolecules()) {
+                molecule.render(this.ctx, scale, offset);
+            }
         }
     }
 
