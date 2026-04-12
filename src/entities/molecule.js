@@ -565,9 +565,7 @@ class Molecule {
      */
     applyForce(force) {
         if (this.abstracted) {
-            const m = this.mass;
-            if (m === 0) return; // Guard against zero/uninitialized mass
-            const a = force.div(m);
+            const a = force.div(this.mass);
             this.acceleration = this.acceleration.add(a);
             return;
         }
@@ -927,7 +925,6 @@ class Molecule {
                 const dx = x2 - x1;
                 const dy = y2 - y1;
                 const length = Math.sqrt(dx * dx + dy * dy);
-                if (length === 0) continue; // Atoms overlap; skip this bond
                 const perpX = -dy / length;
                 const perpY = dx / length;
 
@@ -973,7 +970,7 @@ class Molecule {
 
             // Render virtual atoms
             for (const vAtom of this.virtualAtoms) {
-                const element = window.getElement(vAtom.symbol);
+                const element = window.PeriodicTable ? window.PeriodicTable.getElement(vAtom.symbol) : window.getElement ? window.getElement(vAtom.symbol) : null;
                 if (!element) continue;
 
                 const pos = this.position.add(vAtom.relativePos);
@@ -1263,29 +1260,6 @@ class Molecule {
         let minX = Infinity, minY = Infinity;
         let maxX = -Infinity, maxY = -Infinity;
 
-        if (this.abstracted) {
-            // Compute bounds from virtual atoms (positions are relative to this.position)
-            for (const vAtom of this.virtualAtoms) {
-                const element = window.getElement ? window.getElement(vAtom.symbol) : null;
-                const r = (element ? element.radius : 10);
-                const wx = this.position.x + vAtom.relativePos.x;
-                const wy = this.position.y + vAtom.relativePos.y;
-                minX = Math.min(minX, wx - r);
-                minY = Math.min(minY, wy - r);
-                maxX = Math.max(maxX, wx + r);
-                maxY = Math.max(maxY, wy + r);
-            }
-            // Fallback: if no virtual atoms, use a small box around position
-            if (this.virtualAtoms.length === 0) {
-                const r = 10;
-                minX = this.position.x - r;
-                minY = this.position.y - r;
-                maxX = this.position.x + r;
-                maxY = this.position.y + r;
-            }
-            return { minX, minY, maxX, maxY };
-        }
-
         for (const atom of this.atoms) {
             minX = Math.min(minX, atom.position.x - atom.radius);
             minY = Math.min(minY, atom.position.y - atom.radius);
@@ -1395,12 +1369,14 @@ class Molecule {
 
         this.atoms = newAtoms;
 
+        this.bonds = []; // Reset the bonds array
         // Recreate bonds
         for (const vBond of this.virtualBonds) {
             const atom1 = newAtoms[vBond.atom1Index];
             const atom2 = newAtoms[vBond.atom2Index];
             if (atom1 && atom2) {
                 const bond = new Bond(atom1, atom2, vBond.order);
+                this.bonds.push(bond); // Re-add the bond to the molecule's bonds array
                 environment.addBond(bond);
             }
         }

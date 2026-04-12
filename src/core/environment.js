@@ -867,7 +867,21 @@ class Environment {
             this.applyAbstractMoleculeForces(); // molecule-molecule repulsion
 
             for (const molecule of this.molecules.values()) {
-                molecule.update(dt, this);
+                const decayEvent = molecule.update(dt, this);
+                if (decayEvent && decayEvent.type === 'decay') {
+                    // Decay in abstract mode
+                    const releasedAtom = decayEvent.atom;
+                    // Add decayed elements back to the density grid
+                    this.densityGrid.addDensity(molecule.position.x, molecule.position.y, releasedAtom.symbol, 1);
+                    // Free up from the molecule
+                    molecule.atoms = molecule.atoms.filter(a => a !== releasedAtom);
+                    if (molecule.abstracted) {
+                        const index = molecule.virtualAtoms.findIndex(va => va.symbol === releasedAtom.symbol);
+                        if (index !== -1) {
+                            molecule.virtualAtoms.splice(index, 1);
+                        }
+                    }
+                }
             }
 
             // 3. updateIntentions(dt)
@@ -923,7 +937,13 @@ class Environment {
 
         // Update molecules (handles decay for unstable molecules)
         for (const molecule of this.molecules.values()) {
-            molecule.update(dt, this);
+            const decayEvent = molecule.update(dt, this);
+            if (decayEvent && decayEvent.type === 'decay') {
+                const releasedAtom = decayEvent.atom;
+                // Since this runs in concrete mode, the atom should already be in `this.atoms`
+                // because it was originally part of the molecule and wasn't destroyed
+                // Just clear its moleculeId (handled by Molecule.js)
+            }
         }
 
         // Update molecule registry (detects new molecules, cleans broken ones)
@@ -988,15 +1008,13 @@ class Environment {
         // 3. For each free atom, increment density grid and remove
         for (const atom of this.atoms.values()) {
             // Ignore if atom belongs to a molecule (already handled via molecule abstraction)
-            // But if it's somehow not in an abstract molecule but was skipped, catch it here
             if (atom.moleculeId) continue;
-            if (atom.isSeedAtom) continue;
 
-            // Increment density
+            // Increment density for all remaining atoms (including seed atoms that aren't in a seed molecule)
             this.densityGrid.addDensity(atom.position.x, atom.position.y, atom.symbol, 1);
 
             // Remove atom
-            this.removeAtom(atom.id);
+            this.removeAtom(atom);
         }
 
         // 4. Remove all remaining bonds

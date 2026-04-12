@@ -381,9 +381,18 @@ class Intention {
 
         if (this.progress >= 1) {
             // Fulfill the intention instantly by spawning the completed virtual molecule
-            const template = window.getStableMoleculeTemplate
-                ? window.getStableMoleculeTemplate(this.blueprint.formula)
-                : null;
+            let template = null;
+            if (window.STABLE_MOLECULES) {
+                // Find template by matching the target composition formula
+                // Blueprint targetComposition might not give a pure formula string, but we can match by checking all templates
+                for (const t of Object.values(window.STABLE_MOLECULES)) {
+                    if (t.name === this.blueprint.name) {
+                        template = t;
+                        break;
+                    }
+                }
+            }
+
             if (!template) {
                 console.warn("Could not find template for abstract molecule intent completion");
                 return;
@@ -391,47 +400,46 @@ class Intention {
 
             const molecule = new Molecule();
             molecule.name = template.name;
-            if (!template.formula) {
-                console.warn(`Abstract intent: template for '${this.blueprint.formula}' has no formula; falling back to blueprint formula`);
-            }
-            molecule.formula = template.formula || this.blueprint.formula;
+            molecule.formula = template.formula;
 
             // Set up virtual properties
             molecule.position = new Vector2(this.position.x, this.position.y);
             molecule.velocity = new Vector2(0, 0);
             molecule.acceleration = new Vector2(0, 0);
 
-            // Build virtualAtoms from template.atoms (preserving atom order for bond indexing)
+            // Reconstruct atoms according to template
+            const elements = Object.entries(targetComp).flatMap(([sym, count]) => Array(count).fill(sym));
             let currentMass = 0;
-            molecule.virtualAtoms = template.atoms.map(a => {
-                const elementDef = window.getElement ? window.getElement(a.symbol) : null;
+            molecule.virtualAtoms = elements.map((sym, i) => {
+                const elementDef = window.getElement(sym);
                 currentMass += elementDef ? elementDef.mass : 1;
+                // Template may have posData
+                const pos = template.atomData && template.atomData[i] ? new Vector2(template.atomData[i].x, template.atomData[i].y) : new Vector2(Math.random() * 20 - 10, Math.random() * 20 - 10);
                 return {
-                    symbol: a.symbol,
-                    relativePos: new Vector2(a.relX, a.relY)
+                    symbol: sym,
+                    relativePos: pos
                 };
             });
             molecule.cachedMass = currentMass;
 
-            // Map bonds from {atom1, atom2, order} → {atom1Index, atom2Index, order}
-            molecule.virtualBonds = template.bonds
-                ? template.bonds.map(b => ({ atom1Index: b.atom1, atom2Index: b.atom2, order: b.order }))
-                : [];
+            // Copy bonds
+            molecule.virtualBonds = template.bonds ? [...template.bonds] : [];
             molecule.abstracted = true;
 
-            // Center virtual atoms around the molecule's center of mass
-            let cmX = 0, cmY = 0, totalMass = 0;
-            for (const vAtom of molecule.virtualAtoms) {
-                const m = (window.getElement ? window.getElement(vAtom.symbol)?.mass : null) || 1;
-                cmX += vAtom.relativePos.x * m;
-                cmY += vAtom.relativePos.y * m;
-                totalMass += m;
-            }
-            if (totalMass > 0) {
-                cmX /= totalMass;
-                cmY /= totalMass;
-                for (const vAtom of molecule.virtualAtoms) {
-                    vAtom.relativePos = new Vector2(vAtom.relativePos.x - cmX, vAtom.relativePos.y - cmY);
+            // Compute center of mass to recenter virtual atoms
+            if (template.atomData) {
+                let cmX = 0, cmY = 0;
+                let mass = 0;
+                for (let i=0; i<molecule.virtualAtoms.length; i++) {
+                    const m = window.getElement(molecule.virtualAtoms[i].symbol)?.mass || 1;
+                    cmX += molecule.virtualAtoms[i].relativePos.x * m;
+                    cmY += molecule.virtualAtoms[i].relativePos.y * m;
+                    mass += m;
+                }
+                cmX /= mass; cmY /= mass;
+                for (let i=0; i<molecule.virtualAtoms.length; i++) {
+                    molecule.virtualAtoms[i].relativePos.x -= cmX;
+                    molecule.virtualAtoms[i].relativePos.y -= cmY;
                 }
             }
 

@@ -94,7 +94,7 @@ class DensityGrid {
     /**
      * Update loop for the density grid (handles diffusion)
      */
-    update(dt) {
+    update(_dt) {
         // Create a buffer for changes to apply simultaneously
         const changes = new Map();
 
@@ -119,8 +119,7 @@ class DensityGrid {
 
                 // Diffuse a small amount of this element to neighbors
                 // Since counts are integers, we use probability for fractional diffusion
-                // Scale by dt so diffusion rate is timestep-independent
-                const diffusionAmount = count * this.diffusionRate * dt;
+                const diffusionAmount = count * this.diffusionRate;
                 const wholeAmount = Math.floor(diffusionAmount);
                 const fraction = diffusionAmount - wholeAmount;
 
@@ -136,24 +135,13 @@ class DensityGrid {
 
                 // Distribute to neighbors
                 let distributed = 0;
-                for (const neighborKey of neighbors) {
-                    // Simple uniform distribution
-                    if (Math.random() < 0.5) {
-                        if (!changes.has(neighborKey)) changes.set(neighborKey, {});
-                        changes.get(neighborKey)[symbol] = (changes.get(neighborKey)[symbol] || 0) + 1;
-                        distributed++;
-                        if (distributed >= toDiffuse) break;
-                    }
-                }
 
-                // If not all distributed, randomly assign the rest
-                let attempts = 0;
-                while (distributed < toDiffuse && attempts < 10) {
+                // Diffuse in batches if there's a lot to diffuse
+                while (distributed < toDiffuse) {
                     const randomNeighbor = neighbors[Math.floor(Math.random() * neighbors.length)];
                     if (!changes.has(randomNeighbor)) changes.set(randomNeighbor, {});
                     changes.get(randomNeighbor)[symbol] = (changes.get(randomNeighbor)[symbol] || 0) + 1;
                     distributed++;
-                    attempts++;
                 }
 
                 // Record subtractions for this sector

@@ -342,12 +342,14 @@ class Viewer {
             ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${alpha})`;
             ctx.fillRect(screenX, screenY, screenW, screenH);
 
-            // Render text for the total
-            ctx.fillStyle = 'white';
-            ctx.font = `${Math.max(10, 14 * scale)}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(`${sector.total}`, screenX + screenW / 2, screenY + screenH / 2);
+            // Render text for the total only if zoomed in enough (non-intrusive)
+            if (scale > 0.8) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.font = `${Math.max(10, 12 * scale)}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${sector.total}`, screenX + screenW / 2, screenY + screenH / 2);
+            }
         }
         ctx.restore();
     }
