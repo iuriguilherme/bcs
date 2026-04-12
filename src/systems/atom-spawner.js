@@ -164,9 +164,14 @@ class AtomSpawner {
         const x = this.zone.x + Math.random() * this.zone.width;
         const y = this.zone.y + Math.random() * this.zone.height;
 
-        // Create and add atom
-        const atom = new Atom(symbol, x, y);
-        this.environment.addAtom(atom);
+        if (this.environment.abstractMode) {
+            // Increment density grid instead
+            this.environment.densityGrid.addDensity(x, y, symbol, 1);
+        } else {
+            // Create and add atom
+            const atom = new Atom(symbol, x, y);
+            this.environment.addAtom(atom);
+        }
     }
 
     /**

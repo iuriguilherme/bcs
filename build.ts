@@ -18,6 +18,7 @@ const cssFile = './index.css';
 // NOTE: protein.js is excluded since polymer.js provides backward-compatible Protein alias
 const scriptOrder = [
     'src/core/utils.js',
+    'src/core/density-grid.js',
     'src/data/periodic-table.js',
     'src/data/stable-molecules.js',
     'src/entities/atom.js',

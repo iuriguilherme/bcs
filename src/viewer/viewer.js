@@ -275,6 +275,10 @@ class Viewer {
         const scale = this.camera.zoom;
         const offset = this.getOffset();
 
+        if (this.environment.abstractMode) {
+            this._renderDensityGrid(scale, offset);
+        }
+
         // Render polymer chain connections first (behind everything)
         const polymers = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
         for (const polymer of polymers) {
@@ -290,6 +294,62 @@ class Viewer {
         for (const atom of this.environment.getAllAtoms()) {
             atom.render(this.ctx, scale, offset);
         }
+
+        if (this.environment.abstractMode) {
+            for (const molecule of this.environment.getAllMolecules()) {
+                molecule.render(this.ctx, scale, offset);
+            }
+        }
+    }
+
+    /**
+     * Render the Density Grid (Heatmap overlay)
+     */
+    _renderDensityGrid(scale, offset) {
+        if (!this.environment.densityGrid) return;
+
+        const ctx = this.ctx;
+        const gridSize = this.environment.densityGrid.gridSize;
+
+        // Find max density for relative coloring
+        let maxDensity = 1;
+        for (const sector of this.environment.densityGrid.sectors.values()) {
+            if (sector.total > maxDensity) {
+                maxDensity = sector.total;
+            }
+        }
+
+        ctx.save();
+        for (const [key, sector] of this.environment.densityGrid.sectors.entries()) {
+            if (sector.total <= 0) continue;
+
+            const [xStr, yStr] = key.split(',');
+            const gridX = parseInt(xStr, 10);
+            const gridY = parseInt(yStr, 10);
+
+            const screenX = (gridX * gridSize + offset.x) * scale;
+            const screenY = (gridY * gridSize + offset.y) * scale;
+            const screenW = gridSize * scale;
+            const screenH = gridSize * scale;
+
+            // Map density to color (transparent -> blue -> green -> yellow -> red)
+            const ratio = sector.total / maxDensity;
+
+            // Hue from 240 (blue) to 0 (red)
+            const hue = 240 - (ratio * 240);
+            const alpha = 0.2 + (ratio * 0.6); // 0.2 to 0.8
+
+            ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${alpha})`;
+            ctx.fillRect(screenX, screenY, screenW, screenH);
+
+            // Render text for the total
+            ctx.fillStyle = 'white';
+            ctx.font = `${Math.max(10, 14 * scale)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${sector.total}`, screenX + screenW / 2, screenY + screenH / 2);
+        }
+        ctx.restore();
     }
 
     /**

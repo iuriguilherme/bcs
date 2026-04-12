@@ -32,6 +32,10 @@ class Environment {
         this.temperature = 300;  // Kelvin
         this.pressure = 1;       // Atmospheres
 
+        // Abstract Mode properties
+        this.abstractMode = false;
+        this.densityGrid = new DensityGrid(width, height, this.gridSize);
+
         // Thermodynamics state
         this._thermalBreakTick = 0;
         this._bondsToBreak = [];   // persistent scratch array; avoids GC on hot ticks
@@ -788,20 +792,39 @@ class Environment {
         const padding = 50;
         const bounceForce = 100;
 
-        for (const atom of this.atoms.values()) {
-            const pos = atom.position;
+        if (this.abstractMode) {
+            for (const molecule of this.molecules.values()) {
+                const pos = molecule.position || molecule.centerOfMass;
 
-            if (pos.x < padding) {
-                atom.applyForce(new Vector2(bounceForce, 0));
+                if (pos.x < padding) {
+                    molecule.applyForce(new Vector2(bounceForce, 0));
+                }
+                if (pos.x > this.width - padding) {
+                    molecule.applyForce(new Vector2(-bounceForce, 0));
+                }
+                if (pos.y < padding) {
+                    molecule.applyForce(new Vector2(0, bounceForce));
+                }
+                if (pos.y > this.height - padding) {
+                    molecule.applyForce(new Vector2(0, -bounceForce));
+                }
             }
-            if (pos.x > this.width - padding) {
-                atom.applyForce(new Vector2(-bounceForce, 0));
-            }
-            if (pos.y < padding) {
-                atom.applyForce(new Vector2(0, bounceForce));
-            }
-            if (pos.y > this.height - padding) {
-                atom.applyForce(new Vector2(0, -bounceForce));
+        } else {
+            for (const atom of this.atoms.values()) {
+                const pos = atom.position;
+
+                if (pos.x < padding) {
+                    atom.applyForce(new Vector2(bounceForce, 0));
+                }
+                if (pos.x > this.width - padding) {
+                    atom.applyForce(new Vector2(-bounceForce, 0));
+                }
+                if (pos.y < padding) {
+                    atom.applyForce(new Vector2(0, bounceForce));
+                }
+                if (pos.y > this.height - padding) {
+                    atom.applyForce(new Vector2(0, -bounceForce));
+                }
             }
         }
     }
@@ -835,6 +858,33 @@ class Environment {
      * @param {number} dt - Delta time
      */
     update(dt) {
+        if (this.abstractMode) {
+            // 1. diffuseDensityGrid(dt)
+            this.densityGrid.update(dt);
+
+            // 2. updateAbstractMolecules(dt)
+            this.applyBoundaries(); // Boundary constraints
+            this.applyAbstractMoleculeForces(); // molecule-molecule repulsion
+
+            for (const molecule of this.molecules.values()) {
+                molecule.update(dt, this);
+            }
+
+            // 3. updateIntentions(dt)
+            this.updateIntentions(dt);
+
+            // 4. updatePolymers()
+            this.updatePolymers();
+
+            // 5. updateCells()
+            this.updateCells();
+
+            // 6. updateProkaryotes(dt)
+            this.updateProkaryotes(dt);
+
+            return; // skip concrete loop
+        }
+
         // Synchronize bonds bidirectionally to prevent lost bonds after reshaping
         this.syncBonds();
 
@@ -887,6 +937,118 @@ class Environment {
 
         // Update prokaryotes (chemistry-based cells)
         this.updateProkaryotes(dt);
+    }
+
+    /**
+     * Apply forces to abstract molecules
+     */
+    applyAbstractMoleculeForces() {
+        const molecules = Array.from(this.molecules.values());
+        const repulsionStrength = 200;
+
+        for (let i = 0; i < molecules.length; i++) {
+            const mol1 = molecules[i];
+
+            // basic separation based on size
+            const size1 = Math.max(20, 10 + mol1.mass / 2);
+
+            for (let j = i + 1; j < molecules.length; j++) {
+                const mol2 = molecules[j];
+                const size2 = Math.max(20, 10 + mol2.mass / 2);
+
+                const minDistance = size1 + size2;
+                const distance = mol1.position.distanceTo(mol2.position);
+
+                if (distance > 0 && distance < minDistance) {
+                    const direction = mol1.position.sub(mol2.position).normalize();
+                    const forceMagnitude = repulsionStrength * (1 - distance / minDistance);
+
+                    mol1.applyForce(direction.mul(forceMagnitude));
+                    mol2.applyForce(direction.mul(-forceMagnitude));
+                }
+            }
+        }
+    }
+
+    /**
+     * Converts to Abstract Mode
+     */
+    convertToAbstractMode() {
+        if (this.abstractMode) return;
+
+        // 1. Run updateMolecules() one final time
+        this.updateMolecules();
+
+        // 2. Convert molecules (including seed molecules)
+        const allMolecules = [...this.molecules.values(), ...this.seedMolecules.values()];
+        for (const molecule of allMolecules) {
+            molecule.convertToAbstract();
+        }
+
+        // 3. For each free atom, increment density grid and remove
+        for (const atom of this.atoms.values()) {
+            // Ignore if atom belongs to a molecule (already handled via molecule abstraction)
+            // But if it's somehow not in an abstract molecule but was skipped, catch it here
+            if (atom.moleculeId) continue;
+            if (atom.isSeedAtom) continue;
+
+            // Increment density
+            this.densityGrid.addDensity(atom.position.x, atom.position.y, atom.symbol, 1);
+
+            // Remove atom
+            this.removeAtom(atom);
+        }
+
+        // 4. Remove all remaining bonds
+        this.bonds.clear();
+
+        // Remove all atoms that are now virtual
+        this.atoms.clear();
+
+        this.abstractMode = true;
+    }
+
+    /**
+     * Converts to Concrete Mode
+     */
+    convertToConcreteMode() {
+        if (!this.abstractMode) return;
+
+        // 1. For each sector in density grid, spawn real atoms
+        for (const [key, sector] of this.densityGrid.sectors.entries()) {
+            if (sector.total === 0) continue;
+
+            const [xStr, yStr] = key.split(',');
+            const gridX = parseInt(xStr, 10);
+            const gridY = parseInt(yStr, 10);
+
+            const sectorStartX = gridX * this.gridSize;
+            const sectorStartY = gridY * this.gridSize;
+
+            for (const [symbol, count] of Object.entries(sector.elements)) {
+                for (let i = 0; i < count; i++) {
+                    const randX = sectorStartX + Math.random() * this.gridSize;
+                    const randY = sectorStartY + Math.random() * this.gridSize;
+
+                    const atom = new Atom(symbol, randX, randY);
+                    this.addAtom(atom);
+                }
+            }
+        }
+
+        // 2. For each abstract molecule, recreate atoms and bonds
+        const allMolecules = [...this.molecules.values(), ...this.seedMolecules.values()];
+        for (const molecule of allMolecules) {
+            molecule.convertToConcrete(this);
+        }
+
+        // 3. Clear density grid
+        this.densityGrid.clear();
+
+        this.abstractMode = false;
+
+        // 4. Run updateMolecules
+        this.updateMolecules();
     }
 
     /**

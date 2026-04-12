@@ -305,6 +305,11 @@ class Intention {
         // NOTE: No timeout - intentions persist until fulfilled or manually deleted
         // (Bug #6 fix from AGENTS.md)
 
+        if (environment.abstractMode && this.type === 'molecule') {
+            this._updateAbstractMoleculeIntent(environment);
+            return;
+        }
+
         if (this.type === 'molecule') {
             // Rule-based system for molecule intents
             // Each rule executes in order, sharing a cached state object
@@ -323,6 +328,113 @@ class Intention {
             // Polymer/cell intents use existing logic (unchanged)
             this._attractComponents(environment);
             this._checkCompletion(environment);
+        }
+    }
+
+    /**
+     * Updates a molecule intent in Abstract Mode by consuming elements directly from the Density Grid
+     */
+    _updateAbstractMoleculeIntent(environment) {
+        // Initialize abstract tracking
+        if (!this.abstractConsumed) {
+            this.abstractConsumed = {};
+
+            // Inherit atoms from existing seed molecule if one exists
+            if (this.seedMoleculeId) {
+                const seedMol = environment.seedMolecules.get(this.seedMoleculeId);
+                if (seedMol) {
+                    for (const atom of seedMol.atoms) {
+                        this.abstractConsumed[atom.symbol] = (this.abstractConsumed[atom.symbol] || 0) + 1;
+                    }
+                    // The seed molecule is no longer needed in abstract mode
+                    // Its real atoms were destroyed in environment.convertToAbstractMode
+                    environment.seedMolecules.delete(this.seedMoleculeId);
+                    this.seedMoleculeId = null;
+                }
+            }
+        }
+
+        const targetComp = this.getTargetComposition();
+        if (!targetComp) return;
+
+        let totalNeeded = 0;
+        let totalConsumed = 0;
+
+        for (const [symbol, needed] of Object.entries(targetComp)) {
+            totalNeeded += needed;
+            const currentlyConsumed = this.abstractConsumed[symbol] || 0;
+            totalConsumed += currentlyConsumed;
+
+            const remaining = needed - currentlyConsumed;
+            if (remaining > 0) {
+                // Try to consume from the grid
+                const consumed = environment.densityGrid.consumeDensity(this.position.x, this.position.y, symbol, remaining);
+                if (consumed > 0) {
+                    this.abstractConsumed[symbol] = currentlyConsumed + consumed;
+                    totalConsumed += consumed;
+                }
+            }
+        }
+
+        // Update progress
+        this.progress = Math.min(1, totalConsumed / totalNeeded);
+
+        if (this.progress >= 1) {
+            // Fulfill the intention instantly by spawning the completed virtual molecule
+            const template = window.matchesStableTemplate && window.findTemplateByName ? window.findTemplateByName(this.blueprint.name) : null;
+            if (!template) {
+                console.warn("Could not find template for abstract molecule intent completion");
+                return;
+            }
+
+            const molecule = new Molecule();
+            molecule.name = template.name;
+            molecule.formula = template.formula;
+
+            // Set up virtual properties
+            molecule.position = new Vector2(this.position.x, this.position.y);
+            molecule.velocity = new Vector2(0, 0);
+            molecule.acceleration = new Vector2(0, 0);
+
+            // Reconstruct atoms according to template
+            const elements = Object.entries(targetComp).flatMap(([sym, count]) => Array(count).fill(sym));
+            let currentMass = 0;
+            molecule.virtualAtoms = elements.map((sym, i) => {
+                const elementDef = window.getElement(sym);
+                currentMass += elementDef ? elementDef.mass : 1;
+                // Template may have posData
+                const pos = template.atomData && template.atomData[i] ? new Vector2(template.atomData[i].x, template.atomData[i].y) : new Vector2(Math.random() * 20 - 10, Math.random() * 20 - 10);
+                return {
+                    symbol: sym,
+                    relativePos: pos
+                };
+            });
+            molecule.cachedMass = currentMass;
+
+            // Copy bonds
+            molecule.virtualBonds = template.bonds ? [...template.bonds] : [];
+            molecule.abstracted = true;
+
+            // Compute center of mass to recenter virtual atoms
+            if (template.atomData) {
+                let cmX = 0, cmY = 0;
+                let mass = 0;
+                for (let i=0; i<molecule.virtualAtoms.length; i++) {
+                    const m = window.getElement(molecule.virtualAtoms[i].symbol)?.mass || 1;
+                    cmX += molecule.virtualAtoms[i].relativePos.x * m;
+                    cmY += molecule.virtualAtoms[i].relativePos.y * m;
+                    mass += m;
+                }
+                cmX /= mass; cmY /= mass;
+                for (let i=0; i<molecule.virtualAtoms.length; i++) {
+                    molecule.virtualAtoms[i].relativePos.x -= cmX;
+                    molecule.virtualAtoms[i].relativePos.y -= cmY;
+                }
+            }
+
+            environment.addMolecule(molecule);
+            this.createdEntity = molecule;
+            this.fulfilled = true;
         }
     }
 

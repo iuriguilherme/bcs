@@ -1217,6 +1217,7 @@ body {
                 </div>
             </div>
             <div class="sim-controls">
+                <button id="abstractModeBtn" class="control-btn" title="Toggle Abstract Mode">🔳</button>
                 <button id="playPauseBtn" class="control-btn play-pause-btn" title="Play/Pause">▶️ Play</button>
                 <button id="stepBtn" class="control-btn" title="Step">⏭️</button>
                 <button id="spawnerBtn" class="control-btn spawner-btn" title="Toggle Atom Spawner">⚛️</button>
@@ -1371,6 +1372,7 @@ body {
     
     
     
+
     
     
 
@@ -1378,7 +1380,7 @@ body {
 // ============================================
 // Bundled BioChemSim Scripts
 // Version: v0.27.1
-// Generated: 2026-04-11T23:59:25.610Z
+// Generated: 2026-04-12T03:30:30.006Z
 // ============================================
 
 // ==== src/core/utils.js ====
@@ -1748,6 +1750,191 @@ class Vector2 {
 // Make available globally
 window.Utils = Utils;
 window.Vector2 = Vector2;
+
+
+// ==== src/core/density-grid.js ====
+/**
+ * DensityGrid
+ * A grid that stores element densities instead of tracking individual atoms.
+ * Used during Abstract Mode to improve performance.
+ */
+class DensityGrid {
+    /**
+     * Create a new density grid
+     * @param {number} width - World width
+     * @param {number} height - World height
+     * @param {number} gridSize - Size of each sector (default 100 to match spatial grid)
+     */
+    constructor(width, height, gridSize = 100) {
+        this.width = width;
+        this.height = height;
+        this.gridSize = gridSize;
+        this.sectors = new Map();
+
+        this.cols = Math.ceil(width / gridSize);
+        this.rows = Math.ceil(height / gridSize);
+
+        // Initialize all sectors
+        for (let x = 0; x < this.cols; x++) {
+            for (let y = 0; y < this.rows; y++) {
+                const key = `${x},${y}`;
+                this.sectors.set(key, {
+                    elements: {},
+                    total: 0
+                });
+            }
+        }
+
+        this.diffusionRate = 0.02; // 2% of atoms diffuse per tick
+    }
+
+    /**
+     * Clear the grid
+     */
+    clear() {
+        for (const sector of this.sectors.values()) {
+            sector.elements = {};
+            sector.total = 0;
+        }
+    }
+
+    /**
+     * Get the sector key for a position
+     */
+    getSectorKey(x, y) {
+        const col = Math.floor(x / this.gridSize);
+        const row = Math.floor(y / this.gridSize);
+
+        // Clamp to valid range
+        const cCol = Math.max(0, Math.min(col, this.cols - 1));
+        const cRow = Math.max(0, Math.min(row, this.rows - 1));
+
+        return `${cCol},${cRow}`;
+    }
+
+    /**
+     * Increment density for a specific element in a sector
+     */
+    addDensity(x, y, symbol, amount = 1) {
+        const key = this.getSectorKey(x, y);
+        const sector = this.sectors.get(key);
+        if (!sector) return;
+
+        sector.elements[symbol] = (sector.elements[symbol] || 0) + amount;
+        sector.total += amount;
+    }
+
+    /**
+     * Try to consume elements from a sector
+     * Returns the actual amount consumed (may be less than requested)
+     */
+    consumeDensity(x, y, symbol, amount) {
+        const key = this.getSectorKey(x, y);
+        const sector = this.sectors.get(key);
+        if (!sector || !sector.elements[symbol]) return 0;
+
+        const available = sector.elements[symbol];
+        const consumed = Math.min(available, amount);
+
+        sector.elements[symbol] -= consumed;
+        sector.total -= consumed;
+
+        if (sector.elements[symbol] <= 0) {
+            delete sector.elements[symbol];
+        }
+
+        return consumed;
+    }
+
+    /**
+     * Update loop for the density grid (handles diffusion)
+     */
+    update(dt) {
+        // Create a buffer for changes to apply simultaneously
+        const changes = new Map();
+
+        for (const [key, sector] of this.sectors.entries()) {
+            if (sector.total === 0) continue;
+
+            const [xStr, yStr] = key.split(',');
+            const x = parseInt(xStr, 10);
+            const y = parseInt(yStr, 10);
+
+            // Get neighbors
+            const neighbors = [];
+            if (x > 0) neighbors.push(`${x-1},${y}`);
+            if (x < this.cols - 1) neighbors.push(`${x+1},${y}`);
+            if (y > 0) neighbors.push(`${x},${y-1}`);
+            if (y < this.rows - 1) neighbors.push(`${x},${y+1}`);
+
+            if (neighbors.length === 0) continue;
+
+            for (const [symbol, count] of Object.entries(sector.elements)) {
+                if (count <= 0) continue;
+
+                // Diffuse a small amount of this element to neighbors
+                // Since counts are integers, we use probability for fractional diffusion
+                const diffusionAmount = count * this.diffusionRate;
+                const wholeAmount = Math.floor(diffusionAmount);
+                const fraction = diffusionAmount - wholeAmount;
+
+                let toDiffuse = wholeAmount;
+                if (Math.random() < fraction) {
+                    toDiffuse += 1;
+                }
+
+                if (toDiffuse <= 0) continue;
+
+                // Ensure we don't diffuse more than we have
+                toDiffuse = Math.min(toDiffuse, count);
+
+                // Distribute to neighbors
+                let distributed = 0;
+                for (const neighborKey of neighbors) {
+                    // Simple uniform distribution
+                    if (Math.random() < 0.5) {
+                        if (!changes.has(neighborKey)) changes.set(neighborKey, {});
+                        changes.get(neighborKey)[symbol] = (changes.get(neighborKey)[symbol] || 0) + 1;
+                        distributed++;
+                        if (distributed >= toDiffuse) break;
+                    }
+                }
+
+                // If not all distributed, randomly assign the rest
+                let attempts = 0;
+                while (distributed < toDiffuse && attempts < 10) {
+                    const randomNeighbor = neighbors[Math.floor(Math.random() * neighbors.length)];
+                    if (!changes.has(randomNeighbor)) changes.set(randomNeighbor, {});
+                    changes.get(randomNeighbor)[symbol] = (changes.get(randomNeighbor)[symbol] || 0) + 1;
+                    distributed++;
+                    attempts++;
+                }
+
+                // Record subtractions for this sector
+                if (distributed > 0) {
+                    if (!changes.has(key)) changes.set(key, {});
+                    changes.get(key)[symbol] = (changes.get(key)[symbol] || 0) - distributed;
+                }
+            }
+        }
+
+        // Apply changes
+        for (const [key, elementChanges] of changes.entries()) {
+            const sector = this.sectors.get(key);
+            for (const [symbol, change] of Object.entries(elementChanges)) {
+                sector.elements[symbol] = (sector.elements[symbol] || 0) + change;
+                sector.total += change;
+
+                if (sector.elements[symbol] <= 0) {
+                    delete sector.elements[symbol];
+                }
+            }
+        }
+    }
+}
+
+// Make available globally
+window.DensityGrid = DensityGrid;
 
 
 // ==== src/data/periodic-table.js ====
@@ -4691,6 +4878,14 @@ class Molecule {
         this.abstracted = false;
         this.blueprintRef = null; // Reference to blueprint for reconstruction
 
+        // Rigid body physics (for abstract mode)
+        this.position = new Vector2(0, 0);
+        this.velocity = new Vector2(0, 0);
+        this.acceleration = new Vector2(0, 0);
+        this.virtualAtoms = [];
+        this.virtualBonds = [];
+        this.cachedMass = 0;
+
         // Decay timer for unstable molecules (in simulation ticks)
         // Unstable molecules decay after 500-1500 ticks, releasing atoms
         this.decayTimer = null;
@@ -4732,6 +4927,10 @@ class Molecule {
      * Calculate center of mass
      */
     get centerOfMass() {
+        if (this.abstracted) {
+            return this.position;
+        }
+
         if (this.atoms.length === 0) return new Vector2(0, 0);
 
         let totalMass = 0;
@@ -4749,6 +4948,9 @@ class Molecule {
      * Calculate total mass
      */
     get mass() {
+        if (this.abstracted) {
+            return this.cachedMass;
+        }
         return this.atoms.reduce((sum, atom) => sum + atom.mass, 0);
     }
 
@@ -5198,6 +5400,12 @@ class Molecule {
      * @param {Vector2} force - Force vector
      */
     applyForce(force) {
+        if (this.abstracted) {
+            const a = force.div(this.mass);
+            this.acceleration = this.acceleration.add(a);
+            return;
+        }
+
         const totalMass = this.mass;
         for (const atom of this.atoms) {
             const fraction = atom.mass / totalMass;
@@ -5227,6 +5435,17 @@ class Molecule {
         // If molecule is stable and abstracted, skip individual atom physics
         if (this.abstracted && this.isStable()) {
             // Just update center position based on velocity if moving
+            this.velocity = this.velocity.add(this.acceleration.mul(dt));
+            this.velocity = this.velocity.mul(0.99); // damping
+
+            const MAX_SPEED = 400;
+            const speed = this.velocity.length();
+            if (speed > MAX_SPEED) {
+                this.velocity = this.velocity.mul(MAX_SPEED / speed);
+            }
+
+            this.position = this.position.add(this.velocity.mul(dt));
+            this.acceleration = new Vector2(0, 0);
             return null;
         }
 
@@ -5794,6 +6013,87 @@ class Molecule {
         }
 
         return false;
+    }
+
+    /**
+     * Converts the molecule to abstract mode
+     */
+    convertToAbstract() {
+        if (this.abstracted) return;
+
+        // Cache initial mass and COM
+        this.cachedMass = this.mass;
+        const com = this.centerOfMass;
+        this.position = new Vector2(com.x, com.y);
+
+        // Aggregate velocity
+        let totalVx = 0;
+        let totalVy = 0;
+        for (const atom of this.atoms) {
+            totalVx += atom.velocity.x * atom.mass;
+            totalVy += atom.velocity.y * atom.mass;
+        }
+        if (this.cachedMass > 0) {
+            this.velocity = new Vector2(totalVx / this.cachedMass, totalVy / this.cachedMass);
+        }
+
+        // Convert atoms to virtual
+        this.virtualAtoms = this.atoms.map(a => ({
+            symbol: a.symbol,
+            relativePos: a.position.sub(this.position)
+        }));
+
+        // Convert bonds to virtual
+        // We get all bonds within the molecule
+        const innerBonds = this.bonds;
+        this.virtualBonds = innerBonds.map(b => ({
+            atom1Index: this.atoms.indexOf(b.atom1),
+            atom2Index: this.atoms.indexOf(b.atom2),
+            order: b.order
+        }));
+
+        this.abstracted = true;
+    }
+
+    /**
+     * Converts the molecule back to concrete mode
+     */
+    convertToConcrete(environment) {
+        if (!this.abstracted) return;
+
+        const newAtoms = [];
+
+        // Recreate atoms
+        for (let i = 0; i < this.virtualAtoms.length; i++) {
+            const vAtom = this.virtualAtoms[i];
+            const worldPos = this.position.add(vAtom.relativePos);
+
+            const atom = new Atom(vAtom.symbol, worldPos.x, worldPos.y);
+            atom.velocity = new Vector2(this.velocity.x, this.velocity.y);
+            atom.moleculeId = this.id;
+            if (this.isSeedFor) {
+                atom.claimedByIntentId = this.isSeedFor;
+            }
+
+            environment.addAtom(atom);
+            newAtoms.push(atom);
+        }
+
+        this.atoms = newAtoms;
+
+        // Recreate bonds
+        for (const vBond of this.virtualBonds) {
+            const atom1 = newAtoms[vBond.atom1Index];
+            const atom2 = newAtoms[vBond.atom2Index];
+            if (atom1 && atom2) {
+                const bond = new Bond(atom1, atom2, vBond.order);
+                environment.addBond(bond);
+            }
+        }
+
+        this.virtualAtoms = [];
+        this.virtualBonds = [];
+        this.abstracted = false;
     }
 
     /**
@@ -6971,6 +7271,11 @@ class Intention {
         // NOTE: No timeout - intentions persist until fulfilled or manually deleted
         // (Bug #6 fix from AGENTS.md)
 
+        if (environment.abstractMode && this.type === 'molecule') {
+            this._updateAbstractMoleculeIntent(environment);
+            return;
+        }
+
         if (this.type === 'molecule') {
             // Rule-based system for molecule intents
             // Each rule executes in order, sharing a cached state object
@@ -6989,6 +7294,99 @@ class Intention {
             // Polymer/cell intents use existing logic (unchanged)
             this._attractComponents(environment);
             this._checkCompletion(environment);
+        }
+    }
+
+    /**
+     * Updates a molecule intent in Abstract Mode by consuming elements directly from the Density Grid
+     */
+    _updateAbstractMoleculeIntent(environment) {
+        // Initialize abstract tracking
+        if (!this.abstractConsumed) {
+            this.abstractConsumed = {};
+        }
+
+        const targetComp = this.getTargetComposition();
+        if (!targetComp) return;
+
+        let totalNeeded = 0;
+        let totalConsumed = 0;
+
+        for (const [symbol, needed] of Object.entries(targetComp)) {
+            totalNeeded += needed;
+            const currentlyConsumed = this.abstractConsumed[symbol] || 0;
+            totalConsumed += currentlyConsumed;
+
+            const remaining = needed - currentlyConsumed;
+            if (remaining > 0) {
+                // Try to consume from the grid
+                const consumed = environment.densityGrid.consumeDensity(this.position.x, this.position.y, symbol, remaining);
+                if (consumed > 0) {
+                    this.abstractConsumed[symbol] = currentlyConsumed + consumed;
+                    totalConsumed += consumed;
+                }
+            }
+        }
+
+        // Update progress
+        this.progress = Math.min(1, totalConsumed / totalNeeded);
+
+        if (this.progress >= 1) {
+            // Fulfill the intention instantly by spawning the completed virtual molecule
+            const template = window.matchesStableTemplate && window.findTemplateByName ? window.findTemplateByName(this.blueprint.name) : null;
+            if (!template) {
+                console.warn("Could not find template for abstract molecule intent completion");
+                return;
+            }
+
+            const molecule = new Molecule();
+            molecule.name = template.name;
+            molecule.formula = template.formula;
+
+            // Set up virtual properties
+            molecule.position = new Vector2(this.position.x, this.position.y);
+            molecule.velocity = new Vector2(0, 0);
+            molecule.acceleration = new Vector2(0, 0);
+
+            // Reconstruct atoms according to template
+            const elements = Object.entries(targetComp).flatMap(([sym, count]) => Array(count).fill(sym));
+            let currentMass = 0;
+            molecule.virtualAtoms = elements.map((sym, i) => {
+                const elementDef = window.getElement(sym);
+                currentMass += elementDef ? elementDef.mass : 1;
+                // Template may have posData
+                const pos = template.atomData && template.atomData[i] ? new Vector2(template.atomData[i].x, template.atomData[i].y) : new Vector2(Math.random() * 20 - 10, Math.random() * 20 - 10);
+                return {
+                    symbol: sym,
+                    relativePos: pos
+                };
+            });
+            molecule.cachedMass = currentMass;
+
+            // Copy bonds
+            molecule.virtualBonds = template.bonds ? [...template.bonds] : [];
+            molecule.abstracted = true;
+
+            // Compute center of mass to recenter virtual atoms
+            if (template.atomData) {
+                let cmX = 0, cmY = 0;
+                let mass = 0;
+                for (let i=0; i<molecule.virtualAtoms.length; i++) {
+                    const m = window.getElement(molecule.virtualAtoms[i].symbol)?.mass || 1;
+                    cmX += molecule.virtualAtoms[i].relativePos.x * m;
+                    cmY += molecule.virtualAtoms[i].relativePos.y * m;
+                    mass += m;
+                }
+                cmX /= mass; cmY /= mass;
+                for (let i=0; i<molecule.virtualAtoms.length; i++) {
+                    molecule.virtualAtoms[i].relativePos.x -= cmX;
+                    molecule.virtualAtoms[i].relativePos.y -= cmY;
+                }
+            }
+
+            environment.addMolecule(molecule);
+            this.createdEntity = molecule;
+            this.fulfilled = true;
         }
     }
 
@@ -8719,9 +9117,14 @@ class AtomSpawner {
         const x = this.zone.x + Math.random() * this.zone.width;
         const y = this.zone.y + Math.random() * this.zone.height;
 
-        // Create and add atom
-        const atom = new Atom(symbol, x, y);
-        this.environment.addAtom(atom);
+        if (this.environment.abstractMode) {
+            // Increment density grid instead
+            this.environment.densityGrid.addDensity(x, y, symbol, 1);
+        } else {
+            // Create and add atom
+            const atom = new Atom(symbol, x, y);
+            this.environment.addAtom(atom);
+        }
     }
 
     /**
@@ -10534,6 +10937,10 @@ class Environment {
         this.temperature = 300;  // Kelvin
         this.pressure = 1;       // Atmospheres
 
+        // Abstract Mode properties
+        this.abstractMode = false;
+        this.densityGrid = new DensityGrid(width, height, this.gridSize);
+
         // Thermodynamics state
         this._thermalBreakTick = 0;
         this._bondsToBreak = [];   // persistent scratch array; avoids GC on hot ticks
@@ -11290,20 +11697,39 @@ class Environment {
         const padding = 50;
         const bounceForce = 100;
 
-        for (const atom of this.atoms.values()) {
-            const pos = atom.position;
+        if (this.abstractMode) {
+            for (const molecule of this.molecules.values()) {
+                const pos = molecule.position || molecule.centerOfMass;
 
-            if (pos.x < padding) {
-                atom.applyForce(new Vector2(bounceForce, 0));
+                if (pos.x < padding) {
+                    molecule.applyForce(new Vector2(bounceForce, 0));
+                }
+                if (pos.x > this.width - padding) {
+                    molecule.applyForce(new Vector2(-bounceForce, 0));
+                }
+                if (pos.y < padding) {
+                    molecule.applyForce(new Vector2(0, bounceForce));
+                }
+                if (pos.y > this.height - padding) {
+                    molecule.applyForce(new Vector2(0, -bounceForce));
+                }
             }
-            if (pos.x > this.width - padding) {
-                atom.applyForce(new Vector2(-bounceForce, 0));
-            }
-            if (pos.y < padding) {
-                atom.applyForce(new Vector2(0, bounceForce));
-            }
-            if (pos.y > this.height - padding) {
-                atom.applyForce(new Vector2(0, -bounceForce));
+        } else {
+            for (const atom of this.atoms.values()) {
+                const pos = atom.position;
+
+                if (pos.x < padding) {
+                    atom.applyForce(new Vector2(bounceForce, 0));
+                }
+                if (pos.x > this.width - padding) {
+                    atom.applyForce(new Vector2(-bounceForce, 0));
+                }
+                if (pos.y < padding) {
+                    atom.applyForce(new Vector2(0, bounceForce));
+                }
+                if (pos.y > this.height - padding) {
+                    atom.applyForce(new Vector2(0, -bounceForce));
+                }
             }
         }
     }
@@ -11337,6 +11763,33 @@ class Environment {
      * @param {number} dt - Delta time
      */
     update(dt) {
+        if (this.abstractMode) {
+            // 1. diffuseDensityGrid(dt)
+            this.densityGrid.update(dt);
+
+            // 2. updateAbstractMolecules(dt)
+            this.applyBoundaries(); // Boundary constraints
+            this.applyAbstractMoleculeForces(); // molecule-molecule repulsion
+
+            for (const molecule of this.molecules.values()) {
+                molecule.update(dt, this);
+            }
+
+            // 3. updateIntentions(dt)
+            this.updateIntentions(dt);
+
+            // 4. updatePolymers()
+            this.updatePolymers();
+
+            // 5. updateCells()
+            this.updateCells();
+
+            // 6. updateProkaryotes(dt)
+            this.updateProkaryotes(dt);
+
+            return; // skip concrete loop
+        }
+
         // Synchronize bonds bidirectionally to prevent lost bonds after reshaping
         this.syncBonds();
 
@@ -11389,6 +11842,118 @@ class Environment {
 
         // Update prokaryotes (chemistry-based cells)
         this.updateProkaryotes(dt);
+    }
+
+    /**
+     * Apply forces to abstract molecules
+     */
+    applyAbstractMoleculeForces() {
+        const molecules = Array.from(this.molecules.values());
+        const repulsionStrength = 200;
+
+        for (let i = 0; i < molecules.length; i++) {
+            const mol1 = molecules[i];
+
+            // basic separation based on size
+            const size1 = Math.max(20, 10 + mol1.mass / 2);
+
+            for (let j = i + 1; j < molecules.length; j++) {
+                const mol2 = molecules[j];
+                const size2 = Math.max(20, 10 + mol2.mass / 2);
+
+                const minDistance = size1 + size2;
+                const distance = mol1.position.distanceTo(mol2.position);
+
+                if (distance > 0 && distance < minDistance) {
+                    const direction = mol1.position.sub(mol2.position).normalize();
+                    const forceMagnitude = repulsionStrength * (1 - distance / minDistance);
+
+                    mol1.applyForce(direction.mul(forceMagnitude));
+                    mol2.applyForce(direction.mul(-forceMagnitude));
+                }
+            }
+        }
+    }
+
+    /**
+     * Converts to Abstract Mode
+     */
+    convertToAbstractMode() {
+        if (this.abstractMode) return;
+
+        // 1. Run updateMolecules() one final time
+        this.updateMolecules();
+
+        // 2. Convert molecules (including seed molecules)
+        const allMolecules = [...this.molecules.values(), ...this.seedMolecules.values()];
+        for (const molecule of allMolecules) {
+            molecule.convertToAbstract();
+        }
+
+        // 3. For each free atom, increment density grid and remove
+        for (const atom of this.atoms.values()) {
+            // Ignore if atom belongs to a molecule (already handled via molecule abstraction)
+            // But if it's somehow not in an abstract molecule but was skipped, catch it here
+            if (atom.moleculeId) continue;
+            if (atom.isSeedAtom) continue;
+
+            // Increment density
+            this.densityGrid.addDensity(atom.position.x, atom.position.y, atom.symbol, 1);
+
+            // Remove atom
+            this.removeAtom(atom);
+        }
+
+        // 4. Remove all remaining bonds
+        this.bonds.clear();
+
+        // Remove all atoms that are now virtual
+        this.atoms.clear();
+
+        this.abstractMode = true;
+    }
+
+    /**
+     * Converts to Concrete Mode
+     */
+    convertToConcreteMode() {
+        if (!this.abstractMode) return;
+
+        // 1. For each sector in density grid, spawn real atoms
+        for (const [key, sector] of this.densityGrid.sectors.entries()) {
+            if (sector.total === 0) continue;
+
+            const [xStr, yStr] = key.split(',');
+            const gridX = parseInt(xStr, 10);
+            const gridY = parseInt(yStr, 10);
+
+            const sectorStartX = gridX * this.gridSize;
+            const sectorStartY = gridY * this.gridSize;
+
+            for (const [symbol, count] of Object.entries(sector.elements)) {
+                for (let i = 0; i < count; i++) {
+                    const randX = sectorStartX + Math.random() * this.gridSize;
+                    const randY = sectorStartY + Math.random() * this.gridSize;
+
+                    const atom = new Atom(symbol, randX, randY);
+                    this.addAtom(atom);
+                }
+            }
+        }
+
+        // 2. For each abstract molecule, recreate atoms and bonds
+        const allMolecules = [...this.molecules.values(), ...this.seedMolecules.values()];
+        for (const molecule of allMolecules) {
+            molecule.convertToConcrete(this);
+        }
+
+        // 3. Clear density grid
+        this.densityGrid.clear();
+
+        this.abstractMode = false;
+
+        // 4. Run updateMolecules
+        this.updateMolecules();
     }
 
     /**
@@ -14098,6 +14663,10 @@ class Viewer {
         const scale = this.camera.zoom;
         const offset = this.getOffset();
 
+        if (this.environment.abstractMode) {
+            this._renderDensityGrid(scale, offset);
+        }
+
         // Render polymer chain connections first (behind everything)
         const polymers = this.environment.getAllProteins ? this.environment.getAllProteins() : [];
         for (const polymer of polymers) {
@@ -14113,6 +14682,56 @@ class Viewer {
         for (const atom of this.environment.getAllAtoms()) {
             atom.render(this.ctx, scale, offset);
         }
+    }
+
+    /**
+     * Render the Density Grid (Heatmap overlay)
+     */
+    _renderDensityGrid(scale, offset) {
+        if (!this.environment.densityGrid) return;
+
+        const ctx = this.ctx;
+        const gridSize = this.environment.densityGrid.gridSize;
+
+        // Find max density for relative coloring
+        let maxDensity = 1;
+        for (const sector of this.environment.densityGrid.sectors.values()) {
+            if (sector.total > maxDensity) {
+                maxDensity = sector.total;
+            }
+        }
+
+        ctx.save();
+        for (const [key, sector] of this.environment.densityGrid.sectors.entries()) {
+            if (sector.total <= 0) continue;
+
+            const [xStr, yStr] = key.split(',');
+            const gridX = parseInt(xStr, 10);
+            const gridY = parseInt(yStr, 10);
+
+            const screenX = (gridX * gridSize + offset.x) * scale;
+            const screenY = (gridY * gridSize + offset.y) * scale;
+            const screenW = gridSize * scale;
+            const screenH = gridSize * scale;
+
+            // Map density to color (transparent -> blue -> green -> yellow -> red)
+            const ratio = sector.total / maxDensity;
+
+            // Hue from 240 (blue) to 0 (red)
+            const hue = 240 - (ratio * 240);
+            const alpha = 0.2 + (ratio * 0.6); // 0.2 to 0.8
+
+            ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${alpha})`;
+            ctx.fillRect(screenX, screenY, screenW, screenH);
+
+            // Render text for the total
+            ctx.fillStyle = 'white';
+            ctx.font = `${Math.max(10, 14 * scale)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${sector.total}`, screenX + screenW / 2, screenY + screenH / 2);
+        }
+        ctx.restore();
     }
 
     /**
@@ -17037,6 +17656,20 @@ class App {
      * Set up UI event handlers
      */
     _setupUI() {
+        // Abstract Mode button
+        const abstractModeBtn = document.getElementById('abstractModeBtn');
+        abstractModeBtn?.addEventListener('click', () => {
+            if (this.environment.abstractMode) {
+                this.environment.convertToConcreteMode();
+                abstractModeBtn.classList.remove('active');
+            } else {
+                this.environment.convertToAbstractMode();
+                abstractModeBtn.classList.add('active');
+            }
+            this.viewer.render();
+            this._updateStats();
+        });
+
         // Play/Pause button
         const playPauseBtn = document.getElementById('playPauseBtn');
         playPauseBtn?.addEventListener('click', () => {
