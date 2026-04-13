@@ -114,7 +114,7 @@ class CatalogueUI {
                 const colorMap = { lipid: '#ef4444', protein: '#3b82f6', nucleic_acid: '#22c55e', carbohydrate: '#f59e0b' };
                 const color = colorMap[template.type] || '#8b5cf6';
                 html += `
-                    <button class="catalogue-polymer-btn" data-polymer-id="${template.id}" data-level="2" style="border-color: ${color};">
+                    <button class="catalogue-polymer-btn" data-polymer-id="${escHtml(template.id)}" data-level="2" style="border-color: ${color};">
                         <span class="polymer-name">${escHtml(template.name)}</span>
                         <span class="polymer-type">${escHtml(template.type)}</span>
                     </button>
