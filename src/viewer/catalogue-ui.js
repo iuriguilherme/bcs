@@ -61,7 +61,7 @@ class CatalogueUI {
     render(filter = '') {
         if (!this.listContainer) return;
 
-        // Helper: calculate if blueprint is truly stable from its data
+        // Helper to check if a blueprint is stable
         const isBlueprintStable = (bp) => MoleculeBlueprint.isBlueprintStable(bp);
 
         let html = '';
