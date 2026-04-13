@@ -541,18 +541,18 @@ class Controls {
             if (atom.moleculeId && this.environment) {
                 const mol = this.environment.molecules.get(atom.moleculeId);
                 if (mol && mol.polymerId) {
-                    polymerIdStr = `<p>Polymer ID: ${mol.polymerId}</p>`;
+                    polymerIdStr = `<p>Polymer ID: ${escHtml(mol.polymerId)}</p>`;
                 }
             }
             content.innerHTML = `
                 <div class="inspector-item">
-                    <h3>${atom.element.name} (${atom.symbol})</h3>
+                    <h3>${escHtml(atom.element.name)} (${escHtml(atom.symbol)})</h3>
                     <p>Atomic Number: ${atom.element.number}</p>
                     <p>Mass: ${atom.mass.toFixed(3)} u</p>
                     <p>Valence: ${atom.bondCount}/${atom.bondCount > atom.maxBonds ? atom.bondCount + '*' : atom.maxBonds}</p>
                     <p>Bonds: ${atom.bonds.length}</p>
                     <p>Position: (${atom.position.x.toFixed(1)}, ${atom.position.y.toFixed(1)})</p>
-                    ${atom.moleculeId ? `<p>Molecule ID: ${atom.moleculeId}</p>` : ''}
+                    ${atom.moleculeId ? `<p>Molecule ID: ${escHtml(atom.moleculeId)}</p>` : ''}
                     ${atom.claimedByIntentId ? `<p style="color: #f59e0b;">&#9670; Claimed by intent</p>` : ''}
                     ${polymerIdStr}
                 </div>
@@ -571,19 +571,19 @@ class Controls {
 
             content.innerHTML = `
                 <div class="inspector-item">
-                    <h3>${mol.name || mol.formula}</h3>
+                    <h3>${escHtml(mol.name || mol.formula)}</h3>
                     <div class="inspector-shape-preview">
                         <canvas id="${canvasId}" width="120" height="120"></canvas>
                     </div>
-                    <p>Molecule ID: ${mol.id}</p>
-                    <p>Formula: ${mol.formula}</p>
+                    <p>Molecule ID: ${escHtml(mol.id)}</p>
+                    <p>Formula: ${escHtml(mol.formula)}</p>
                     <p>Mass: ${mol.mass.toFixed(3)} u</p>
                     <p>Atoms: ${mol.atoms.length}</p>
                     <p>Bonds: ${mol.bonds.length}</p>
                     <p>Stable: ${mol.isStable() ? 'Yes &#10003;' : 'No'}</p>
                     ${mol.isReshaping ? '<p style="color: #4ade80;">Reshaping...</p>' : ''}
                     ${mol.isSeedFor ? `<p style="color: #f59e0b;">&#9670; Seed for intent</p>` : ''}
-                    ${mol.polymerId ? `<p>Polymer ID: ${mol.polymerId}</p>` : ''}
+                    ${mol.polymerId ? `<p>Polymer ID: ${escHtml(mol.polymerId)}</p>` : ''}
                     ${catalogueBtn}
                 </div>
             `;
@@ -599,12 +599,12 @@ class Controls {
             // Get cell name from blueprint or use generic label
             const cellName = prok.cellName || 'Prokaryote';
             const speciesLine = prok.species
-                ? `<p style="color: #94a3b8; font-style: italic;">${prok.species}</p>`
+                ? `<p style="color: #94a3b8; font-style: italic;">${escHtml(prok.species)}</p>`
                 : '';
 
             content.innerHTML = `
                 <div class="inspector-item">
-                    <h3>${cellName}</h3>
+                    <h3>${escHtml(cellName)}</h3>
                     ${speciesLine}
                     <p>Generation: ${prok.generation}</p>
                     <hr style="border-color: #444; margin: 8px 0;">
@@ -624,14 +624,14 @@ class Controls {
             const typeLabel = poly.getLabel ? poly.getLabel() : 'Polymer';
             content.innerHTML = `
                 <div class="inspector-item">
-                    <h3>${poly.name || typeLabel}</h3>
-                    <p>Polymer ID: ${poly.id}</p>
-                    <p>Type: ${typeLabel}</p>
+                    <h3>${escHtml(poly.name || typeLabel)}</h3>
+                    <p>Polymer ID: ${escHtml(poly.id)}</p>
+                    <p>Type: ${escHtml(typeLabel)}</p>
                     <p>Molecules: ${poly.molecules.length}</p>
-                    <p>Sequence: ${poly.sequence.substring(0, 30)}${poly.sequence.length > 30 ? '...' : ''}</p>
+                    <p>Sequence: ${escHtml(poly.sequence.substring(0, 30))}${poly.sequence.length > 30 ? '...' : ''}</p>
                     <p>Mass: ${poly.mass.toFixed(3)} u</p>
                     <p>Stable: ${poly.isStable() ? 'Yes &#10003;' : 'No'}</p>
-                    ${poly.cellRole ? `<p>Cell Role: ${poly.cellRole}</p>` : ''}
+                    ${poly.cellRole ? `<p>Cell Role: ${escHtml(poly.cellRole)}</p>` : ''}
                 </div>
             `;
         } else if (result.type === 'intention') {
@@ -1073,9 +1073,9 @@ class Controls {
                 monomerInfo = `
                     <hr style="border-color: #444; margin: 8px 0;">
                     <p><strong>Monomer Required:</strong></p>
-                    <p>${monomerTemplate.name}</p>
-                    <p style="color: #4ade80; font-weight: bold;">${monomerTemplate.formula}</p>
-                    <p style="color: #94a3b8; font-size: 0.9em;"><em>Create ${template.minMonomers || 2}+ of these molecules</em></p>
+                    <p>${escHtml(monomerTemplate.name)}</p>
+                    <p style="color: #4ade80; font-weight: bold;">${escHtml(monomerTemplate.formula)}</p>
+                    <p style="color: #94a3b8; font-size: 0.9em;"><em>Create ${escHtml(template.minMonomers || 2)}+ of these molecules</em></p>
                 `;
             }
         }
@@ -1092,13 +1092,13 @@ class Controls {
 
         content.innerHTML = `
             <div class="inspector-item">
-                <h3 style="color: ${typeColor};">${template.name}</h3>
-                <p><strong>Type:</strong> ${template.type}</p>
-                <p>${template.description || ''}</p>
+                <h3 style="color: ${typeColor};">${escHtml(template.name)}</h3>
+                <p><strong>Type:</strong> ${escHtml(template.type)}</p>
+                <p>${escHtml(template.description || '')}</p>
                 ${template.essential ? '<p style="color: #4ade80;">&#9733; Essential for cells</p>' : ''}
-                ${template.cellRole ? `<p><strong>Cell Role:</strong> ${template.cellRole}</p>` : ''}
+                ${template.cellRole ? `<p><strong>Cell Role:</strong> ${escHtml(template.cellRole)}</p>` : ''}
                 <hr style="border-color: #444; margin: 8px 0;">
-                <p><strong>Min Monomers:</strong> ${template.minMonomers || template.minMolecules || 2}</p>
+                <p><strong>Min Monomers:</strong> ${escHtml(template.minMonomers || template.minMolecules || 2)}</p>
                 ${monomerInfo}
                 <hr style="border-color: #444; margin: 8px 0;">
                 <p style="color: #94a3b8;"><em>Click in the view to place this polymer intention</em></p>
