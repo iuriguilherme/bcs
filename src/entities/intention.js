@@ -61,6 +61,9 @@ class Intention {
         // Visual state
         this.pulsePhase = 0;
         this.selected = false;
+
+        // Atom claim tracking (molecule intents only)
+        this.claimedAtomIds = new Set();
     }
 
     /**
@@ -410,11 +413,22 @@ class Intention {
      */
     _getClaimedAtoms(environment) {
         const claimed = [];
-        for (const atom of environment.atoms.values()) {
-            if (atom.claimedByIntentId === this.id) {
+        const staleIds = [];
+
+        for (const atomId of this.claimedAtomIds) {
+            const atom = environment.atoms.get(atomId);
+            if (atom && atom.claimedByIntentId === this.id) {
                 claimed.push(atom);
+            } else {
+                staleIds.push(atomId);
             }
         }
+
+        // Cleanup stale IDs (atoms deleted or stolen by other intentions)
+        for (const id of staleIds) {
+            this.claimedAtomIds.delete(id);
+        }
+
         return claimed;
     }
 
@@ -422,11 +436,13 @@ class Intention {
      * Release all atom claims belonging to this intention.
      */
     _clearAllClaims(environment) {
-        for (const atom of environment.atoms.values()) {
-            if (atom.claimedByIntentId === this.id) {
+        for (const atomId of this.claimedAtomIds) {
+            const atom = environment.atoms.get(atomId);
+            if (atom && atom.claimedByIntentId === this.id) {
                 atom.claimedByIntentId = null;
             }
         }
+        this.claimedAtomIds.clear();
     }
 
     /**
@@ -604,9 +620,13 @@ class Intention {
                 const competitor = environment.intentions.get(atom.claimedByIntentId);
                 if (competitor && competitor.progress >= myProgress) continue; // Yield
                 // We have higher priority - steal the claim
+                if (competitor && competitor.claimedAtomIds) {
+                    competitor.claimedAtomIds.delete(atom.id);
+                }
             }
 
             atom.claimedByIntentId = this.id;
+            this.claimedAtomIds.add(atom.id);
             deficit[atom.symbol]--;
         }
     }
@@ -782,6 +802,7 @@ class Intention {
                     seedMol.atoms.push(atom);
                     atom.moleculeId = seedMol.id;
                     atom.claimedByIntentId = null; // Clear claim - now part of seed
+                    this.claimedAtomIds.delete(atom.id);
                     seedMol.updateProperties();
 
                     if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
@@ -830,6 +851,8 @@ class Intention {
 
                     atom.claimedByIntentId = null;
                     other.claimedByIntentId = null;
+                    this.claimedAtomIds.delete(atom.id);
+                    this.claimedAtomIds.delete(other.id);
 
                     if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
                         console.log(`[Intention ${this.id.substring(0, 8)}] Rule6: created initial seed ${seedMolNew.formula}`);
@@ -1743,8 +1766,8 @@ class Intention {
             ctx.strokeStyle = colors.border;
             ctx.lineWidth = 1;
             ctx.globalAlpha = 0.5;
-            for (const atom of environment.atoms.values()) {
-                if (atom.claimedByIntentId !== this.id) continue;
+            const claimedAtoms = this._getClaimedAtoms(environment);
+            for (const atom of claimedAtoms) {
                 const ax = (atom.position.x + offset.x) * scale;
                 const ay = (atom.position.y + offset.y) * scale;
                 ctx.beginPath();
