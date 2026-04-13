@@ -79,9 +79,9 @@ class CatalogueUI {
                 const element = getElement(symbol);
                 if (element) {
                     html += `
-                        <button class="catalogue-atom-btn" data-symbol="${symbol}" data-level="0">
-                            <span class="atom-symbol">${symbol}</span>
-                            <span class="atom-name">${element.name}</span>
+                        <button class="catalogue-atom-btn" data-symbol="${escHtml(symbol)}" data-level="0">
+                            <span class="atom-symbol">${escHtml(symbol)}</span>
+                            <span class="atom-name">${escHtml(element.name)}</span>
                         </button>
                     `;
                 }
@@ -115,8 +115,8 @@ class CatalogueUI {
                 const color = colorMap[template.type] || '#8b5cf6';
                 html += `
                     <button class="catalogue-polymer-btn" data-polymer-id="${template.id}" data-level="2" style="border-color: ${color};">
-                        <span class="polymer-name">${template.name}</span>
-                        <span class="polymer-type">${template.type}</span>
+                        <span class="polymer-name">${escHtml(template.name)}</span>
+                        <span class="polymer-type">${escHtml(template.type)}</span>
                     </button>
                 `;
             }
@@ -181,14 +181,14 @@ class CatalogueUI {
         return `
             <div class="catalogue-item ${isSelected ? 'selected' : ''}" 
                  data-fingerprint="${encodedFingerprint}"
-                 title="${blueprint.name} - ${blueprint.formula}">
+                 title="${escHtml(blueprint.name)} - ${escHtml(blueprint.formula)}">
                 <div class="catalogue-item-preview">
                     <canvas class="preview-canvas" 
                             width="40" height="40"
                             data-fingerprint="${encodedFingerprint}"></canvas>
                 </div>
                 <div class="catalogue-item-info">
-                    <div class="catalogue-item-name">${blueprint.name}</div>
+                    <div class="catalogue-item-name">${escHtml(blueprint.name)}</div>
                     <div class="catalogue-item-formula">${atomCount} atoms</div>
                 </div>
                 <div class="catalogue-item-status">
@@ -264,7 +264,7 @@ class CatalogueUI {
             }
         }
         const elementList = Object.entries(elementCounts)
-            .map(([sym, count]) => `${sym}: ${count}`)
+            .map(([sym, count]) => `${escHtml(sym)}: ${count}`)
             .join(', ');
 
         content.innerHTML = `
