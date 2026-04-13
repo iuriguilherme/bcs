@@ -382,7 +382,7 @@ class App {
             // Only show stable molecules with 2+ atoms, 1+ bonds, and all valences satisfied
             const allBlueprints = this.catalogue.getAllMolecules();
 
-            // Helper: calculate if blueprint is truly stable from its data
+            // Helper to check if a blueprint is stable
             const isBlueprintStable = (bp) => {
                 if (!bp.atomData || bp.atomData.length < 2) return false;
                 if (!bp.bondData || bp.bondData.length < 1) return false;
