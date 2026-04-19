@@ -1,5 +1,7 @@
 # BioChemSim
 
+[![Conventional Code](https://img.shields.io/badge/code-conventional%20🏭-red?style=for-the-badge)](https://github.com/zwbao/certified-organic-code)
+
 A hierarchical life simulation from atoms to social organisms. This is a browser-based interactive simulation where particles follow chemistry rules to form molecules, polymers, and eventually living cells.
 
 ## Overview
