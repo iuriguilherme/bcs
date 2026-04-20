@@ -1517,9 +1517,6 @@ class Intention {
         const bondedAtoms = atoms.filter(a => a.bonds.length > 0);
 
         if (bondedAtoms.length < 2) {
-            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
-                console.log(`[Intention ${this.id.substring(0, 8)}] Not enough bonded atoms to form molecule`);
-            }
             return; // Don't fulfill - try again next tick
         }
 
@@ -1531,9 +1528,6 @@ class Intention {
         // If wrong molecule formed, don't fulfill - keep trying
         const blueprintFormula = this.blueprint.formula;
         if (blueprintFormula && molecule.formula !== blueprintFormula) {
-            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
-                console.log(`[Intention ${this.id.substring(0, 8)}] Formed ${molecule.formula} but need ${blueprintFormula}, continuing...`);
-            }
             return; // Don't fulfill - wrong molecule formed
         }
 
@@ -1558,16 +1552,10 @@ class Intention {
                     return true; // This molecule can bind
                 }
             }
-            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
-                console.log(`[Intention ${this.id.substring(0, 8)}] Molecule ${mol.formula} cannot polymerize - no available valence`);
-            }
             return false;
         });
 
         if (polymerizableMolecules.length < 2) {
-            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
-                console.log(`[Intention ${this.id.substring(0, 8)}] Cannot form polymer: need at least 2 molecules with available valence`);
-            }
             return; // Don't form polymer
         }
 
@@ -1600,9 +1588,6 @@ class Intention {
      */
     _formPolymerFromMonomers(environment, monomers, monomerTemplate) {
         if (monomers.length < 2) {
-            if (typeof Debug !== 'undefined' && Debug.shouldLog('intentions')) {
-                console.log(`[Intention ${this.id.substring(0, 8)}] Cannot form polymer: need at least 2 monomers`);
-            }
             return;
         }
 
