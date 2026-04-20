@@ -8,7 +8,8 @@ function escHtml(str) {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 class App {
@@ -270,9 +271,9 @@ class App {
             const element = getElement(symbol);
             return `
                 <button class="atom-btn ${symbol === 'C' ? 'selected' : ''}" 
-                        data-symbol="${symbol}"
+                        data-symbol="${escHtml(symbol)}"
                         style="color: ${element.color}; border-color: ${element.color}40;">
-                    <span class="symbol">${symbol}</span>
+                    <span class="symbol">${escHtml(symbol)}</span>
                     <span class="number">${element.number}</span>
                 </button>
             `;
@@ -347,9 +348,9 @@ class App {
             const element = getElement(symbol);
             return `
                 <button class="palette-btn atom-btn ${symbol === 'C' ? 'selected' : ''}" 
-                        data-symbol="${symbol}"
+                        data-symbol="${escHtml(symbol)}"
                         style="color: ${element.color}; border-color: ${element.color}40;">
-                    <span class="symbol">${symbol}</span>
+                    <span class="symbol">${escHtml(symbol)}</span>
                     <span class="number">${element.number}</span>
                 </button>
             `;
@@ -491,8 +492,8 @@ class App {
                     const colors = PolymerColors[template.type] || PolymerColors.generic;
                     return `
                         <button class="palette-btn polymer-template-btn" data-fingerprint="${escapeAttr(template.fingerprint)}" style="border-color: ${colors.primary};">
-                            <span class="type" style="color: ${colors.primary};">${template.name}</span>
-                            <span class="info">${template.type} &bull; ${template.minMolecules} mols</span>
+                            <span class="type" style="color: ${colors.primary};">${escHtml(template.name)}</span>
+                            <span class="info">${escHtml(template.type)} &bull; ${template.minMolecules} mols</span>
                         </button>
                     `;
                 }).join('');
@@ -504,8 +505,8 @@ class App {
                     const colors = PolymerColors[template.type] || PolymerColors.generic;
                     return `
                         <button class="palette-btn polymer-template-btn" data-fingerprint="${escapeAttr(template.fingerprint)}" style="border-color: ${colors.primary};">
-                            <span class="type" style="color: ${colors.primary};">${template.name}</span>
-                            <span class="info">${template.type} &bull; ${template.minMolecules} mols</span>
+                            <span class="type" style="color: ${colors.primary};">${escHtml(template.name)}</span>
+                            <span class="info">${escHtml(template.type)} &bull; ${template.minMolecules} mols</span>
                         </button>
                     `;
                 }).join('');
@@ -519,7 +520,7 @@ class App {
                     const colors = poly.getColor ? poly.getColor() : { primary: '#8b5cf6' };
                     return `
                         <button class="palette-btn polymer-existing-btn" data-id="${poly.id}" style="border-color: ${colors.primary};">
-                            <span class="type" style="color: ${colors.primary};">${label}</span>
+                            <span class="type" style="color: ${colors.primary};">${escHtml(label)}</span>
                             <span class="info">${poly.molecules.length} mols</span>
                         </button>
                     `;
@@ -662,17 +663,17 @@ class App {
 
             html += `
                 <p style="color: ${roleColor}; margin-top: 4px;">
-                    <strong>${req.role}:</strong> ${req.count}× ${req.polymerName}
+                    <strong>${escHtml(req.role)}:</strong> ${req.count}× ${escHtml(req.polymerName)}
                 </p>
                 <p style="color: #94a3b8; font-size: 0.85em; margin-left: 12px;">
-                    Chain: ${req.minChainLength}+ monomers
+                    Chain: ${escHtml(req.minChainLength)}+ monomers
                 </p>
             `;
 
             if (req.monomerFormula) {
                 html += `
                     <p style="color: #4ade80; font-size: 0.85em; margin-left: 12px;">
-                        → Create ${req.monomerFormula} molecules
+                        → Create ${escHtml(req.monomerFormula)} molecules
                     </p>
                 `;
             }
@@ -858,13 +859,13 @@ class App {
                 `<option value="${w}" ${w === currentWeight ? 'selected' : ''}>${w}x</option>`
             ).join('');
             return `
-                <div class="atom-pool-item ${isSelected ? 'selected' : ''}" data-symbol="${symbol}">
+                <div class="atom-pool-item ${isSelected ? 'selected' : ''}" data-symbol="${escHtml(symbol)}">
                     <button class="atom-pool-btn ${isSelected ? 'selected' : ''}" 
-                            data-symbol="${symbol}"
+                            data-symbol="${escHtml(symbol)}"
                             style="color: ${element.color}; border-color: ${element.color}40;">
-                        ${symbol}
+                        ${escHtml(symbol)}
                     </button>
-                    <select class="atom-weight-select" data-symbol="${symbol}" 
+                    <select class="atom-weight-select" data-symbol="${escHtml(symbol)}"
                             style="${isSelected ? '' : 'display: none;'}">
                         ${weightOptionsHtml}
                     </select>
