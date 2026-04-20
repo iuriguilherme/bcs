@@ -12,6 +12,20 @@ function escHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
+function escapeAttr(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function unescapeAttr(str) {
+    return String(str)
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&');
+}
+
 class App {
     constructor() {
         // Core components
@@ -423,10 +437,6 @@ class App {
                 return;
             }
 
-            // Helper to escape fingerprint for HTML attributes
-            const escapeAttr = (str) => str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-            const unescapeAttr = (str) => str.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-
             palette.innerHTML = blueprints.map(bp => `
                 <button class="palette-btn molecule-btn" data-fingerprint="${escapeAttr(bp.fingerprint)}">
                     <span class="formula">${escHtml(bp.name || bp.formula)}</span>
@@ -476,9 +486,6 @@ class App {
                 palette.innerHTML = '<p class="empty-state">No polymer templates available.</p>';
                 return;
             }
-
-            // Helper to escape fingerprint for HTML attributes
-            const escapeAttr = (str) => str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
             let html = '';
 
@@ -530,8 +537,6 @@ class App {
             palette.innerHTML = html;
 
             // Add click handlers for templates
-            const unescapeAttr = (str) => str.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-
             palette.querySelectorAll('.polymer-template-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const fingerprint = unescapeAttr(btn.dataset.fingerprint);
