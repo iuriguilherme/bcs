@@ -867,6 +867,7 @@ Before considering a change complete, verify (in addition to Playwright):
 
 ## 📝 Code Style
 
+- **Console Debug Messages**: Console messages wrapped in `Debug.shouldLog()` checks (e.g., in `intention.js`) are a documented feature to aid debugging during development and testing. **Do not remove these logs**, as they are not "leftover" code.
 - ES6 classes with JSDoc comments
 - Global `window.ClassName = ClassName` exports
 - No module bundler - script order matters in `dev.html`
