@@ -120,6 +120,20 @@ class App {
      * Set up UI event handlers
      */
     _setupUI() {
+        // Abstract Mode button
+        const abstractModeBtn = document.getElementById('abstractModeBtn');
+        abstractModeBtn?.addEventListener('click', () => {
+            if (this.environment.abstractMode) {
+                this.environment.convertToConcreteMode();
+                abstractModeBtn.classList.remove('active');
+            } else {
+                this.environment.convertToAbstractMode();
+                abstractModeBtn.classList.add('active');
+            }
+            this.viewer.render();
+            this._updateStats();
+        });
+
         // Play/Pause button
         const playPauseBtn = document.getElementById('playPauseBtn');
         playPauseBtn?.addEventListener('click', () => {
